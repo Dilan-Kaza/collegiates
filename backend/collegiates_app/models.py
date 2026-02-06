@@ -1,246 +1,135 @@
-# This is an auto-generated Django model module.
-# You'll have to do the following manually to clean this up:
-#   * Rearrange models' order
-#   * Make sure each model has one field with primary_key=True
-#   * Make sure each ForeignKey and OneToOneField has `on_delete` set to the desired behavior
-#   * Remove `managed = False` lines if you wish to allow Django to create, modify, and delete the table
-# Feel free to rename the models, but don't rename db_table values or field names.
+import uuid
 from django.db import models
 
-
-class AdminAccount(models.Model):
-    admin_id = models.AutoField(primary_key=True)
-    username = models.CharField(unique=True, max_length=20)
-    pword = models.CharField(max_length=32)
-    email = models.CharField(unique=True, max_length=255)
-
-    class Meta:
-        managed = False
-        db_table = 'admin_account'
+class GenderChoices(models.TextChoices):
+    MALE = 'M', 'Male'
+    FEMALE = 'F', 'Female'
 
 
-class AuthGroup(models.Model):
-    name = models.CharField(unique=True, max_length=150)
-
-    class Meta:
-        managed = False
-        db_table = 'auth_group'
+class StudentTypeChoices(models.TextChoices):
+    UNDERGRADUATE = 'U', 'Undergraduate'
+    GRADUATE = 'G', 'Graduate'
 
 
-class AuthGroupPermissions(models.Model):
-    id = models.BigAutoField(primary_key=True)
-    group = models.ForeignKey(AuthGroup, models.DO_NOTHING)
-    permission = models.ForeignKey('AuthPermission', models.DO_NOTHING)
-
-    class Meta:
-        managed = False
-        db_table = 'auth_group_permissions'
-        unique_together = (('group', 'permission'),)
-
-
-class AuthPermission(models.Model):
-    name = models.CharField(max_length=255)
-    content_type = models.ForeignKey('DjangoContentType', models.DO_NOTHING)
-    codename = models.CharField(max_length=100)
-
-    class Meta:
-        managed = False
-        db_table = 'auth_permission'
-        unique_together = (('content_type', 'codename'),)
-
-
-class AuthUser(models.Model):
-    password = models.CharField(max_length=128)
-    last_login = models.DateTimeField(blank=True, null=True)
-    is_superuser = models.BooleanField()
-    username = models.CharField(unique=True, max_length=150)
-    first_name = models.CharField(max_length=150)
-    last_name = models.CharField(max_length=150)
-    email = models.CharField(max_length=254)
-    is_staff = models.BooleanField()
-    is_active = models.BooleanField()
-    date_joined = models.DateTimeField()
-
-    class Meta:
-        managed = False
-        db_table = 'auth_user'
-
-
-class AuthUserGroups(models.Model):
-    id = models.BigAutoField(primary_key=True)
-    user = models.ForeignKey(AuthUser, models.DO_NOTHING)
-    group = models.ForeignKey(AuthGroup, models.DO_NOTHING)
-
-    class Meta:
-        managed = False
-        db_table = 'auth_user_groups'
-        unique_together = (('user', 'group'),)
-
-
-class AuthUserUserPermissions(models.Model):
-    id = models.BigAutoField(primary_key=True)
-    user = models.ForeignKey(AuthUser, models.DO_NOTHING)
-    permission = models.ForeignKey(AuthPermission, models.DO_NOTHING)
-
-    class Meta:
-        managed = False
-        db_table = 'auth_user_user_permissions'
-        unique_together = (('user', 'permission'),)
-
-
-class BlogPost(models.Model):
-    post_id = models.AutoField(primary_key=True)
-    category = models.CharField(max_length=128)
-    title = models.CharField(unique=True, max_length=128)
-    author = models.CharField(max_length=128, blank=True, null=True)
-    post_content = models.TextField()
-    date_posted = models.DateTimeField()
-
-    class Meta:
-        managed = False
-        db_table = 'blog_post'
+class SkillLevelChoices(models.TextChoices):
+    BEGINNER = 'B', 'Beginner'
+    INTERMEDIATE = 'I', 'Intermediate'
+    ADVANCED = 'A', 'Advanced'
 
 
 class College(models.Model):
-    college_id = models.AutoField(primary_key=True)
-    college_name = models.CharField(unique=True, max_length=255)
+    college_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    college_name = models.CharField(max_length=255, unique=True)
+    
     def __str__(self):
         return self.college_name
-
+    
     class Meta:
-        managed = False
-        db_table = 'college'
+        db_table = 'colleges'
 
 
-class DjangoAdminLog(models.Model):
-    action_time = models.DateTimeField()
-    object_id = models.TextField(blank=True, null=True)
-    object_repr = models.CharField(max_length=200)
-    action_flag = models.SmallIntegerField()
-    change_message = models.TextField()
-    content_type = models.ForeignKey('DjangoContentType', models.DO_NOTHING, blank=True, null=True)
-    user = models.ForeignKey(AuthUser, models.DO_NOTHING)
-
+class User(models.Model):
+    user_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    email = models.EmailField(unique=True)
+    password_hash = models.BinaryField()  # Store as Binary in Django
+    first_name = models.CharField(max_length=255)
+    last_name = models.CharField(max_length=255)
+    gender = models.CharField(max_length=1, choices=GenderChoices.choices)
+    school = models.ForeignKey(College, on_delete=models.SET_NULL, null=True, blank=True, db_column='school_id')
+    student_type = models.CharField(max_length=1, choices=StudentTypeChoices.choices)
+    first_comp = models.DateField()
+    undergrad_year = models.IntegerField(null=True, blank=True)
+    skill_level = models.CharField(max_length=1, choices=SkillLevelChoices.choices)
+    grad_date = models.DateField()
+    is_competing = models.BooleanField(default=False)
+    has_paid = models.BooleanField(default=False)
+    proof_of_reg = models.BooleanField(default=False)
+    
+    def __str__(self):
+        return f"{self.first_name} {self.last_name}"
+    
     class Meta:
-        managed = False
-        db_table = 'django_admin_log'
+        db_table = 'users'
 
 
-class DjangoContentType(models.Model):
-    app_label = models.CharField(max_length=100)
-    model = models.CharField(max_length=100)
-
+class Event(models.Model):
+    event_code = models.CharField(primary_key=True, max_length=50)
+    event_name = models.CharField(max_length=255, unique=True)
+    event_level = models.CharField(max_length=1, choices=SkillLevelChoices.choices)
+    gender_category = models.CharField(max_length=1, choices=GenderChoices.choices)
+    is_nandu = models.BooleanField()
+    
+    def __str__(self):
+        return self.event_name
+    
     class Meta:
-        managed = False
-        db_table = 'django_content_type'
-        unique_together = (('app_label', 'model'),)
+        db_table = 'events'
 
 
-class DjangoMigrations(models.Model):
-    id = models.BigAutoField(primary_key=True)
-    app = models.CharField(max_length=255)
-    name = models.CharField(max_length=255)
-    applied = models.DateTimeField()
-
+class Registration(models.Model):
+    competitor = models.ForeignKey(User, on_delete=models.CASCADE, db_column='competitor_id')
+    comp_year = models.DateField()
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, db_column='event_code')
+    date_created = models.DateTimeField(auto_now_add=True)
+    
     class Meta:
-        managed = False
-        db_table = 'django_migrations'
+        db_table = 'registration'
+        unique_together = ('competitor', 'comp_year', 'event')
 
 
-class DjangoSession(models.Model):
-    session_key = models.CharField(primary_key=True, max_length=40)
-    session_data = models.TextField()
-    expire_date = models.DateTimeField()
-
+class Groupset(models.Model):
+    groupset_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    comp_year = models.DateField()
+    school = models.ForeignKey(College, on_delete=models.CASCADE, db_column='school_id')
+    team_leader = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, 
+                                     related_name='led_groupsets', db_column='team_leader')
+    member_2 = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, 
+                                  related_name='groupset_member_2', db_column='member_2')
+    member_3 = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, 
+                                  related_name='groupset_member_3', db_column='member_3')
+    member_4 = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, 
+                                  related_name='groupset_member_4', db_column='member_4')
+    member_5 = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, 
+                                  related_name='groupset_member_5', db_column='member_5')
+    member_6 = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, 
+                                  related_name='groupset_member_6', db_column='member_6')
+    date_created = models.DateTimeField(auto_now_add=True)
+    
     class Meta:
-        managed = False
-        db_table = 'django_session'
+        db_table = 'groupset'
+
+
+class Blog(models.Model):
+    blog_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    date_created = models.DateTimeField(auto_now_add=True)
+    author = models.CharField(max_length=255)
+    category = models.CharField(max_length=255)
+    title = models.CharField(max_length=255)
+    blog_content = models.TextField()
+    
+    def __str__(self):
+        return self.title
+    
+    class Meta:
+        db_table = 'blog'
+
+
+class Admin(models.Model):
+    admin_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    admin_user = models.CharField(max_length=255, unique=True)
+    admin_password = models.BinaryField()
+    
+    class Meta:
+        db_table = 'admin_account'
 
 
 class Nandu(models.Model):
-    nandu_id = models.AutoField(primary_key=True)
-    user = models.ForeignKey('UserAccount', models.DO_NOTHING)
-    comp_year = models.IntegerField()
-    nandu_string = models.TextField(blank=True, null=True)
-
+    competitor = models.ForeignKey(User, on_delete=models.CASCADE, db_column='competitor_id')
+    comp_year = models.DateField()
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, db_column='event_code')
+    nandu_str = models.TextField()
+    date_created = models.DateTimeField(auto_now_add=True)
+    
     class Meta:
-        managed = False
         db_table = 'nandu'
-
-
-class RegisteredEvents(models.Model):
-    events_id = models.AutoField(primary_key=True)
-    user = models.ForeignKey('UserAccount', models.DO_NOTHING)
-    comp_year = models.IntegerField()
-    register_date = models.DateTimeField()
-    paid = models.BooleanField()
-    changquan = models.BooleanField(blank=True, null=True)
-    nanquan = models.BooleanField(blank=True, null=True)
-    changquan_nandu = models.BooleanField(blank=True, null=True)
-    nanquan_nandu = models.BooleanField(blank=True, null=True)
-    b_sword = models.BooleanField(blank=True, null=True)
-    s_sword = models.BooleanField(blank=True, null=True)
-    nandao = models.BooleanField(blank=True, null=True)
-    staff = models.BooleanField(blank=True, null=True)
-    spear = models.BooleanField(blank=True, null=True)
-    nangun = models.BooleanField(blank=True, null=True)
-    o_bare = models.BooleanField(blank=True, null=True)
-    o_weapon = models.BooleanField(blank=True, null=True)
-    taiji_24 = models.BooleanField(blank=True, null=True)
-    yang = models.BooleanField(blank=True, null=True)
-    chen = models.BooleanField(blank=True, null=True)
-    fist_42 = models.BooleanField(blank=True, null=True)
-    sword_42 = models.BooleanField(blank=True, null=True)
-    taiji_weapon = models.BooleanField(blank=True, null=True)
-    int_o_weapon = models.BooleanField(blank=True, null=True)
-    int_o_bare = models.BooleanField(blank=True, null=True)
-    taiji_bare_nandu = models.BooleanField(blank=True, null=True)
-    trad_bare = models.BooleanField(blank=True, null=True)
-    trad_long = models.BooleanField(blank=True, null=True)
-    trad_short = models.BooleanField(blank=True, null=True)
-    trad_soft = models.BooleanField(blank=True, null=True)
-    group_set = models.BooleanField(blank=True, null=True)
-    group_set_id = models.BooleanField(blank=True, null=True)
-
-    class Meta:
-        managed = False
-        db_table = 'registered_events'
-
-
-class Team(models.Model):
-    team_id = models.AutoField(primary_key=True)
-    comp_year = models.IntegerField()
-    team_name = models.CharField(max_length=255)
-    college = models.CharField(max_length=255)
-    captain = models.ForeignKey('UserAccount', models.DO_NOTHING)
-    member2 = models.ForeignKey('UserAccount', models.DO_NOTHING, related_name='team_member2_set')
-    member3 = models.ForeignKey('UserAccount', models.DO_NOTHING, related_name='team_member3_set')
-    member4 = models.ForeignKey('UserAccount', models.DO_NOTHING, related_name='team_member4_set')
-    member5 = models.ForeignKey('UserAccount', models.DO_NOTHING, related_name='team_member5_set')
-    member6 = models.ForeignKey('UserAccount', models.DO_NOTHING, related_name='team_member6_set')
-    email = models.CharField(max_length=255)
-
-    class Meta:
-        managed = False
-        db_table = 'team'
-
-
-class UserAccount(models.Model):
-    user_id = models.AutoField(primary_key=True)
-    username = models.CharField(unique=True, max_length=20)
-    pword = models.CharField(max_length=32)
-    first_name = models.TextField()
-    last_name = models.TextField()
-    email = models.CharField(unique=True, max_length=255)
-    sex = models.CharField(max_length=1)
-    birth_date = models.DateField()
-    grad_date = models.DateField()
-    college = models.ForeignKey(College, models.DO_NOTHING, db_column='college', to_field='college_name')
-    student_type = models.CharField(max_length=1)
-    class_type = models.CharField(max_length=1)
-    xp = models.CharField(max_length=1)
-    first_comp_year = models.IntegerField()
-
-    class Meta:
-        managed = False
-        db_table = 'user_account'
+        unique_together = ('competitor', 'comp_year', 'event')

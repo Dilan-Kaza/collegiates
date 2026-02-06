@@ -6,7 +6,7 @@ from django.core import serializers
 from django.core.paginator import Paginator
 
 
-from .models import BlogPost, College, Nandu, RegisteredEvents, Team, UserAccount
+from .models import Blog, College, Nandu, Registration, User
 
 def index(request):
     return HttpResponse("Hello, world!")
@@ -20,12 +20,12 @@ def college_data(request):
     return JsonResponse(data, safe=False)
 
 def blog_data(request):
-    data = list(BlogPost.objects.values())
+    data = list(Blog.objects.values())
     return JsonResponse(data, safe=False)
 
 def blog_paginated(request):
     page = request.GET.get('page', 1) # get one page
-    posts = BlogPost.objects.all().order_by('-date_posted') # order asc
+    posts = Blog.objects.all().order_by('-date_created') # order asc
     paginator = Paginator(posts, 5) # 5 posts per page
     try:
         paginated_posts = paginator.page(page)
@@ -45,7 +45,7 @@ def nandu_data(request):
     return JsonResponse(data, safe=False)
 
 def reg_events_data(request):
-    data = list(RegisteredEvents.objects.values())
+    data = list(Registration.objects.values())
     return JsonResponse(data, safe=False)
 
 def team_data(request):

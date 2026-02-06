@@ -14,7 +14,9 @@ from pathlib import Path
 from dotenv import load_dotenv
 import os
 
-load_dotenv()
+# Load .env file from the backend directory (parent of django_backend)
+ENV_PATH = Path(__file__).resolve().parent.parent / '.env'
+load_dotenv(dotenv_path=ENV_PATH)
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
