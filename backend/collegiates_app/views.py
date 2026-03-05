@@ -1,12 +1,30 @@
-from django.shortcuts import render
-
 # Create your views here.
+import json
+from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 from django.core import serializers
 from django.core.paginator import Paginator
+from django.views.decorators.csrf import ensure_csrf_cookie
 
+from .models import Blog, College, Nandu, Registration, User, Groupset
+from .forms import CreateUserForm
 
-from .models import Blog, College, Nandu, Registration, User
+@ensure_csrf_cookie
+def get_csrf_token(request):
+    return JsonResponse({"detail": "CSRF cookie set"})
+
+def RegisterUser(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+
+    form = CreateUserForm(request.POST)
+    if form.is_valid():
+        user = form.save()
+        return JsonResponse({'success': True, 'user_id': str(user.user_id)})
+    else:
+        errors = {k: v.get_json_data() for k, v in form.errors.items()}
+        return JsonResponse({'success': False, 'errors': errors}, status=400)
+
 
 def index(request):
     return HttpResponse("Hello, world!")
@@ -14,7 +32,7 @@ def index(request):
 def college_detail(request, college_id):
     return HttpResponse("You're looking at college %s." % college_id)
 
-
+@ensure_csrf_cookie
 def college_data(request):
     data = list(College.objects.values())
     return JsonResponse(data, safe=False)
@@ -49,9 +67,9 @@ def reg_events_data(request):
     return JsonResponse(data, safe=False)
 
 def team_data(request):
-    data = list(Team.objects.values())
+    data = list(Groupset.objects.values())
     return JsonResponse(data, safe=False)
 
 def user_data(request):
-    data = list(UserAccount.objects.values())
+    data = list(User.objects.values())
     return JsonResponse(data, safe=False)

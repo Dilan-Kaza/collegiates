@@ -11,28 +11,42 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 export default function Register() {
-  const experiences = { Beginner: "B", Intermediate: "I", Advanced: "A" };
-  const classTypes = {
-    // CAN BE INFERRED BASED ON STUDENT TYPE CHOSEN.
-    "Full/Part-time Undergraduate": "1",
-    "Full-time Graduate/Professional School": "1",
-    "Fall/Winter Graduates of Current Academic Year": "1",
-    "Non-enrolled student": "2",
-    "1yr Alumni": "2",
-  };
-
+  // choices mirror the enums defined in models.py
+  const skillLevels = { Beginner: "B", Intermediate: "I", Advanced: "A" };
+  const genderChoices = { Male: "M", Female: "F" };
   const studentTypes = {
-    "Full/Part-time Undergraduate": "1",
-    "Full-time Graduate/Professional School": "2",
-    "Non-enrolled student": "3",
-    "Fall/Winter Graduates of Current Academic Year": "4",
+    "Full/Part-Time Undergraduate": "1",
+    "Full-Time Graduate/Professional School": "2",
+    "Fall/Winter Graduate": "3",
+    "Non-Enrolled Student": "4",
     "1yr Alumni": "5",
+    "Part-Time Graduate": "6",
+    "International Student": "7",
   };
 
   const [colleges, setColleges] = useState({});
-  const sexes = { Male: "M", Female: "F" };
   const [formData, setFormData] = useState({});
   const [nextPage, setNextPage] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [csrfToken, setCsrfToken] = useState("");
+
+  // Helper to extract CSRF token from cookies
+  const getCsrfToken = () => {
+    const name = "csrftoken";
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== "") {
+      const cookies = document.cookie.split(";");
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === name + "=") {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -43,26 +57,83 @@ export default function Register() {
   };
 
   useEffect(() => {
-    fetch("http://localhost:8000/collegiates_app/college_data/", {
-      mode: "cors",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    })
-      .then((res) => res.json())
-      .then((json) =>
+    const init = async () => {
+      // hit the CSRF endpoint so Django sets the csrftoken cookie
+      try {
+        await fetch("http://localhost:8000/csrf/", {
+          mode: "cors",
+          credentials: "include",
+        });
+      } catch {
+        console.warn("Could not fetch CSRF token");
+      }
+
+      // set csrf token
+      const token = getCsrfToken();
+      setCsrfToken(token);
+
+      try {
+        const res = await fetch("http://localhost:8000/collegiates_app/college_data/", {
+          mode: "cors",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+        });
+        const json = await res.json();
         setColleges(
           Object.fromEntries(
-            json.map(({ college_name }) => [college_name, college_name])
+            json.map(({ college_name, college_id }) => [college_name, college_id])
           )
-        )
-      );
+        );
+      } catch(err) {
+        console.warn("Could not fetch colleges", err);
+      }
+      setCsrfToken(getCsrfToken());
+    };
+
+    init();
   }, []);
 
-  const handleSubmit = (e) => {
-    const jsonForm = JSON.stringify(formData);
-    console.log(jsonForm);
+  const REGISTER_URL = "http://localhost:8000/collegiates_app/register/";
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      const payload = new FormData();
+      Object.entries(formData).forEach(([k, v]) => payload.append(k, v || ""));
+
+      const headers = {};
+      if (csrfToken) {
+        headers["X-CSRFToken"] = csrfToken;
+      }
+
+      const resp = await fetch(REGISTER_URL, {
+        method: "POST",
+        mode: "cors",
+        credentials: "include",
+        headers: headers,
+        body: payload,
+      });
+
+      let data;
+      try { data = await resp.json(); } catch { data = null; }
+
+      if (!resp.ok) {
+        console.log("Status:", resp.status);
+        console.log("Full error response:", JSON.stringify(data, null, 2)); // add this
+        setError((data && data.error) || "Registration failed");
+      } else {
+        console.log("registered", data);
+        // TODO redirect to signin or show success
+      }
+    } catch (err) {
+      setError("Network error");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handlePageChange = (e) => {
@@ -86,28 +157,32 @@ export default function Register() {
           onSubmit={handleSubmit}
           title="Register"
         >
+          {error && <div className="text-red-500 mb-4">{error}</div>}
           <ShortAnswer
             type="email"
             name="email"
             label="Email"
             onChange={handleChange}
             value={formData.email || ""}
-          />
-          <ShortAnswer
-            type="text"
-            name="username"
-            label="Username"
-            maxLength={20}
-            onChange={handleChange}
-            value={formData.username || ""}
+            required
           />
           <ShortAnswer
             type="password"
-            name="pword"
+            name="password1"
             label="Password"
             minLength={8}
             onChange={handleChange}
-            value={formData.pword || ""}
+            value={formData.password1 || ""}
+            required
+          />
+          <ShortAnswer
+            type="password"
+            name="password2"
+            label="Confirm Password"
+            minLength={8}
+            onChange={handleChange}
+            value={formData.password2 || ""}
+            required
           />
           <div className="flex gap-4">
             <ShortAnswer
@@ -116,6 +191,7 @@ export default function Register() {
               label="First Name"
               onChange={handleChange}
               value={formData.first_name || ""}
+              required
             />
             <ShortAnswer
               type="text"
@@ -123,6 +199,7 @@ export default function Register() {
               label="Last Name"
               onChange={handleChange}
               value={formData.last_name || ""}
+              required
             />
           </div>
 
@@ -142,13 +219,17 @@ export default function Register() {
             bottomLink="Sign In"
             onSubmit={handleSubmit}
           >
-            <div className="flex justify-between">
-              <DatePicker
-                label="Birthdate"
-                name="birth_date"
+              <div className="flex justify-between">
+              <ShortAnswer
+                label="First Competition Year"
+                type="number"
+                name="first_comp"
+                min="1900"
+                max="9999"
                 onChange={handleChange}
-                value={formData.birth_date || ""}
+                value={formData.first_comp || ""}
                 className="w-40"
+                required
               />
               <DatePicker
                 label="Graduation Date"
@@ -156,40 +237,33 @@ export default function Register() {
                 onChange={handleChange}
                 value={formData.grad_date || ""}
                 className="w-40"
-              />
-            </div>
-            <div className="flex justify-between">
-              <ShortAnswer
-                label="First Competition Year"
-                type="number"
-                min="1900"
-                max="9999"
-                name="first_comp_year"
-                onChange={handleChange}
-                value={formData.first_comp_year || ""}
-              />
-              <Dropdown
-                options={experiences}
-                label="Experience Level"
-                name="xp"
-                onChange={handleChange}
-                value={formData.xp || ""}
+                required
               />
             </div>
             <Dropdown
+              options={skillLevels}
+              label="Experience Level"
+              name="skill_level"
+              onChange={handleChange}
+              value={formData.skill_level || ""}
+              required
+            />
+            <Dropdown
               options={colleges}
               label="College"
-              name="college"
+              name="school"
               onChange={handleChange}
-              value={formData.college || ""}
+              value={formData.school || ""}
+              required
             />
             <div className="flex justify-between gap-2">
               <Dropdown
-                options={sexes}
-                label="Sex"
-                name="sex"
+                options={genderChoices}
+                label="Gender"
+                name="gender"
                 onChange={handleChange}
-                value={formData.sex || ""}
+                value={formData.gender || ""}
+                required
               />
 
               <Dropdown
@@ -198,10 +272,11 @@ export default function Register() {
                 name="student_type"
                 onChange={handleChange}
                 value={formData.student_type || ""}
+                required
               />
             </div>
-            <button onClick={handleSubmit} type="submit">
-              submit
+            <button onClick={handleSubmit} type="submit" disabled={loading}>
+              <LongButton>{loading ? "Registering..." : "Submit"}</LongButton>
             </button>
             <button
               onClick={handlePageChange}

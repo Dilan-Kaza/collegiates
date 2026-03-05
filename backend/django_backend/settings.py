@@ -78,14 +78,18 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'django_backend.wsgi.application'
 
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:8000",
+]
+
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:8000",
     "http://localhost:3000",
 ]
 
-CORS_ALLOWED_ORIGIN_REGEXES = [
-    r"/(localhost).",
-]
+
+CORS_ALLOW_CREDENTIALS = True
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
@@ -107,6 +111,10 @@ DATABASES = {
         "PORT": "5432",
     }
 }
+
+
+# Custom User Model
+AUTH_USER_MODEL = 'collegiates_app.User'
 
 
 # Password validation

@@ -1,14 +1,21 @@
 import uuid
 from django.db import models
+from django.contrib.auth.models import AbstractUser, UserManager
+from django.contrib.postgres.functions import RandomUUID
 
 class GenderChoices(models.TextChoices):
     MALE = 'M', 'Male'
     FEMALE = 'F', 'Female'
 
 
-class StudentTypeChoices(models.TextChoices):
-    UNDERGRADUATE = 'U', 'Undergraduate'
-    GRADUATE = 'G', 'Graduate'
+class StudentStatusChoices(models.TextChoices):
+    UNDERGRADUATE = "1", "Full/Part-Time Undergraduate" 
+    FT_GRADUATE = "2", "Full-Time Graduate/Professional School"
+    EARLY_GRADUATE = "3", "Fall/Winter Graduates of Current Academic Year"
+    NON_ENROLLED = "4", "Non-Enrolled Student"
+    ONE_YR_ALUM = "5", "1yr Alumni"
+    PT_GRADUATE = "6", "Part-Time Graduate/Professional School"
+    ITL = "7", "International Student" 
 
 
 class SkillLevelChoices(models.TextChoices):
@@ -27,24 +34,64 @@ class College(models.Model):
     class Meta:
         db_table = 'colleges'
 
+class CustomUserManager(UserManager):
+    def _create_user(self, email, password, **extra_fields):
+        if not email:
+            raise ValueError("The email must be set")
+        email = self.normalize_email(email)
+        user = self.model(email=email, **extra_fields)
+        user.set_password(password)          # uses default hashing
+        user.save(using=self._db)
+        return user
 
-class User(models.Model):
+    def create_user(self, email, password=None, **extra_fields):
+        extra_fields.setdefault("is_staff", False)
+        extra_fields.setdefault("is_superuser", False)
+        return self._create_user(email, password, **extra_fields)
+
+    def create_superuser(self, email, password, **extra_fields):
+        # ensure standard superuser flags
+        extra_fields.setdefault("is_staff", True)
+        extra_fields.setdefault("is_superuser", True)
+
+        # prompt for custom required fields if not provided
+        if "gender" not in extra_fields or not extra_fields.get("gender"):
+            extra_fields["gender"] = input("Gender (M/F): ") or None
+        if "student_type" not in extra_fields or not extra_fields.get("student_type"):
+            extra_fields["student_type"] = input("Student status code (1-7): ") or None
+        if "first_comp" not in extra_fields or not extra_fields.get("first_comp"):
+            val = input("First competition year: ")
+            extra_fields["first_comp"] = int(val) if val else None
+        if "skill_level" not in extra_fields or not extra_fields.get("skill_level"):
+            extra_fields["skill_level"] = input("Skill level (B/I/A): ") or None
+        if "grad_date" not in extra_fields or not extra_fields.get("grad_date"):
+            extra_fields["grad_date"] = input("Graduation date (YYYY-MM-DD): ") or None
+
+        if extra_fields.get("is_staff") is not True:
+            raise ValueError("Superuser must have is_staff=True.")
+        if extra_fields.get("is_superuser") is not True:
+            raise ValueError("Superuser must have is_superuser=True.")
+        return self._create_user(email, password, **extra_fields)
+    
+class User(AbstractUser):
     user_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
-    password_hash = models.BinaryField()  # Store as Binary in Django
-    first_name = models.CharField(max_length=255)
-    last_name = models.CharField(max_length=255)
     gender = models.CharField(max_length=1, choices=GenderChoices.choices)
     school = models.ForeignKey(College, on_delete=models.SET_NULL, null=True, blank=True, db_column='school_id')
-    student_type = models.CharField(max_length=1, choices=StudentTypeChoices.choices)
-    first_comp = models.DateField()
-    undergrad_year = models.IntegerField(null=True, blank=True)
+    student_type = models.CharField(max_length=1, choices=StudentStatusChoices.choices)
+    first_comp = models.IntegerField()
     skill_level = models.CharField(max_length=1, choices=SkillLevelChoices.choices)
     grad_date = models.DateField()
     is_competing = models.BooleanField(default=False)
     has_paid = models.BooleanField(default=False)
     proof_of_reg = models.BooleanField(default=False)
     
+    username = None
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS: list[str] = []
+
+    objects = CustomUserManager()
+
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
     
