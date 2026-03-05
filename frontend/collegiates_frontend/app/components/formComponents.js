@@ -32,7 +32,7 @@ function Dropdown({ label, options, ...props }) {
         <span className="capitalize text-sm">{label}</span>
         <div className="relative flex flex-col gap-2 transition-outline ease-in-out duration-200 border border-gray-300 focus-within:outline-2 focus-within:outline-primary rounded-md py-[10px] px-2">
           <select {...props}>
-            <option value=""></option>
+            <option value="" disabled hidden></option>
             {optionsList.map((optionPair, index) => (
               <option value={optionPair[1]} key={index}>
                 {optionPair[0]}
@@ -51,7 +51,10 @@ function DatePicker({ label, ...props }) {
       <label className="flex flex-col gap-2">
         <span className="capitalize text-sm">{label}</span>
         <div className="transition-outline ease-in-out duration-200 border border-gray-300 focus-within:outline-2 focus-within:outline-primary rounded-md py-2 px-2">
-          <input type="date" {...props} />
+          <input 
+            type="month" 
+            {...props} 
+          />
         </div>
       </label>
     </>

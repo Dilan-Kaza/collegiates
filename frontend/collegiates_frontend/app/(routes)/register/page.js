@@ -9,18 +9,19 @@ import {
 } from "@/app/components/formComponents";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Ewert } from "next/font/google";
 
 export default function Register() {
   // choices mirror the enums defined in models.py
   const skillLevels = { Beginner: "B", Intermediate: "I", Advanced: "A" };
   const genderChoices = { Male: "M", Female: "F" };
   const studentTypes = {
-    "Full/Part-Time Undergraduate": "1",
-    "Full-Time Graduate/Professional School": "2",
-    "Fall/Winter Graduate": "3",
+    "Full/Part-Time Undergraduate Student": "1",
+    "Full-Time Graduate/Professional School Student": "2",
+    "Early Graduate Of Current Year": "3",
     "Non-Enrolled Student": "4",
-    "1yr Alumni": "5",
-    "Part-Time Graduate": "6",
+    "One Year Alumni": "5",
+    "Part-Time Graduate Student": "6",
     "International Student": "7",
   };
 
@@ -30,6 +31,53 @@ export default function Register() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [csrfToken, setCsrfToken] = useState("");
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
+
+  const validate = (name, value) => {
+    switch(name) {
+      case "email":
+        if (!value) return "Email is required";
+        if (!/\S+@\S+\.\S+/.test(value)) return "Invalid email address";
+        return "";
+      case "password1":
+        if (!value) return "Password is required";
+        if (value.length < 8) return "Password must be at least 8 characters";
+        return "";
+      case "password2":
+        if (!value) return "Please confirm your password";
+        if (value != formData.password1) return "Passwords do not match";
+        return "";
+      case "first_name":
+        if (!value) return "Required";
+        return "";
+      case "last_name":
+        if (!value) return "Required";
+        return "";
+      case "first_comp":
+        if (!value) return "Please provide year of first competition";
+        if (value < 1900 || value > 9999) return "Invalid year";
+        return "";
+      case "grad_date":
+        if (!value) return "Please provide a graduation date";
+        return "";
+      case "school":
+        if (!value) return "Please select a college";
+        return "";
+      case "skill_level":
+        if (!value) return "Please select an experience level";
+        return "";
+      case "gender":
+        if (!value) return "Please select a gender";
+        return "";
+      case "student_type":
+        if (!value) return "Please select a student type";
+        return "";
+
+      default:
+        return "";
+    }
+  }
 
   // Helper to extract CSRF token from cookies
   const getCsrfToken = () => {
@@ -53,6 +101,11 @@ export default function Register() {
     setFormData((prevData) => ({
       ...prevData,
       [name]: value,
+    }));
+
+    setErrors((prevErrors) => ({
+      ...prevErrors,
+      [name]: validate(name, value),
     }));
   };
 
@@ -97,8 +150,19 @@ export default function Register() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
-    setLoading(true);
+
+    const requiredFields = ["first_comp", "grad_date", "skill_level", "school", "gender", "student_type"];
+
+    const allErrors = {};
+    requiredFields.forEach((name) => {
+      const error = validate(name, formData[name]);
+      if (error) allErrors[name] = error;
+    });
+
+    if (Object.keys(allErrors).length > 0) {
+      setErrors(allErrors);
+      return;
+    }
 
     try {
       const payload = new FormData();
@@ -137,6 +201,19 @@ export default function Register() {
   };
 
   const handlePageChange = (e) => {
+    if (!nextPage) {
+      const requiredFields = ["email", "passsword1", "password2", "first_name", "last_name"]
+      const allErrors = {};
+      requiredFields.forEach((name) => {
+        const error = validate(name, formData[name]);
+        if (error) allErrors[name] = error;
+      });
+
+      if (Object.keys(allErrors).length > 0) {
+        setErrors(allErrors);
+        return;
+      }
+    }
     setNextPage(!nextPage);
   };
 
@@ -161,48 +238,66 @@ export default function Register() {
           <ShortAnswer
             type="email"
             name="email"
-            label="Email"
+            label="Email*"
             onChange={handleChange}
             value={formData.email || ""}
             required
           />
+          {errors.email && (
+            <p className="text-red-500 text-sm -mt-2">{errors.email}</p>
+          )}
           <ShortAnswer
             type="password"
             name="password1"
-            label="Password"
+            label="Password*"
             minLength={8}
             onChange={handleChange}
             value={formData.password1 || ""}
             required
           />
+          {errors.password1 && (
+            <p className="text-red-500 text-sm -mt-2">{errors.password1}</p>
+          )}
           <ShortAnswer
             type="password"
             name="password2"
-            label="Confirm Password"
+            label="Confirm Password*"
             minLength={8}
             onChange={handleChange}
             value={formData.password2 || ""}
             required
           />
+          {errors.password2 && (
+            <p className="text-red-500 text-sm -mt-2">{errors.password2}</p>
+          )}
           <div className="flex gap-4">
-            <ShortAnswer
-              type="text"
-              name="first_name"
-              label="First Name"
-              onChange={handleChange}
-              value={formData.first_name || ""}
-              required
-            />
-            <ShortAnswer
-              type="text"
-              name="last_name"
-              label="Last Name"
-              onChange={handleChange}
-              value={formData.last_name || ""}
-              required
-            />
+            <div className="flex flex-col flex-1">
+              <ShortAnswer
+                type="text"
+                name="first_name"
+                label="First Name*"
+                onChange={handleChange}
+                value={formData.first_name || ""}
+                required
+              />
+              {errors.first_name && (
+                <p className="text-red-500 text-sm mt-1">{errors.first_name}</p>
+              )}
+            </div>
+            <div className="flex flex-col flex-1">
+              <ShortAnswer
+                type="text"
+                name="last_name"
+                label="Last Name*"
+                onChange={handleChange}
+                value={formData.last_name || ""}
+                required
+              />
+              {errors.last_name && (
+                <p className="text-red-500 text-sm mt-1">{errors.last_name}</p>
+              )}
+            </div>
           </div>
-
           <button
             onClick={handlePageChange}
             className="self-stretch mb-24"
@@ -219,61 +314,86 @@ export default function Register() {
             bottomLink="Sign In"
             onSubmit={handleSubmit}
           >
-              <div className="flex justify-between">
-              <ShortAnswer
-                label="First Competition Year"
-                type="number"
-                name="first_comp"
-                min="1900"
-                max="9999"
-                onChange={handleChange}
-                value={formData.first_comp || ""}
-                className="w-40"
-                required
-              />
-              <DatePicker
-                label="Graduation Date"
-                name="grad_date"
-                onChange={handleChange}
-                value={formData.grad_date || ""}
-                className="w-40"
-                required
-              />
+            <div className="flex justify-between gap-4">
+              <div className="flex flex-col flex-1">
+                <ShortAnswer
+                  label="First Competition Year*"
+                  type="number"
+                  name="first_comp"
+                  min="1900"
+                  max="9999"
+                  onChange={handleChange}
+                  value={formData.first_comp || ""}
+                  className="w-40"
+                  required
+                />
+                {errors.first_comp && (
+                  <p className="text-red-500 text-sm mt-1">{errors.first_comp}</p>
+                )}
+              </div>
+              <div className="flex flex-col flex-1">
+                <DatePicker
+                  label="Graduation Date*"
+                  name="grad_date"
+                  onChange={handleChange}
+                  value={formData.grad_date || ""}
+                  className="w-40"
+                  required
+                />
+                {errors.grad_date && (
+                  <p className="text-red-500 text-sm mt-1">{errors.grad_date}</p>
+                )}
+              </div>
             </div>
             <Dropdown
               options={skillLevels}
-              label="Experience Level"
+              label="Experience Level*"
               name="skill_level"
               onChange={handleChange}
               value={formData.skill_level || ""}
               required
             />
+            {errors.skill_level && (
+              <p className="text-red-500 text-sm -mt-2">{errors.skill_level}</p>
+            )}
             <Dropdown
               options={colleges}
-              label="College"
+              label="College*"
               name="school"
               onChange={handleChange}
               value={formData.school || ""}
               required
             />
+            {errors.school && (
+              <p className="text-red-500 text-sm -mt-2">{errors.school}</p>
+            )}
             <div className="flex justify-between gap-2">
-              <Dropdown
-                options={genderChoices}
-                label="Gender"
-                name="gender"
-                onChange={handleChange}
-                value={formData.gender || ""}
-                required
-              />
-
-              <Dropdown
-                options={studentTypes}
-                label="Student Type"
-                name="student_type"
-                onChange={handleChange}
-                value={formData.student_type || ""}
-                required
-              />
+              <div className="flex flex-col flex-1">
+                <Dropdown
+                  options={genderChoices}
+                  label="Gender*"
+                  name="gender"
+                  onChange={handleChange}
+                  value={formData.gender || ""}
+                  required
+                />
+                {errors.gender && (
+                  <p className="text-red-500 text-sm mt-1">{errors.gender}</p>
+                )}
+              </div>
+              <div className="flex flex-col w-48">
+                <Dropdown
+                  options={studentTypes}
+                  label="Student Type*"
+                  name="student_type"
+                  onChange={handleChange}
+                  value={formData.student_type || ""}
+                  required
+                />
+                {errors.student_type && (
+                  <p className="text-red-500 text-sm mt-1">{errors.student_type}</p>
+                )}
+              </div>
             </div>
             <button onClick={handleSubmit} type="submit" disabled={loading}>
               <LongButton>{loading ? "Registering..." : "Submit"}</LongButton>
