@@ -13,4 +13,6 @@ urlpatterns = [
     path("team_data/", views.team_data, name="team_data"),
     path("user_data/", views.user_data, name="user_data"),
     path("register/", views.RegisterUser, name="register"),
+    path("login/", views.LoginUser, name="login"),
+    path('check_email/', views.check_email)
 ]

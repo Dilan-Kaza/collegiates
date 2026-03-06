@@ -33,6 +33,7 @@ export default function Register() {
   const [csrfToken, setCsrfToken] = useState("");
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
+  const [emailExists, setEmailExists] = useState(false);
 
   const validate = (name, value) => {
     switch(name) {
@@ -79,6 +80,22 @@ export default function Register() {
     }
   }
 
+  const checkEmailExists = async (email) => {
+    if (!email || !/\S+@\S+\.\S+/.test(email)) return;
+    try {
+      const res = await fetch(`http://localhost:8000/collegiates_app/check_email/?email=${encodeURIComponent(email)}`, {
+        mode: "cors",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (data.exists) {
+        setErrors((prev) => ({ ...prev, email: "An account with this email already exists" }));
+      }
+    } catch (err) {
+      console.warn("Could not check email", err);
+    }
+  };
+
   // Helper to extract CSRF token from cookies
   const getCsrfToken = () => {
     const name = "csrftoken";
@@ -107,6 +124,11 @@ export default function Register() {
       ...prevErrors,
       [name]: validate(name, value),
     }));
+  };
+
+  const handleBlur = (e) => {
+    const { name, value } = e.target;
+    if (name === "email") checkEmailExists(value);
   };
 
   useEffect(() => {
@@ -166,8 +188,10 @@ export default function Register() {
 
     try {
       const payload = new FormData();
-      Object.entries(formData).forEach(([k, v]) => payload.append(k, v || ""));
-
+      Object.entries(formData).forEach(([k, v]) => {
+        if (k === "grad_date" && v) v = v + "-01"; 
+        payload.append(k, v || "");
+      });
       const headers = {};
       if (csrfToken) {
         headers["X-CSRFToken"] = csrfToken;
@@ -240,6 +264,7 @@ export default function Register() {
             name="email"
             label="Email*"
             onChange={handleChange}
+            onBlur={handleBlur}
             value={formData.email || ""}
             required
           />

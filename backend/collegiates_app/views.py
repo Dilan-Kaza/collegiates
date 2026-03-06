@@ -5,6 +5,8 @@ from django.http import HttpResponse, JsonResponse
 from django.core import serializers
 from django.core.paginator import Paginator
 from django.views.decorators.csrf import ensure_csrf_cookie
+from django.contrib.auth import authenticate, login, logout
+from django.contrib import messages
 
 from .models import Blog, College, Nandu, Registration, User, Groupset
 from .forms import CreateUserForm
@@ -12,6 +14,21 @@ from .forms import CreateUserForm
 @ensure_csrf_cookie
 def get_csrf_token(request):
     return JsonResponse({"detail": "CSRF cookie set"})
+
+def LoginUser(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    
+    # email and password fields should be verified on frontend
+    email = request.POST.get('email')
+    password = request.POST.get('password')
+
+    user = authenticate(request, email=email, password=password)
+    if user is not None:
+        login(request, user)
+        return JsonResponse({'success': True, 'user_id': str(user.user_id)})
+    else:
+        return JsonResponse({'success': False, 'error': 'Invalid password'}, status=401)
 
 def RegisterUser(request):
     if request.method != 'POST':
@@ -23,8 +40,13 @@ def RegisterUser(request):
         return JsonResponse({'success': True, 'user_id': str(user.user_id)})
     else:
         errors = {k: v.get_json_data() for k, v in form.errors.items()}
+        print("Form errors:", errors)  # add this
         return JsonResponse({'success': False, 'errors': errors}, status=400)
 
+def check_email(request):
+    email = request.GET.get('email', '')
+    exists = User.objects.filter(email__iexact=email).exists()
+    return JsonResponse({'exists': exists})
 
 def index(request):
     return HttpResponse("Hello, world!")
