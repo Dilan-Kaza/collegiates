@@ -2,3 +2,4 @@ Django
 psycopg
 python-dotenv
 django-cors-headers
+djangorestframework

@@ -161,13 +161,13 @@ class Blog(models.Model):
         db_table = 'blog'
 
 
-class Admin(models.Model):
+class OrganizerAdmin(models.Model):
     admin_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    admin_user = models.CharField(max_length=255, unique=True)
+    admin_email = models.EmailField(unique=True)
     admin_password = models.BinaryField()
     
     class Meta:
-        db_table = 'admin_account'
+        db_table = 'organizer_admin_account'
 
 
 class Nandu(models.Model):

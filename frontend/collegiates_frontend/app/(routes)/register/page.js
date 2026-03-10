@@ -168,7 +168,7 @@ export default function Register() {
     init();
   }, []);
 
-  const REGISTER_URL = "http://localhost:8000/collegiates_app/register/";
+  const SIGNUP_URL = "http://localhost:8000/collegiates_app/signup/";
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -197,7 +197,7 @@ export default function Register() {
         headers["X-CSRFToken"] = csrfToken;
       }
 
-      const resp = await fetch(REGISTER_URL, {
+      const resp = await fetch(SIGNUP_URL, {
         method: "POST",
         mode: "cors",
         credentials: "include",
