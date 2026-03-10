@@ -10,4 +10,4 @@
 7. run server using `python manage.py runserver`
 
 ## Instructions for frontend (local dev):
-I'll be honest, I don't remember how I got it working but basically something about installing node.js and running the development server with `npm run dev`
+I'll be honest, I don't remember how I got it working but basically something about installing node.js and running the development server with `npm run dev` theres a readme in /frontend
