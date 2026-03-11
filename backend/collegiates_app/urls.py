@@ -11,5 +11,6 @@ urlpatterns = [
     path("signout/", views.signout, name="signout"),
     path("reset-password/", views.reset_password_link, name="reset_password"),
     path("reset-password-confirm/", views.reset_password_confirm, name="reset_password_confirm"),
-    path('check-email/', views.check_email)
+    path('check-email/', views.check_email, name="check_email"),
+    path('my_profile/', views.my_profile, name="my_profile")
 ]

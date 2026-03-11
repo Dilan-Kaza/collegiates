@@ -23,6 +23,9 @@ class SkillLevelChoices(models.TextChoices):
     INTERMEDIATE = 'I', 'Intermediate'
     ADVANCED = 'A', 'Advanced'
 
+class UserTypeChoices(models.TextChoices):
+    COMPETITOR = 'C', 'Competitor'
+    ORGANIZER = 'O', 'Organizer'
 
 class College(models.Model):
     college_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -76,12 +79,14 @@ class CustomUserManager(UserManager):
 class User(AbstractUser):
     user_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
-    gender = models.CharField(max_length=1, choices=GenderChoices.choices)
+    user_type = models.CharField(max_length=1, choices=UserTypeChoices.choices, default='C')
+
+    gender = models.CharField(max_length=1, choices=GenderChoices.choices, null=True)
     school = models.ForeignKey(College, on_delete=models.SET_NULL, null=True, blank=True, db_column='school_id')
-    student_type = models.CharField(max_length=1, choices=StudentStatusChoices.choices)
-    first_comp = models.IntegerField()
-    skill_level = models.CharField(max_length=1, choices=SkillLevelChoices.choices)
-    grad_date = models.DateField()
+    student_type = models.CharField(max_length=1, choices=StudentStatusChoices.choices, null=True)
+    first_comp = models.IntegerField(blank=True, null=True)
+    skill_level = models.CharField(max_length=1, choices=SkillLevelChoices.choices, blank=True, null=True)
+    grad_date = models.DateField(blank=True, null=True)
     is_competing = models.BooleanField(default=False)
     has_paid = models.BooleanField(default=False)
     proof_of_reg = models.BooleanField(default=False)
@@ -94,6 +99,12 @@ class User(AbstractUser):
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
+    
+    def is_organizer(self):
+        return self.user_type == 'organizer'
+    
+    def is_competitor(self):
+        return self.user_type == 'competitor'
     
     class Meta:
         db_table = 'users'
@@ -128,22 +139,21 @@ class Groupset(models.Model):
     groupset_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     comp_year = models.DateField()
     school = models.ForeignKey(College, on_delete=models.CASCADE, db_column='school_id')
-    team_leader = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, 
-                                     related_name='led_groupsets', db_column='team_leader')
-    member_2 = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, 
-                                  related_name='groupset_member_2', db_column='member_2')
-    member_3 = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, 
-                                  related_name='groupset_member_3', db_column='member_3')
-    member_4 = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, 
-                                  related_name='groupset_member_4', db_column='member_4')
-    member_5 = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, 
-                                  related_name='groupset_member_5', db_column='member_5')
-    member_6 = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, 
-                                  related_name='groupset_member_6', db_column='member_6')
+    team_name = models.CharField(max_length=255)
     date_created = models.DateTimeField(auto_now_add=True)
-    
+
     class Meta:
         db_table = 'groupset'
+
+class GroupsetMembers(models.Model):
+    member = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, 
+                                     related_name='groupset_member', db_column='member')
+    date_joined = models.DateTimeField(auto_now_add=True)
+    leader = models.BooleanField()
+
+    class Meta:
+        db_table = 'groupset_members'
+
 
 
 class Blog(models.Model):
@@ -159,15 +169,6 @@ class Blog(models.Model):
     
     class Meta:
         db_table = 'blog'
-
-
-class OrganizerAdmin(models.Model):
-    admin_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    admin_email = models.EmailField(unique=True)
-    admin_password = models.BinaryField()
-    
-    class Meta:
-        db_table = 'organizer_admin_account'
 
 
 class Nandu(models.Model):
