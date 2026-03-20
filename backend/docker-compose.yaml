@@ -1,0 +1,56 @@
+services:
+  db:
+    container_name: postgres
+    image: postgres
+    environment:
+      POSTGRES_USER: "${DJANGO_DATABASE_USER}"
+      POSTGRES_PASSWORD: "${DJANGO_DATABASE_PWORD}"
+      PGDATA: /data/postgres
+      POSTGRES_DB: "${DJANGO_DATABASE_NAME}"
+    volumes:
+      - db:/data/postgres
+    ports:
+      - "5432:5432"
+    networks:
+      - db
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -d postgres" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+  adminer:
+    image: adminer
+    restart: unless-stopped
+    ports:
+      - 8080:8080
+    depends_on:
+      - db
+  django-web:
+   build: .
+   container_name: django-docker
+   ports:
+     - "8000:8000"
+   depends_on:
+     - db
+   environment:
+     DJANGO_SECRET_KEY: ${DJANGO_SECRET}
+     DEBUG: ${DEBUG}
+     DJANGO_LOGLEVEL: ${DJANGO_LOGLEVEL}
+     DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS}
+     DATABASE_ENGINE: ${DJANGO_DATABASE_ENGINE}
+     DATABASE_NAME: ${DJANGO_DATABASE_NAME}
+     DATABASE_USERNAME: ${DJANGO_DATABASE_USER}
+ 
+     DATABASE_PASSWORD: ${DJANGO_DATABASE_PWORD}
+     DATABASE_HOST: ${DJANGO_DATABASE_HOST}
+     DATABASE_PORT: ${DJANGO_DATABASE_PORT}
+   env_file:
+     - .env
+networks:
+  db:
+    driver: bridge
+
+volumes:
+  db:
+  pgadmin-data:

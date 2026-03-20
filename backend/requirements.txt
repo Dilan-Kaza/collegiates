@@ -1,5 +1,7 @@
 Django
 psycopg
+psycopg2-binary
 python-dotenv
 django-cors-headers
 djangorestframework
+gunicorn
