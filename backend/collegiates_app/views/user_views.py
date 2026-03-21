@@ -82,7 +82,7 @@ def reset_password_confirm(request):
 
     try:
         pk = force_str(urlsafe_base64_decode(uid))
-        user = User.objects.get(user_id = uid)
+        user = User.objects.get(user_id = pk)
     except (User.DoesNotExist, ValueError):
         return Response({'error': 'Invalid reset link'}, status=status.HTTP_400_BAD_REQUEST)
     if not default_token_generator.check_token(user, token):
