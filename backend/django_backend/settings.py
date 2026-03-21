@@ -29,7 +29,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('DJANGO_SECRET')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = bool(os.getenv("DEBUG"))
 
 ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS','127.0.0.1').split(',')
 
@@ -110,12 +110,14 @@ CORS_ALLOW_CREDENTIALS = True
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.postgresql",
+        "ENGINE": 'django.db.backends.{}'.format(
+             os.getenv('DJANGO_DATABASE_ENGINE')
+        ),
         "NAME": os.getenv('DJANGO_DATABASE_NAME'),
         "USER": os.getenv('DJANGO_DATABASE_USER'),
         "PASSWORD": os.getenv('DJANGO_DATABASE_PWORD'),
         "HOST": os.getenv('DJANGO_DATABASE_HOST'),
-        "PORT": "5432",
+        "PORT": os.getenv('DATABASE_PORT'),
     }
 }
 
