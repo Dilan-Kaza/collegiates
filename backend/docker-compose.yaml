@@ -1,19 +1,21 @@
 services:
-  postgres:
+  db:
     container_name: postgres
     hostname: postgres
-    image: postgres
+    image: postgres:17
     environment:
       POSTGRES_USER: "${DJANGO_DATABASE_USER}"
       POSTGRES_PASSWORD: "${DJANGO_DATABASE_PWORD}"
-      PGDATA: /data/postgres
       POSTGRES_DB: "${DJANGO_DATABASE_NAME}"
     ports:
-      - "5432:5432"
+      - "5433:5432"
     restart: always
+    env_file:
+      - .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -d postgres" ]
-      interval: 30s
+      test: ["CMD-SHELL", "pg_isready -U ${DJANGO_DATABASE_USER} -d ${DJANGO_DATABASE_NAME}"]
       timeout: 10s
       retries: 5
   adminer:
@@ -31,7 +33,8 @@ services:
    ports:
      - "8000:8000"
    depends_on:
-     - postgres
+    db:
+      condition: service_healthy
    environment:
      DJANGO_SECRET_KEY: ${DJANGO_SECRET}
      DEBUG: ${DEBUG}
@@ -46,3 +49,6 @@ services:
      DATABASE_PORT: ${DJANGO_DATABASE_PORT}
    env_file:
      - .env
+  
+volumes:
+  postgres_data:
