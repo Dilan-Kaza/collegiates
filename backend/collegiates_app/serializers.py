@@ -1,5 +1,5 @@
 # Serialize data before sending to frontend
-from .models import User, College, Blog, Registration
+from .models import User, College, Blog, Registration, Groupset, GroupsetMembers
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
@@ -97,3 +97,15 @@ class OrganizerSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['user_id', 'email', 'user_type']
+
+class GroupsetCreationSerializer(serializers.ModelSerializer):
+    school = serializers.PrimaryKeyRelatedField(queryset=College.objects.all())
+
+    class Meta:
+        model = Groupset
+        fields = ['comp_year', 'school', 'team_name']
+
+class GroupsetJoinSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GroupsetMembers
+        fields = ['member', 'leader']
