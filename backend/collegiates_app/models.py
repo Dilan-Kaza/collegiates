@@ -1,7 +1,7 @@
 import uuid
 from django.db import models
 from django.contrib.auth.models import AbstractUser, UserManager
-from django.contrib.postgres.functions import RandomUUID
+from django.core.cache import cache
 
 class GenderChoices(models.TextChoices):
     MALE = 'M', 'Male'
@@ -101,10 +101,10 @@ class User(AbstractUser):
         return f"{self.first_name} {self.last_name}"
     
     def is_organizer(self):
-        return self.user_type == 'organizer'
+        return self.user_type == 'C'
     
     def is_competitor(self):
-        return self.user_type == 'competitor'
+        return self.user_type == 'O'
     
     class Meta:
         db_table = 'users'
@@ -126,7 +126,7 @@ class Event(models.Model):
 
 class Registration(models.Model):
     competitor = models.ForeignKey(User, on_delete=models.CASCADE, db_column='competitor_id')
-    comp_year = models.DateField()
+    comp_year = models.IntegerField()
     event = models.ForeignKey(Event, on_delete=models.CASCADE, db_column='event_code')
     date_created = models.DateTimeField(auto_now_add=True)
     
@@ -137,7 +137,7 @@ class Registration(models.Model):
 
 class Groupset(models.Model):
     groupset_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    comp_year = models.DateField()
+    comp_year = models.IntegerField()
     school = models.ForeignKey(College, on_delete=models.CASCADE, db_column='school_id')
     team_name = models.CharField(max_length=255)
     date_created = models.DateTimeField(auto_now_add=True)
@@ -146,15 +146,14 @@ class Groupset(models.Model):
         db_table = 'groupset'
 
 class GroupsetMembers(models.Model):
-    member = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, 
-                                     related_name='groupset_member', db_column='member')
+    groupset = models.ForeignKey(Groupset, on_delete=models.CASCADE, related_name='groupset', db_column='groupset_id')
+    member = models.ForeignKey(User, on_delete=models.CASCADE, related_name='groupset_member', db_column='member')
     date_joined = models.DateTimeField(auto_now_add=True)
     leader = models.BooleanField()
 
     class Meta:
         db_table = 'groupset_members'
-
-
+        unique_together = ('groupset_id', 'member')
 
 class Blog(models.Model):
     blog_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -173,7 +172,7 @@ class Blog(models.Model):
 
 class Nandu(models.Model):
     competitor = models.ForeignKey(User, on_delete=models.CASCADE, db_column='competitor_id')
-    comp_year = models.DateField()
+    comp_year = models.IntegerField()
     event = models.ForeignKey(Event, on_delete=models.CASCADE, db_column='event_code')
     nandu_str = models.TextField()
     date_created = models.DateTimeField(auto_now_add=True)
@@ -181,3 +180,34 @@ class Nandu(models.Model):
     class Meta:
         db_table = 'nandu'
         unique_together = ('competitor', 'comp_year', 'event')
+
+CACHE_KEY = "competition_settings_latest"
+
+class Settings(models.Model):
+    reg_year = models.IntegerField()
+    early_reg_start = models.DateField(blank=True, null=True)
+    early_reg_end = models.DateField(blank=True, null=True)
+    reg_start = models.DateField(blank=True, null=True)
+    reg_end = models.DateField(blank=True, null=True)
+    reg_active = models.BooleanField(default=False)
+    comp_date = models.DateField(blank=True, null=True)
+    contact_email = models.EmailField(blank=True)
+    host = models.ForeignKey(College, on_delete=models.CASCADE, db_column='school_id')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'settings'
+        ordering = ["-created_at"]
+
+    def save(self, **kwargs):
+        super().save(**kwargs)
+        cache.delete(CACHE_KEY)
+
+    @classmethod
+    def load(cls):
+        obj = cache.get(CACHE_KEY)
+        if obj is None:
+            obj = cls.objects.first()
+            if obj:
+                cache.set(CACHE_KEY, obj, timeout=3600)
+        return obj 

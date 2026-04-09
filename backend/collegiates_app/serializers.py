@@ -1,5 +1,5 @@
 # Serialize data before sending to frontend
-from .models import User, College, Blog, Registration, Groupset, GroupsetMembers
+from .models import User, College, Blog, Registration, Groupset, GroupsetMembers, Settings
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
@@ -75,16 +75,20 @@ class BlogSerializer(serializers.ModelSerializer):
         model = Blog
         fields = '__all__'
 
-class EventRegistrationSerializer(serializers.ModelSerializer):
-
+class ReadEventRegistrationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Registration
         fields = '__all__'
 
+class WriteEventRegistrationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Registration
+        fields = ['competitor', 'comp_year', 'event']
+
 class CompetitorSerializer(serializers.ModelSerializer):
     school = CollegeSerializer()
-    registration = EventRegistrationSerializer(
-        source='registration_set',
+    registration = ReadEventRegistrationSerializer(
+        source='*',
         many=True,
         read_only=True
     )
@@ -109,3 +113,25 @@ class GroupsetJoinSerializer(serializers.ModelSerializer):
     class Meta:
         model = GroupsetMembers
         fields = ['member', 'leader']
+
+class ReadSettingsSerializer(serializers.ModelSerializer):
+    host = CollegeSerializer()
+
+    class Meta:
+        model = Settings
+        fields = "__all__"
+        read_only_fields = ["created_at"]
+
+class WriteSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Settings
+        exclude = ["created_at", "reg_active"]
+
+    def validate(self, data):
+        if data['early_reg_start'] > data['early_reg_end']:
+            return serializers.ValidationError("Early registration start must come after early registration ends")
+        if data['early_reg_end'] > data['reg_start']:
+            return serializers.ValidationError("Early registration cannot end before registration starts")
+        if data['reg_start'] > data['reg_end']:
+            return serializers.ValidationError("Registration start must come after registration ends")
+        return data

@@ -6,13 +6,13 @@ from django.core.mail import send_mail
 
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from ..permissions import IsCompetitor
-from ..models import User, Registration, GroupsetMembers
-from ..serializers import RegisterCompetitorSerializer, EventRegistrationSerializer, \
-    CompetitorSerializer, GroupsetCreationSerializer, GroupsetJoinSerializer
+from ..models import User, Registration, GroupsetMembers, Settings
+from ..serializers import RegisterCompetitorSerializer, ReadEventRegistrationSerializer, \
+    CompetitorSerializer, GroupsetCreationSerializer, GroupsetJoinSerializer, WriteEventRegistrationSerializer
 
 # SIGN INTO COMPETITOR ACCOUNT
 @api_view(['POST'])
@@ -33,7 +33,7 @@ def signin(request):
 
 # SIGN OUT OF COMPETITOR ACCOUNT
 @api_view(['POST'])
-@permission_classes([IsCompetitor, IsAuthenticated])
+@permission_classes([IsCompetitor])
 def signout(request):   
     logout(request)
     return Response({'success': True})
@@ -105,33 +105,48 @@ def check_email(request):
 # REGISTER COMPETITORS FOR EVENTS
 # untested
 @api_view(['POST'])
-@permission_classes([IsCompetitor, IsAuthenticated])
+@permission_classes([IsCompetitor])
 def register_events(request):
-    # request contains {events: {...}, competition_year: ""}
-    events = request.data.get('events')
-    year = request.data.get('year')
-    user_id = request.user.user_id
-
-    event_rows = []
-    for event in events:
-        event_rows.append(Registration(competitor=user_id, comp_year=year, event=event))
-
+    config = Settings.load()
+    if config is None:
+        return Response({"detail": "No settings have been created yet."},
+                status=status.HTTP_404_NOT_FOUND
+        )
+    serializer = WriteEventRegistrationSerializer(data=request.data, many=True)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    assert isinstance(serializer.validated_data, dict)
+    events = [item['event'] for item in serializer.validated_data]
+    year = config.reg_year
+    
+    event_rows = [Registration(competitor=request.user, comp_year=year, event=event) for event in events]
     Registration.objects.bulk_create(event_rows)
+
+    return Response(
+        {"detail": f"Successfully registered for {len(event_rows)} event(s)."},
+        status=status.HTTP_201_CREATED
+    )
 
 # GET COMPETITION REGISTRATION INFO
 # untested
 @api_view(['GET'])
-@permission_classes([IsCompetitor, IsAuthenticated])
+@permission_classes([IsCompetitor])
 def get_registration(request):
+    config = Settings.load()
+    if config is None:
+        return Response({"detail": "No settings have been created yet."},
+                status=status.HTTP_404_NOT_FOUND
+        )
+    year = config.reg_year
     user_id = request.user.user_id
-    comp_year = request.data.get('comp_year')
-    events = Registration.objects.filter(competitor=user_id, comp_year=comp_year)
-    serializer = EventRegistrationSerializer(events, many=True)
+    events = Registration.objects.filter(competitor=user_id, comp_year=year)
+    serializer = ReadEventRegistrationSerializer(events, many=True)
     return Response(serializer.data)
 
 # GET COMPETITOR INFO
 @api_view(['GET'])
-@permission_classes([IsCompetitor, IsAuthenticated])
+@permission_classes([IsCompetitor])
 def my_profile(request):
     uid = request.user.user_id
     user = User.objects.select_related('school').get(user_id=uid)
@@ -139,14 +154,15 @@ def my_profile(request):
     return Response(serializer.data)
 
 # CREATE GROUPSET
+# untested
 @api_view(['POST'])
-@permission_classes([IsCompetitor, IsAuthenticated])
+@permission_classes([IsCompetitor])
 def create_groupset(request):
-    uid = request.user.user_id
+    user = request.user.id
     groupset_serializer = GroupsetCreationSerializer(data=request.data)
     if groupset_serializer.is_valid():
         groupset = groupset_serializer.save()
-        leader = GroupsetMembers.objects.create(member=uid, leader=True)
+        leader = GroupsetMembers.objects.create(groupset=groupset, member=user, leader=True)
         return Response({'success': True, 'groupset_id': str(groupset.groupset_id), 'leader_id': str(leader.member)}, # type: ignore
                         status=status.HTTP_201_CREATED)
     else:
@@ -154,8 +170,9 @@ def create_groupset(request):
                         status=status.HTTP_400_BAD_REQUEST)
 
 # JOIN GROUPSET
+# untested
 @api_view(['POST'])
-@permission_classes([IsCompetitor, IsAuthenticated])
+@permission_classes([IsCompetitor])
 def join_groupset(request):
     uid = request.user.user_id
     member = GroupsetMembers.objects.create(member=uid, leader=False)
