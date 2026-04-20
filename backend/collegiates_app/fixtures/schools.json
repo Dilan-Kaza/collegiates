@@ -1,0 +1,611 @@
+[
+{
+  "model": "collegiates_app.college",
+  "pk": "036fc5b4-ca7e-40be-837a-54a5a903ae80",
+  "fields": {
+    "college_name": "U Illinois Urbana-Champaign"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "06845f0d-b0f4-4130-86ff-9ec416103633",
+  "fields": {
+    "college_name": "U Washington"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "07b6f5ff-102e-4eb6-b47c-4ac67ae58531",
+  "fields": {
+    "college_name": "U Hawaii - Maui College"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "122ea962-19ee-457b-812e-dd741c855e9a",
+  "fields": {
+    "college_name": "California State U, Fullerton"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "15e9f929-c3bf-47e4-8b7c-1a5dffd564e3",
+  "fields": {
+    "college_name": "Chapman Univ"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "1c51caf7-a014-4549-8754-54200d9fa9da",
+  "fields": {
+    "college_name": "Case Western Reserve University"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "2017deca-d6eb-498b-b024-4ee30bd47054",
+  "fields": {
+    "college_name": "U Hawaii - West Oahu"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "26acfecd-55b5-4514-9182-2e5a0c332d59",
+  "fields": {
+    "college_name": "Northeastern University"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "2aa19074-8011-4354-ae35-445b201fdf46",
+  "fields": {
+    "college_name": "Kapi'olani Community College"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "2bd4b0a1-eddb-4727-919f-b37ad9fb3337",
+  "fields": {
+    "college_name": "Palmer College of Chiropractic West"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "30da2b78-7930-40c5-85ff-2fe3a64f0684",
+  "fields": {
+    "college_name": "UC Riverside"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "31866406-78a1-46c0-9881-6d7c76c2dffa",
+  "fields": {
+    "college_name": "New York U"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "3206569d-cb08-4931-8301-317c313c9dcf",
+  "fields": {
+    "college_name": "U Houston"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "32411586-7e08-4a5c-985b-81275adcffb7",
+  "fields": {
+    "college_name": "U Chicago"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "34fcfe8b-bfbf-4751-919b-fe1cda3729a6",
+  "fields": {
+    "college_name": "George Mason U"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "3811d2d6-091f-4366-bd56-fafb52f683b7",
+  "fields": {
+    "college_name": "U Oregon"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "38273e3d-2bc2-418f-9ec2-d05209841f56",
+  "fields": {
+    "college_name": "Yale U"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "3cc9ab16-b305-4602-8414-54ed1548ef09",
+  "fields": {
+    "college_name": "Northern Arizona U"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "495890b5-0ade-4f15-96b3-46cdc281f4a8",
+  "fields": {
+    "college_name": "University of Alaska Southeast"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "4abfb9e5-2cb8-47f8-9a32-0755591e8a29",
+  "fields": {
+    "college_name": "Rutgers U - New Brunswick"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "4c8d9c06-2f15-4e50-b36b-d62d8c64a7f4",
+  "fields": {
+    "college_name": "Leeward Community College"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "521a67ec-578d-4447-bdb9-1d47aee9cd81",
+  "fields": {
+    "college_name": "Cornell U"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "55bb3f52-f1dd-4a05-b55a-236affe11b5b",
+  "fields": {
+    "college_name": "UC Santa Cruz"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "5630f702-4722-4816-928d-04436930a036",
+  "fields": {
+    "college_name": "Point Park University"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "5f98efb2-212f-4abd-9208-20e4fc264f8d",
+  "fields": {
+    "college_name": "Ohio State U"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "61a79249-538b-4dbd-86f9-5d0656b1fc14",
+  "fields": {
+    "college_name": "UC Los Angeles"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "6c1e8ff5-467b-462a-b9f0-ccf7c9e91630",
+  "fields": {
+    "college_name": "UC Davis"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "6e8515f2-8318-49ca-b8c0-d448dbe7bb4a",
+  "fields": {
+    "college_name": "California State U, Long Beach"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "6f2879ba-abde-4f03-9d6f-19d6743c1113",
+  "fields": {
+    "college_name": "UC Santa Barbara"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "734ee535-7d27-4451-a7e5-d02b2f9d0ccd",
+  "fields": {
+    "college_name": "Arizona State U"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "771753ad-9f77-4b2a-9318-af6eb468c083",
+  "fields": {
+    "college_name": "Univ of Oklahoma"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "775f55d5-3239-49bc-8358-5cdd92a41f54",
+  "fields": {
+    "college_name": "Santa Monica College"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "794c94fa-94a1-4758-acc6-a3bb35065436",
+  "fields": {
+    "college_name": "Columbia U"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "7986cd0a-8b10-499b-9061-0907a6c0bed9",
+  "fields": {
+    "college_name": "Saint Peter's University"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "7a6e2561-877f-4fb4-9ed2-68612ad9e8cc",
+  "fields": {
+    "college_name": "San Diego State University"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "7c8bc416-fccd-431a-8cba-68d8425f646c",
+  "fields": {
+    "college_name": "U Pittsburgh"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "7fa0b251-37c7-4aeb-b8c0-cacee12f1ff3",
+  "fields": {
+    "college_name": "San Jose State U"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "80fc4da7-06b8-4409-a08f-75bd1a827b71",
+  "fields": {
+    "college_name": "New Jersey Institute of Technology"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "8364afd6-1f88-4163-9435-ec3713a9643b",
+  "fields": {
+    "college_name": "UC Irvine"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "83665a8b-9cac-4425-9420-4bc9603a9ea2",
+  "fields": {
+    "college_name": "Stanford U"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "8374ffeb-6c0d-4796-93c5-84fb257fd691",
+  "fields": {
+    "college_name": "College of Staten Island"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "84d0f0e5-9e5e-4587-abce-f606906af1bf",
+  "fields": {
+    "college_name": "Santa Rosa Junior College"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "85b90106-9ced-4d91-853f-12b47d23e769",
+  "fields": {
+    "college_name": "U Southern California"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "871f9662-a65d-4b3c-be21-6f860c1dfcdb",
+  "fields": {
+    "college_name": "U Hawaii - Manoa"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "90686f66-2deb-452f-b2d6-8b948f35b15d",
+  "fields": {
+    "college_name": "Cal Poly Pomona"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "96f23737-1957-4cdb-854e-81bb579f03ba",
+  "fields": {
+    "college_name": "U Nebraska, Kearney"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "9792b74d-d83b-4197-8fdf-e9c1a7fe912b",
+  "fields": {
+    "college_name": "Massachusetts Institute of Technology"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "97a6046a-1804-45d0-824b-2035dc28abe8",
+  "fields": {
+    "college_name": "Georgetown University"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "9827efc7-68b7-49dc-8724-d2256116277d",
+  "fields": {
+    "college_name": "San Francisco State U"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "988b04d6-dee6-406a-a1a0-36ac096f81b9",
+  "fields": {
+    "college_name": "Cosumnes River College"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "99b38c45-4a9b-483c-8aa8-eaa6d497b573",
+  "fields": {
+    "college_name": "Pacific College of Oriental Medicine"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "9f1c3c3a-5d29-45ea-bec3-08b6fb02874a",
+  "fields": {
+    "college_name": "U Maryland: University College"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "9f66d564-4c85-4e7c-aeba-7042892fd6a9",
+  "fields": {
+    "college_name": "UC Berkeley"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "a6db0be2-153b-4053-9e95-f9385d6b1882",
+  "fields": {
+    "college_name": "Maryland Institute College of Art"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "a7e43c65-82b2-46c6-9346-6e059ee0dde1",
+  "fields": {
+    "college_name": "U Pennsylvania"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "abca1ae0-bd6c-4003-8868-b3e56a40ff31",
+  "fields": {
+    "college_name": "Berkeley City College"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "aca58e26-94ee-451d-b697-145d3c0ace00",
+  "fields": {
+    "college_name": "Central Washington U"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "b7904ebf-3381-428f-b52f-d9574d65b486",
+  "fields": {
+    "college_name": "UC Merced"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "b8fce47f-ee12-47d2-a061-0c56c275a1d2",
+  "fields": {
+    "college_name": "Carnegie Mellon U"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "bb287380-4334-4603-8565-3a8a84142a1c",
+  "fields": {
+    "college_name": "Bastyr U"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "bc9da11b-c61d-4b58-8596-61a8426d2c76",
+  "fields": {
+    "college_name": "UC San Diego"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "bcb38738-1c04-4268-9834-f7535a66d367",
+  "fields": {
+    "college_name": "Virginia Tech"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "be84b9a9-63ac-4887-8a69-7f96c85439d0",
+  "fields": {
+    "college_name": "Virginia Commonwealth U"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "becea76c-8727-43bf-bf69-6fad3bc19f4c",
+  "fields": {
+    "college_name": "UC San Francisco"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "c4a1ac9f-87a8-49b7-91f0-885cede602a7",
+  "fields": {
+    "college_name": "U Texas"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "c4d4f463-c1ae-4e1d-9ae5-0c3bde84ab75",
+  "fields": {
+    "college_name": "U Maryland: Baltimore County"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "c6c6a98d-207f-4fab-a900-63f6fc60fc3f",
+  "fields": {
+    "college_name": "Portland Community College"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "c8199968-ecc8-42fa-a584-24c0e4db681c",
+  "fields": {
+    "college_name": "U Maryland: Baltimore"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "cace0fbd-befa-4160-a26d-5e9beeaa2d09",
+  "fields": {
+    "college_name": "SUNY Stony Brook "
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "d21a9da7-5541-4f0e-8996-b649a061f988",
+  "fields": {
+    "college_name": "U North Carolina"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "d25fc02f-4e51-446b-a251-34301b8f07d9",
+  "fields": {
+    "college_name": "U Oklahoma"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "d29610c3-fe27-4a0b-8643-bc4f9c5624fe",
+  "fields": {
+    "college_name": "California College of the Arts"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "d683c274-2f90-45b6-967f-021279cd495d",
+  "fields": {
+    "college_name": "Wellesley U"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "da564a1e-7a8c-4d70-a7d4-8b9aa6f9de9e",
+  "fields": {
+    "college_name": "Berklee College of Music"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "daf4cc47-655a-4c29-af00-ea452995e594",
+  "fields": {
+    "college_name": "San Diego Miramar College"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "de9a1f8d-7e6f-45d5-9180-cfeec93239bc",
+  "fields": {
+    "college_name": "Seattle Central College"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "e1d8e3a1-e06a-491e-88f8-f4ae34972cbf",
+  "fields": {
+    "college_name": "West Coast University"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "e2733f30-533e-4d65-a49b-02db7a42c41f",
+  "fields": {
+    "college_name": "U Maryland: College Park"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "e2c9cfee-eb5d-4b40-9a9c-cd1d9d0de727",
+  "fields": {
+    "college_name": "East Lost Angeles College"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "e395cb6a-2bea-433a-9f19-3811bf0ac477",
+  "fields": {
+    "college_name": "Bentley University"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "e753b2d7-0995-4fa3-9702-1a76cef8d750",
+  "fields": {
+    "college_name": "Boston University"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "ec249d05-261a-427f-9e40-c8e3c34ef1c8",
+  "fields": {
+    "college_name": "Pasadena City College"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "eda298a5-ad02-4448-bdc8-557cfde2c0f5",
+  "fields": {
+    "college_name": "Georgia Tech"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "ef2b0f91-44e1-4eee-8180-79174e0ae9ce",
+  "fields": {
+    "college_name": "The Juilliard School"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "f134a252-25b8-4ca5-b3ec-136cf895241b",
+  "fields": {
+    "college_name": "SUNY Empire State College"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "f8d9526a-613a-4757-8a84-bf2ef6f62225",
+  "fields": {
+    "college_name": "U Virginia"
+  }
+},
+{
+  "model": "collegiates_app.college",
+  "pk": "fb6c7872-8717-4472-8af4-38e059c0b218",
+  "fields": {
+    "college_name": "Harvard U"
+  }
+}
+]

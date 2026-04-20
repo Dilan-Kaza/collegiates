@@ -1,5 +1,5 @@
 # Serialize data before sending to frontend
-from .models import User, College, Blog, Registration, Groupset, GroupsetMembers, Settings
+from .models import User, College, Blog, Registration, Groupset, GroupsetMembers, Settings, Event
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
@@ -80,11 +80,28 @@ class ReadEventRegistrationSerializer(serializers.ModelSerializer):
         model = Registration
         fields = '__all__'
 
+# Serializers for competitors registering for events
+class ListWriteEventRegistrationSerializer(serializers.ListSerializer):
+    def validate(self, data):
+        events = [item["event"] for item in data]
+        if len(events) != len(set(events)):
+            raise serializers.ValidationError({'event': "Duplicate events are not allowed."})
+        return data
+    
 class WriteEventRegistrationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Registration
-        fields = ['competitor', 'comp_year', 'event']
+        fields = ['event']
+        list_serializer_class = ListWriteEventRegistrationSerializer
 
+    def validate(self, data):
+        if not Event.objects.filter(event_code=data['event']).exists():
+            raise serializers.ValidationError({'event': f"Event with id {data['event']} does not exist."})
+        # if Registration.objects.filter(competitor=self.context['request'].user, event=data['event'], year=Settings.objects.first().reg_year).exists():
+        #     raise serializers.ValidationError({'event': "You are already registered for this event."})
+        return data
+    
+# serializer for displaying competitor information on frontend
 class CompetitorSerializer(serializers.ModelSerializer):
     school = CollegeSerializer()
     registration = ReadEventRegistrationSerializer(
@@ -114,6 +131,7 @@ class GroupsetJoinSerializer(serializers.ModelSerializer):
         model = GroupsetMembers
         fields = ['member', 'leader']
 
+# Serializers for organizer tournament settings
 class ReadSettingsSerializer(serializers.ModelSerializer):
     host = CollegeSerializer()
 

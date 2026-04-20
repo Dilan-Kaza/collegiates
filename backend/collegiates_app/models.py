@@ -191,7 +191,7 @@ class Settings(models.Model):
     reg_end = models.DateField(blank=True, null=True)
     reg_active = models.BooleanField(default=False)
     comp_date = models.DateField(blank=True, null=True)
-    contact_email = models.EmailField(blank=True)
+    contact_email = models.EmailField(blank=True, null=True)
     host = models.ForeignKey(College, on_delete=models.CASCADE, db_column='school_id')
     created_at = models.DateTimeField(auto_now_add=True)
     

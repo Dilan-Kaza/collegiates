@@ -1,0 +1,1322 @@
+[
+{
+  "model": "collegiates_app.event",
+  "pk": "AFA101",
+  "fields": {
+    "event_name": "Advanced Female Longfist",
+    "event_level": "A",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AFA102",
+  "fields": {
+    "event_name": "Advanced Female Southern Fist",
+    "event_level": "A",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AFA121",
+  "fields": {
+    "event_name": "Advanced Female Straightsword",
+    "event_level": "A",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AFA122",
+  "fields": {
+    "event_name": "Advanced Female Broadsword",
+    "event_level": "A",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AFA123",
+  "fields": {
+    "event_name": "Advanced Female Southern Broadsword",
+    "event_level": "A",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AFA141",
+  "fields": {
+    "event_name": "Advanced Female Spear",
+    "event_level": "A",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AFA142",
+  "fields": {
+    "event_name": "Advanced Female Staff",
+    "event_level": "A",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AFA143",
+  "fields": {
+    "event_name": "Advanced Female Southern Staff",
+    "event_level": "A",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AFA181",
+  "fields": {
+    "event_name": "Advanced Female Other Weapon",
+    "event_level": "A",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AFA221",
+  "fields": {
+    "event_name": "Advanced Female Traditional Short Weapon",
+    "event_level": "A",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AFA241",
+  "fields": {
+    "event_name": "Advanced Female Traditional Long Weapon",
+    "event_level": "A",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AFA281",
+  "fields": {
+    "event_name": "Advanced Female Traditional Soft Weapon",
+    "event_level": "A",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AFA301",
+  "fields": {
+    "event_name": "Advanced Female 42 Fist",
+    "event_level": "A",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AFA302",
+  "fields": {
+    "event_name": "Advanced Female 42 Sword",
+    "event_level": "A",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AFA321",
+  "fields": {
+    "event_name": "Advanced Female Taiji 24",
+    "event_level": "A",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AFA322",
+  "fields": {
+    "event_name": "Advanced Female Yang",
+    "event_level": "A",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AFA323",
+  "fields": {
+    "event_name": "Advanced Female Chen",
+    "event_level": "A",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AFA341",
+  "fields": {
+    "event_name": "Advanced Female Taiji Weapon",
+    "event_level": "A",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AFA361",
+  "fields": {
+    "event_name": "Advanced Female Internal Open Barehand",
+    "event_level": "A",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AFA381",
+  "fields": {
+    "event_name": "Advanced Female Internal Open Weapon",
+    "event_level": "A",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AMA101",
+  "fields": {
+    "event_name": "Advanced Male Longfist",
+    "event_level": "A",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AMA102",
+  "fields": {
+    "event_name": "Advanced Male Southern Fist",
+    "event_level": "A",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AMA121",
+  "fields": {
+    "event_name": "Advanced Male Straightsword",
+    "event_level": "A",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AMA122",
+  "fields": {
+    "event_name": "Advanced Male Broadsword",
+    "event_level": "A",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AMA123",
+  "fields": {
+    "event_name": "Advanced Male Southern Broadsword",
+    "event_level": "A",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AMA141",
+  "fields": {
+    "event_name": "Advanced Male Spear",
+    "event_level": "A",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AMA142",
+  "fields": {
+    "event_name": "Advanced Male Staff",
+    "event_level": "A",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AMA143",
+  "fields": {
+    "event_name": "Advanced Male Southern Staff",
+    "event_level": "A",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AMA181",
+  "fields": {
+    "event_name": "Advanced Male Other Weapon",
+    "event_level": "A",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AMA201",
+  "fields": {
+    "event_name": "Advanced Male Traditional Open Barehand",
+    "event_level": "A",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AMA221",
+  "fields": {
+    "event_name": "Advanced Male Traditional Short Weapon",
+    "event_level": "A",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AMA241",
+  "fields": {
+    "event_name": "Advanced Male Traditional Long Weapon",
+    "event_level": "A",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AMA281",
+  "fields": {
+    "event_name": "Advanced Male Traditional Soft Weapon",
+    "event_level": "A",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AMA301",
+  "fields": {
+    "event_name": "Advanced Male 42 Fist",
+    "event_level": "A",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AMA302",
+  "fields": {
+    "event_name": "Advanced Male 42 Sword",
+    "event_level": "A",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AMA321",
+  "fields": {
+    "event_name": "Advanced Male Taiji 24",
+    "event_level": "A",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AMA322",
+  "fields": {
+    "event_name": "Advanced Male Yang",
+    "event_level": "A",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AMA323",
+  "fields": {
+    "event_name": "Advanced Male Chen",
+    "event_level": "A",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AMA341",
+  "fields": {
+    "event_name": "Advanced Male Taiji Weapon",
+    "event_level": "A",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AMA361",
+  "fields": {
+    "event_name": "Advanced Male Internal Open Barehand",
+    "event_level": "A",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AMA381",
+  "fields": {
+    "event_name": "Advanced Male Internal Open Weapon",
+    "event_level": "A",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "AMF201",
+  "fields": {
+    "event_name": "Advanced Female Traditional Open Barehand",
+    "event_level": "A",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BFA101",
+  "fields": {
+    "event_name": "Beginner Female Longfist",
+    "event_level": "B",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BFA102",
+  "fields": {
+    "event_name": "Beginner Female Southern Fist",
+    "event_level": "B",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BFA121",
+  "fields": {
+    "event_name": "Beginner Female Straightsword",
+    "event_level": "B",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BFA122",
+  "fields": {
+    "event_name": "Beginner Female Broadsword",
+    "event_level": "B",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BFA123",
+  "fields": {
+    "event_name": "Beginner Female Southern Broadsword",
+    "event_level": "B",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BFA141",
+  "fields": {
+    "event_name": "Beginner Female Spear",
+    "event_level": "B",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BFA142",
+  "fields": {
+    "event_name": "Beginner Female Staff",
+    "event_level": "B",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BFA143",
+  "fields": {
+    "event_name": "Beginner Female Southern Staff",
+    "event_level": "B",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BFA181",
+  "fields": {
+    "event_name": "Beginner Female Other Weapon",
+    "event_level": "B",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BFA221",
+  "fields": {
+    "event_name": "Beginner Female Traditional Short Weapon",
+    "event_level": "B",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BFA241",
+  "fields": {
+    "event_name": "Beginner Female Traditional Long Weapon",
+    "event_level": "B",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BFA281",
+  "fields": {
+    "event_name": "Beginner Female Traditional Soft Weapon",
+    "event_level": "B",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BFA301",
+  "fields": {
+    "event_name": "Beginner Female 42 Fist",
+    "event_level": "B",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BFA302",
+  "fields": {
+    "event_name": "Beginner Female 42 Sword",
+    "event_level": "B",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BFA321",
+  "fields": {
+    "event_name": "Beginner Female Taiji 24",
+    "event_level": "B",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BFA322",
+  "fields": {
+    "event_name": "Beginner Female Yang",
+    "event_level": "B",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BFA323",
+  "fields": {
+    "event_name": "Beginner Female Chen",
+    "event_level": "B",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BFA341",
+  "fields": {
+    "event_name": "Beginner Female Taiji Weapon",
+    "event_level": "B",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BFA361",
+  "fields": {
+    "event_name": "Beginner Female Internal Open Barehand",
+    "event_level": "B",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BFA381",
+  "fields": {
+    "event_name": "Beginner Female Internal Open Weapon",
+    "event_level": "B",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BMA101",
+  "fields": {
+    "event_name": "Beginner Male Longfist",
+    "event_level": "B",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BMA102",
+  "fields": {
+    "event_name": "Beginner Male Southern Fist",
+    "event_level": "B",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BMA121",
+  "fields": {
+    "event_name": "Beginner Male Straightsword",
+    "event_level": "B",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BMA122",
+  "fields": {
+    "event_name": "Beginner Male Broadsword",
+    "event_level": "B",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BMA123",
+  "fields": {
+    "event_name": "Beginner Male Southern Broadsword",
+    "event_level": "B",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BMA141",
+  "fields": {
+    "event_name": "Beginner Male Spear",
+    "event_level": "B",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BMA142",
+  "fields": {
+    "event_name": "Beginner Male Staff",
+    "event_level": "B",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BMA143",
+  "fields": {
+    "event_name": "Beginner Male Southern Staff",
+    "event_level": "B",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BMA181",
+  "fields": {
+    "event_name": "Beginner Male Other Weapon",
+    "event_level": "B",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BMA201",
+  "fields": {
+    "event_name": "Beginner Male Traditional Open Barehand",
+    "event_level": "B",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BMA221",
+  "fields": {
+    "event_name": "Beginner Male Traditional Short Weapon",
+    "event_level": "B",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BMA241",
+  "fields": {
+    "event_name": "Beginner Male Traditional Long Weapon",
+    "event_level": "B",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BMA281",
+  "fields": {
+    "event_name": "Beginner Male Traditional Soft Weapon",
+    "event_level": "B",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BMA301",
+  "fields": {
+    "event_name": "Beginner Male 42 Fist",
+    "event_level": "B",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BMA302",
+  "fields": {
+    "event_name": "Beginner Male 42 Sword",
+    "event_level": "B",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BMA321",
+  "fields": {
+    "event_name": "Beginner Male Taiji 24",
+    "event_level": "B",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BMA322",
+  "fields": {
+    "event_name": "Beginner Male Yang",
+    "event_level": "B",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BMA323",
+  "fields": {
+    "event_name": "Beginner Male Chen",
+    "event_level": "B",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BMA341",
+  "fields": {
+    "event_name": "Beginner Male Taiji Weapon",
+    "event_level": "B",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BMA361",
+  "fields": {
+    "event_name": "Beginner Male Internal Open Barehand",
+    "event_level": "B",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BMA381",
+  "fields": {
+    "event_name": "Beginner Male Internal Open Weapon",
+    "event_level": "B",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "BMF201",
+  "fields": {
+    "event_name": "Beginner Female Traditional Open Barehand",
+    "event_level": "B",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IFA101",
+  "fields": {
+    "event_name": "Intermediate Female Longfist",
+    "event_level": "I",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IFA102",
+  "fields": {
+    "event_name": "Intermediate Female Southern Fist",
+    "event_level": "I",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IFA121",
+  "fields": {
+    "event_name": "Intermediate Female Straightsword",
+    "event_level": "I",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IFA122",
+  "fields": {
+    "event_name": "Intermediate Female Broadsword",
+    "event_level": "I",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IFA123",
+  "fields": {
+    "event_name": "Intermediate Female Southern Broadsword",
+    "event_level": "I",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IFA141",
+  "fields": {
+    "event_name": "Intermediate Female Spear",
+    "event_level": "I",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IFA142",
+  "fields": {
+    "event_name": "Intermediate Female Staff",
+    "event_level": "I",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IFA143",
+  "fields": {
+    "event_name": "Intermediate Female Southern Staff",
+    "event_level": "I",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IFA181",
+  "fields": {
+    "event_name": "Intermediate Female Other Weapon",
+    "event_level": "I",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IFA221",
+  "fields": {
+    "event_name": "Intermediate Female Traditional Short Weapon",
+    "event_level": "I",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IFA241",
+  "fields": {
+    "event_name": "Intermediate Female Traditional Long Weapon",
+    "event_level": "I",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IFA281",
+  "fields": {
+    "event_name": "Intermediate Female Traditional Soft Weapon",
+    "event_level": "I",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IFA301",
+  "fields": {
+    "event_name": "Intermediate Female 42 Fist",
+    "event_level": "I",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IFA302",
+  "fields": {
+    "event_name": "Intermediate Female 42 Sword",
+    "event_level": "I",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IFA321",
+  "fields": {
+    "event_name": "Intermediate Female Taiji 24",
+    "event_level": "I",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IFA322",
+  "fields": {
+    "event_name": "Intermediate Female Yang",
+    "event_level": "I",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IFA323",
+  "fields": {
+    "event_name": "Intermediate Female Chen",
+    "event_level": "I",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IFA341",
+  "fields": {
+    "event_name": "Intermediate Female Taiji Weapon",
+    "event_level": "I",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IFA361",
+  "fields": {
+    "event_name": "Intermediate Female Internal Open Barehand",
+    "event_level": "I",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IFA381",
+  "fields": {
+    "event_name": "Intermediate Female Internal Open Weapon",
+    "event_level": "I",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IMA101",
+  "fields": {
+    "event_name": "Intermediate Male Longfist",
+    "event_level": "I",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IMA102",
+  "fields": {
+    "event_name": "Intermediate Male Southern Fist",
+    "event_level": "I",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IMA121",
+  "fields": {
+    "event_name": "Intermediate Male Straightsword",
+    "event_level": "I",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IMA122",
+  "fields": {
+    "event_name": "Intermediate Male Broadsword",
+    "event_level": "I",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IMA123",
+  "fields": {
+    "event_name": "Intermediate Male Southern Broadsword",
+    "event_level": "I",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IMA141",
+  "fields": {
+    "event_name": "Intermediate Male Spear",
+    "event_level": "I",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IMA142",
+  "fields": {
+    "event_name": "Intermediate Male Staff",
+    "event_level": "I",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IMA143",
+  "fields": {
+    "event_name": "Intermediate Male Southern Staff",
+    "event_level": "I",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IMA181",
+  "fields": {
+    "event_name": "Intermediate Male Other Weapon",
+    "event_level": "I",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IMA201",
+  "fields": {
+    "event_name": "Intermediate Male Traditional Open Barehand",
+    "event_level": "I",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IMA221",
+  "fields": {
+    "event_name": "Intermediate Male Traditional Short Weapon",
+    "event_level": "I",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IMA241",
+  "fields": {
+    "event_name": "Intermediate Male Traditional Long Weapon",
+    "event_level": "I",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IMA281",
+  "fields": {
+    "event_name": "Intermediate Male Traditional Soft Weapon",
+    "event_level": "I",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IMA301",
+  "fields": {
+    "event_name": "Intermediate Male 42 Fist",
+    "event_level": "I",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IMA302",
+  "fields": {
+    "event_name": "Intermediate Male 42 Sword",
+    "event_level": "I",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IMA321",
+  "fields": {
+    "event_name": "Intermediate Male Taiji 24",
+    "event_level": "I",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IMA322",
+  "fields": {
+    "event_name": "Intermediate Male Yang",
+    "event_level": "I",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IMA323",
+  "fields": {
+    "event_name": "Intermediate Male Chen",
+    "event_level": "I",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IMA341",
+  "fields": {
+    "event_name": "Intermediate Male Taiji Weapon",
+    "event_level": "I",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IMA361",
+  "fields": {
+    "event_name": "Intermediate Male Internal Open Barehand",
+    "event_level": "I",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IMA381",
+  "fields": {
+    "event_name": "Intermediate Male Internal Open Weapon",
+    "event_level": "I",
+    "gender_category": "M",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "IMF201",
+  "fields": {
+    "event_name": "Intermediate Female Traditional Open Barehand",
+    "event_level": "I",
+    "gender_category": "F",
+    "is_nandu": false
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "NFN111",
+  "fields": {
+    "event_name": "Advanced Female Nandu Longfist",
+    "event_level": "A",
+    "gender_category": "F",
+    "is_nandu": true
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "NFN112",
+  "fields": {
+    "event_name": "Advanced Female Nandu Southern Fist",
+    "event_level": "A",
+    "gender_category": "F",
+    "is_nandu": true
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "NFN311",
+  "fields": {
+    "event_name": "Advanced Female Nandu Taiji Barehand",
+    "event_level": "A",
+    "gender_category": "F",
+    "is_nandu": true
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "NMN111",
+  "fields": {
+    "event_name": "Advanced Male Nandu Longfist",
+    "event_level": "A",
+    "gender_category": "M",
+    "is_nandu": true
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "NMN112",
+  "fields": {
+    "event_name": "Advanced Male Nandu Southern Fist",
+    "event_level": "A",
+    "gender_category": "M",
+    "is_nandu": true
+  }
+},
+{
+  "model": "collegiates_app.event",
+  "pk": "NMN311",
+  "fields": {
+    "event_name": "Advanced Male Nandu Taiji Barehand",
+    "event_level": "A",
+    "gender_category": "M",
+    "is_nandu": true
+  }
+}
+]

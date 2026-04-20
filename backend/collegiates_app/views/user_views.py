@@ -3,6 +3,7 @@ from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.core.mail import send_mail
+from django.core.exceptions import ValidationError
 
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -84,7 +85,7 @@ def reset_password_confirm(request):
     try:
         pk = force_str(urlsafe_base64_decode(uid))
         user = User.objects.get(user_id = pk)
-    except (User.DoesNotExist, ValueError):
+    except (User.DoesNotExist, ValueError, ValidationError):
         return Response({'error': 'Invalid reset link'}, status=status.HTTP_400_BAD_REQUEST)
     if not default_token_generator.check_token(user, token):
         return Response({'error': 'Link is invalid or has expired'}, status=status.HTTP_400_BAD_REQUEST)
@@ -116,7 +117,6 @@ def register_events(request):
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    assert isinstance(serializer.validated_data, dict)
     events = [item['event'] for item in serializer.validated_data]
     year = config.reg_year
     
