@@ -226,7 +226,7 @@ export default function Register() {
 
   const handlePageChange = (e) => {
     if (!nextPage) {
-      const requiredFields = ["email", "passsword1", "password2", "first_name", "last_name"]
+      const requiredFields = ["email", "password1", "password2", "first_name", "last_name"]
       const allErrors = {};
       requiredFields.forEach((name) => {
         const error = validate(name, formData[name]);
