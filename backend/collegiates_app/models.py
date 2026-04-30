@@ -37,6 +37,19 @@ class College(models.Model):
     class Meta:
         db_table = 'colleges'
 
+class Event(models.Model):
+    event_code = models.CharField(primary_key=True, max_length=50)
+    event_name = models.CharField(max_length=255, unique=True)
+    event_level = models.CharField(max_length=1, choices=SkillLevelChoices.choices)
+    gender_category = models.CharField(max_length=1, choices=GenderChoices.choices)
+    is_nandu = models.BooleanField()
+    
+    def __str__(self):
+        return self.event_name
+    
+    class Meta:
+        db_table = 'events'
+
 class CustomUserManager(UserManager):
     def _create_user(self, email, password, **extra_fields):
         if not email:
@@ -75,7 +88,7 @@ class CustomUserManager(UserManager):
         if extra_fields.get("is_superuser") is not True:
             raise ValueError("Superuser must have is_superuser=True.")
         return self._create_user(email, password, **extra_fields)
-    
+
 class User(AbstractUser):
     user_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
@@ -90,6 +103,7 @@ class User(AbstractUser):
     is_competing = models.BooleanField(default=False)
     has_paid = models.BooleanField(default=False)
     proof_of_reg = models.BooleanField(default=False)
+    events = models.ManyToManyField(Event, through="Registration", related_name='competitor')
     
     username = None
     USERNAME_FIELD = "email"
@@ -110,26 +124,13 @@ class User(AbstractUser):
         db_table = 'users'
 
 
-class Event(models.Model):
-    event_code = models.CharField(primary_key=True, max_length=50)
-    event_name = models.CharField(max_length=255, unique=True)
-    event_level = models.CharField(max_length=1, choices=SkillLevelChoices.choices)
-    gender_category = models.CharField(max_length=1, choices=GenderChoices.choices)
-    is_nandu = models.BooleanField()
-    
-    def __str__(self):
-        return self.event_name
-    
-    class Meta:
-        db_table = 'events'
-
-
 class Registration(models.Model):
     competitor = models.ForeignKey(User, on_delete=models.CASCADE, db_column='competitor_id')
-    comp_year = models.IntegerField()
     event = models.ForeignKey(Event, on_delete=models.CASCADE, db_column='event_code')
+    comp_year = models.IntegerField()
     date_created = models.DateTimeField(auto_now_add=True)
-    
+    nandu_str = models.TextField(blank=True, null=True)
+
     class Meta:
         db_table = 'registration'
         unique_together = ('competitor', 'comp_year', 'event')
@@ -141,7 +142,11 @@ class Groupset(models.Model):
     school = models.ForeignKey(College, on_delete=models.CASCADE, db_column='school_id')
     team_name = models.CharField(max_length=255)
     date_created = models.DateTimeField(auto_now_add=True)
+    members = models.ManyToManyField(User, through="GroupsetMembers", related_name="groupset")
 
+    def __str__(self):
+        return self.team_name
+    
     class Meta:
         db_table = 'groupset'
 
@@ -168,18 +173,6 @@ class Blog(models.Model):
     
     class Meta:
         db_table = 'blog'
-
-
-class Nandu(models.Model):
-    competitor = models.ForeignKey(User, on_delete=models.CASCADE, db_column='competitor_id')
-    comp_year = models.IntegerField()
-    event = models.ForeignKey(Event, on_delete=models.CASCADE, db_column='event_code')
-    nandu_str = models.TextField()
-    date_created = models.DateTimeField(auto_now_add=True)
-    
-    class Meta:
-        db_table = 'nandu'
-        unique_together = ('competitor', 'comp_year', 'event')
 
 CACHE_KEY = "competition_settings_latest"
 

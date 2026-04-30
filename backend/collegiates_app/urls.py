@@ -13,5 +13,7 @@ urlpatterns = [
     path("reset-password-confirm/", views.reset_password_confirm, name="reset_password_confirm"),
     path('check-email/', views.check_email, name="check_email"),
     path('my_profile/', views.my_profile, name="my_profile"),
-    path('register_events/', views.register_events, name="register_events")
+    path('register_events/', views.RegisterEvents.as_view(), name="register_events"),
+    path('create_groupset/', views.create_groupset, name="create_groupset"),
+    path('join_groupset/', views.join_groupset, name="join_groupset")
 ]
