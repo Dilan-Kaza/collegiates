@@ -69,6 +69,15 @@ class CollegeSerializer(serializers.ModelSerializer):
         model = College
         fields = '__all__'
 
+class EventSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Event
+        fields = ['event_code', 
+                  'event_name', 
+                  'event_level', 
+                  'gender_category', 
+                  'is_nandu',]
+
 class BlogSerializer(serializers.ModelSerializer):
     class Meta:
         model = Blog
@@ -76,7 +85,7 @@ class BlogSerializer(serializers.ModelSerializer):
 
 
 # Serializers for competitors registering for events
-class ListEventRegistrationSerializer(serializers.ListSerializer):
+class EventRegistrationListSerializer(serializers.ListSerializer):
     def validate(self, data):
         if len(data) == 0:
             raise serializers.ValidationError("No data")
@@ -89,22 +98,34 @@ class EventRegistrationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Registration
         fields = '__all__'
-        list_serializer_class = ListEventRegistrationSerializer
+        list_serializer_class = EventRegistrationListSerializer
         read_only_fields = ['competitor', 'comp_year']
 
     def validate(self, data):
         config = Settings.load()
+        
+        user_gender = self.context['request'].user.gender
+        event_gender = data['event'].gender_category
+        if event_gender != user_gender:
+            raise serializers.ValidationError({'event': "Competitor signed up for wrong gender category"})
+        
+        user_level = self.context['request'].user.skill_level
+        event_level = data['event'].event_level
+        if event_level != user_level:
+            raise serializers.ValidationError({'event': "Competitor signed up for wrong level"})
+
         if not Event.objects.filter(event_code=data['event'].event_code).exists():
             raise serializers.ValidationError({'event': f"Event with id {data['event']} does not exist."})
+        
         if Registration.objects.filter(competitor=self.context['request'].user, event=data['event'], comp_year=config.reg_year).exists(): # type: ignore
             raise serializers.ValidationError({'event': "You are already registered for this event."})
+        
         return data
-    
-    
     
 # serializer for displaying competitor information on frontend
 class CompetitorSerializer(serializers.ModelSerializer):
-    school = CollegeSerializer()
+    school = serializers.CharField(source='school.college_name', read_only=True)
+    events = EventSerializer(many=True)
 
     class Meta:
         model = User

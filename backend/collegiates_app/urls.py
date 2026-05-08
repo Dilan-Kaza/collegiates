@@ -14,6 +14,7 @@ urlpatterns = [
     path('check-email/', views.check_email, name="check_email"),
     path('my_profile/', views.my_profile, name="my_profile"),
     path('registration/', views.RegisterEvents.as_view(), name="register_events"),
+    path('events/', views.GetEvents.as_view(), name="get_events"),
     path('create_groupset/', views.create_groupset, name="create_groupset"),
     path('join_groupset/', views.join_groupset, name="join_groupset")
 ]
