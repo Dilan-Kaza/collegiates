@@ -12,9 +12,9 @@ urlpatterns = [
     path("reset-password/", views.reset_password_link, name="reset_password"),
     path("reset-password-confirm/", views.reset_password_confirm, name="reset_password_confirm"),
     path('check-email/', views.check_email, name="check_email"),
-    path('my_profile/', views.my_profile, name="my_profile"),
-    path('registration/', views.RegisterEvents.as_view(), name="register_events"),
+    path('profile/', views.Competitor.as_view(), name="my_profile"),
+    path('registration/', views.RegisterEvents.as_view(), name="registration"),
     path('events/', views.GetEvents.as_view(), name="get_events"),
-    path('create_groupset/', views.create_groupset, name="create_groupset"),
-    path('join_groupset/', views.join_groupset, name="join_groupset")
+    path('groupset/', views.CreateGroupset.as_view(), name="groupset"),
+    path('groupset-members/', views.JoinGroupset.as_view(), name="groupset_members")
 ]

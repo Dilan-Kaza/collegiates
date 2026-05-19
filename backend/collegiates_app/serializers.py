@@ -1,5 +1,5 @@
 # Serialize data before sending to frontend
-from .models import User, College, Blog, Registration, Groupset, GroupsetMembers, Settings, Event
+from .models import User, College, Blog, Registration, Groupset, GroupsetMember, Settings, Event
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
@@ -69,21 +69,19 @@ class CollegeSerializer(serializers.ModelSerializer):
         model = College
         fields = '__all__'
 
-class EventSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Event
-        fields = ['event_code', 
-                  'event_name', 
-                  'event_level', 
-                  'gender_category', 
-                  'is_nandu',]
 
 class BlogSerializer(serializers.ModelSerializer):
     class Meta:
         model = Blog
         fields = '__all__'
 
-
+class EventSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Event
+        fields = ['event_name', 
+                  'event_level',
+                  'is_nandu']
+        
 # Serializers for competitors registering for events
 class EventRegistrationListSerializer(serializers.ListSerializer):
     def validate(self, data):
@@ -95,14 +93,30 @@ class EventRegistrationListSerializer(serializers.ListSerializer):
         return data
     
 class EventRegistrationSerializer(serializers.ModelSerializer):
+    event = EventSerializer()
+
     class Meta:
         model = Registration
-        fields = '__all__'
+        fields = ['comp_year', 
+                  'date_created',
+                  'event',
+                  'nandu_str']
         list_serializer_class = EventRegistrationListSerializer
-        read_only_fields = ['competitor', 'comp_year']
+        read_only_fields = ['comp_year', 'date_created']
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if data['event']['is_nandu'] == False:
+            data.pop('nandu_str', None)
+        for key in data['event']:
+            data[key] = data['event'][key]
+        data.pop("event", None)
+        return data
 
     def validate(self, data):
         config = Settings.load()
+        if config is None:
+            raise serializers.ValidationError({'event': 'Competition settings have not been set'})
         
         user_gender = self.context['request'].user.gender
         event_gender = data['event'].gender_category
@@ -121,38 +135,78 @@ class EventRegistrationSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({'event': "You are already registered for this event."})
         
         return data
+
+class RegistrationSerializer(serializers.ModelSerializer):
+    event = EventSerializer(read_only=True)
     
+    class Meta:
+        model = Registration
+        fields = ['event', 'comp_year', 'nandu_str']
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if data['event']['is_nandu'] == False:
+            data.pop('nandu_str', None)
+        data['event_level'] = data['event']['event_level']
+        data['event'] = data['event']['event_name']
+        return data
+
 # serializer for displaying competitor information on frontend
 class CompetitorSerializer(serializers.ModelSerializer):
-    school = serializers.CharField(source='school.college_name', read_only=True)
-    events = EventSerializer(many=True)
+    school = serializers.StringRelatedField()
+    registrations = serializers.SerializerMethodField()
+    
 
     class Meta:
         model = User
-        exclude = ['password']
+        fields = ['user_id', 
+                  'email', 
+                  'gender', 
+                  'school', 
+                  'student_type', 
+                  'first_comp', 
+                  'skill_level', 
+                  'grad_date', 
+                  'registrations']
+        
+    def get_registrations(self, obj):
+        registrations = obj.registration_set.all()
+        return RegistrationSerializer(registrations, many=True).data
 
 class OrganizerSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['user_id', 'email', 'user_type']
 
-class GroupsetCreationSerializer(serializers.ModelSerializer):
+class GroupsetSerializer(serializers.ModelSerializer):
+    members = serializers.StringRelatedField(many=True)
+    school = serializers.StringRelatedField()
 
     class Meta:
         model = Groupset
-        fields = ['team_name']
+        fields = ['team_name', 'school', 'comp_year', 'date_created', 'members']
+        read_only_fields = ['school', 'comp_year', 'date_created', 'members']
 
-class GroupsetJoinSerializer(serializers.ModelSerializer):
+    def validate(self, data):
+        config = Settings.load()
+        if GroupsetMember.objects.filter(member=self.context['request'].user).exists():
+            raise serializers.ValidationError({'groupset': 'You are already in a groupset'})
+        if Groupset.objects.filter(team_name=data['team_name'], comp_year=config.reg_year).exists():
+            raise serializers.ValidationError({'groupset': 'A groupset with this name already exists'})
+        return data
+    
+class GroupsetMemberSerializer(serializers.ModelSerializer):
     
     class Meta:
-        model = GroupsetMembers
+        model = GroupsetMember
         fields = ['groupset']
+        read_only_fields = ['member', 'leader']
 
     def validate(self, data):
         groupset = Groupset.objects.filter(groupset_id=data['groupset'].groupset_id).first()
         if groupset is None:
             raise serializers.ValidationError({'groupset': 'Groupset does not exist'})
-        if GroupsetMembers.objects.filter(groupset=groupset.groupset_id, member=self.context['request'].user).exists():
+        if GroupsetMember.objects.filter(groupset=groupset.groupset_id, member=self.context['request'].user).exists():
             raise serializers.ValidationError({'groupset': 'You are already registered with this groupset'})
         if self.context['request'].user.school != groupset.school:
             raise serializers.ValidationError({'groupset': 'You must sign up for a groupset from your school'})
@@ -170,7 +224,7 @@ class ReadSettingsSerializer(serializers.ModelSerializer):
 class WriteSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Settings
-        exclude = ["created_at", "reg_active"]
+        exclude = ["created_at"]
 
     def validate(self, data):
         if data['early_reg_start'] > data['early_reg_end']:
