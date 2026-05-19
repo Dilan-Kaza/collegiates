@@ -2,6 +2,7 @@ import uuid
 from django.db import models
 from django.contrib.auth.models import AbstractUser, UserManager
 from django.core.cache import cache
+from django.utils import timezone
 
 class GenderChoices(models.TextChoices):
     MALE = 'M', 'Male'
@@ -93,7 +94,6 @@ class User(AbstractUser):
     user_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
     user_type = models.CharField(max_length=1, choices=UserTypeChoices.choices, default='C')
-
     gender = models.CharField(max_length=1, choices=GenderChoices.choices, null=True)
     school = models.ForeignKey(College, on_delete=models.SET_NULL, null=True, blank=True, db_column='school_id')
     student_type = models.CharField(max_length=1, choices=StudentStatusChoices.choices, null=True)
@@ -103,7 +103,6 @@ class User(AbstractUser):
     is_competing = models.BooleanField(default=False)
     has_paid = models.BooleanField(default=False)
     proof_of_reg = models.BooleanField(default=False)
-    events = models.ManyToManyField(Event, through="Registration", related_name='competitor')
     
     username = None
     USERNAME_FIELD = "email"
@@ -142,7 +141,7 @@ class Groupset(models.Model):
     school = models.ForeignKey(College, on_delete=models.CASCADE, db_column='school_id')
     team_name = models.CharField(max_length=255)
     date_created = models.DateTimeField(auto_now_add=True)
-    members = models.ManyToManyField(User, through="GroupsetMembers", related_name="groupset")
+    members = models.ManyToManyField(User, through="GroupsetMember", related_name="groupset")
 
     def __str__(self):
         return self.team_name
@@ -150,7 +149,7 @@ class Groupset(models.Model):
     class Meta:
         db_table = 'groupset'
 
-class GroupsetMembers(models.Model):
+class GroupsetMember(models.Model):
     groupset = models.ForeignKey(Groupset, on_delete=models.CASCADE, related_name='groupset', db_column='groupset_id')
     member = models.ForeignKey(User, on_delete=models.CASCADE, related_name='groupset_member', db_column='member')
     date_joined = models.DateTimeField(auto_now_add=True)
@@ -180,11 +179,10 @@ class Settings(models.Model):
     reg_year = models.IntegerField()
     early_reg_start = models.DateField(blank=True, null=True)
     early_reg_end = models.DateField(blank=True, null=True)
-    reg_start = models.DateField(blank=True, null=True)
-    reg_end = models.DateField(blank=True, null=True)
-    reg_active = models.BooleanField(default=False)
+    reg_start = models.DateField()
+    reg_end = models.DateField()
     comp_date = models.DateField(blank=True, null=True)
-    contact_email = models.EmailField(blank=True, null=True)
+    contact_email = models.EmailField()
     host = models.ForeignKey(College, on_delete=models.CASCADE, db_column='school_id')
     created_at = models.DateTimeField(auto_now_add=True)
     
@@ -195,6 +193,16 @@ class Settings(models.Model):
     def save(self, **kwargs):
         super().save(**kwargs)
         cache.delete(CACHE_KEY)
+
+    @property
+    def reg_active(self):
+        now = timezone.now()
+        if self.early_reg_start and self.early_reg_end:
+            if self.early_reg_start <= now <= self.early_reg_end:
+                return True
+        elif self.reg_start <= now <= self.reg_end:
+            return True
+        return False
 
     @classmethod
     def load(cls):
