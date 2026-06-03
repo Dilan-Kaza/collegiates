@@ -46,6 +46,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'rest_framework.authtoken',
+    'djoser',
 ]
 
 MIDDLEWARE = [
@@ -61,12 +63,35 @@ MIDDLEWARE = [
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication'
     ],
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
         'rest_framework.renderers.BrowsableAPIRenderer',  # enables the HTML form UI
     ],
+}
+
+AUTHENTICATION_BACKENDS = [
+    "djoser.auth_backends.LoginFieldBackend",
+]
+
+DJOSER = {
+    'SERIALIZERS': {
+        'user': 'collegiates_app.serializers.CompetitorSerializer',
+        'user_create': 'collegiates_app.serializers.RegisterCompetitorSerializer',
+        'current_user': 'collegiates_app.serializers.CompetitorSerializer',
+    },
+    'SET_PASSWORD_RETYPE': True,
+    'SET_PASSWORD_RETYPE': True,
+    'LOGIN FIELD': 'email',
+
+}
+
+SIMPLE_JWT = {
+    'AUTH_HEADER_TYPES': ['JWT',],
+    'USER_ID_FIELD': 'user_id',
 }
 
 ROOT_URLCONF = 'django_backend.urls'
@@ -88,11 +113,6 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'django_backend.wsgi.application'
-
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:3000",
-    "http://localhost:8000",
-]
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:8000",
