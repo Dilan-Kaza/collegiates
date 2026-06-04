@@ -3,7 +3,32 @@ from .models import User, College, Blog, Registration, Groupset, GroupsetMember,
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
+class RegisterCompetitorSerializer(serializers.ModelSerializer):
+    password1 = serializers.CharField(write_only=True, validators=[validate_password])
+    password2 = serializers.CharField(write_only=True)
+    school = serializers.PrimaryKeyRelatedField(queryset=College.objects.all())
+
+    class Meta:
+        model = User
+        fields = ["email",
+                  "password1",
+                  "password2",
+                  "school"
+                  ]
     
+    def validate(self, data):
+        if data['password1'] != data['password2']:
+            raise serializers.ValidationError({'password2': 'Passwords do not match'})
+        return data
+    
+    # called automatically on save()
+    def create(self, validated_data):
+        validated_data.pop('password2')
+        password = validated_data.pop('password1')
+        email = validated_data.pop('email')
+        user = User.objects.create_user(email=email, password=password, **validated_data) # type: ignore
+        return user
+
 class RegisterOrganizerSerializer(serializers.ModelSerializer):
     password1 = serializers.CharField(write_only=True, validators=[validate_password])
     password2 = serializers.CharField(write_only=True)
@@ -26,9 +51,8 @@ class RegisterOrganizerSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data.pop('password2')
         password = validated_data.pop('password1')
-        user = User(user_type='O', **validated_data)
-        user.set_password(password)
-        user.save()
+        email = validated_data.pop('email')
+        user = User.objects.create_user(email=email, password=password, **validated_data) # type: ignore
         return user
 
 class CollegeSerializer(serializers.ModelSerializer):
@@ -161,9 +185,8 @@ class CompetitorSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data.pop('re_password')
         password = validated_data.pop('password')
-        user = User(user_type='C', **validated_data)
-        user.set_password(password)
-        user.save()
+        email = validated_data.pop('email')
+        user = User.objects.create_user(email=email, password=password, **validated_data) # type: ignore
         return user
 
 class OrganizerSerializer(serializers.ModelSerializer):
