@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: "${DJANGO_DATABASE_PWORD}"
       POSTGRES_DB: "${DJANGO_DATABASE_NAME}"
     ports:
-      - "5433:5432"
+      - "5432:5432"
     restart: always
     env_file:
       - .env
