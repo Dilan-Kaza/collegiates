@@ -1,6 +1,6 @@
 "use client";
 
-import { AuthPanel } from "@/app/components/authPanel";
+import { AuthPanelWide } from "@/app/components/authPanel";
 import { LongButton } from "@/app/components/button";
 import {
   DatePicker,
@@ -26,13 +26,10 @@ export default function Register() {
 
   const [colleges, setColleges] = useState({});
   const [formData, setFormData] = useState({});
-  const [nextPage, setNextPage] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [csrfToken, setCsrfToken] = useState("");
   const [errors, setErrors] = useState({});
-  const [touched, setTouched] = useState({});
-  const [emailExists, setEmailExists] = useState(false);
 
   const validate = (name, value) => {
     switch(name) {
@@ -193,6 +190,7 @@ export default function Register() {
       ...formData,
       grad_date: formData.grad_date ? `${formData.grad_date}-01` : ""
     };
+    console.log(payload);
 
     const headers = {
       "Content-Type": "application/json",
@@ -248,207 +246,182 @@ export default function Register() {
   }
 };
 
-  const handlePageChange = (e) => {
-    if (!nextPage) {
-      const requiredFields = ["email", "password", "re_password", "first_name", "last_name"]
-      const allErrors = {};
-      requiredFields.forEach((name) => {
-        const error = validate(name, formData[name]);
-        if (error) allErrors[name] = error;
-      });
-
-      if (Object.keys(allErrors).length > 0) {
-        setErrors(allErrors);
-        return;
-      }
-    }
-    setNextPage(!nextPage);
-  };
 
   return (
     <>
-      {!nextPage ? (
-        <AuthPanel
+    <div
+        id="bg-component"
+        className="bg-primary h-screen w-full skew-y-10 absolute -top-[60svh] left-0 -z-20"
+      ></div>
+      {
+        <AuthPanelWide
           bottomLabel="Already registered? "
           bottomLink="Sign In"
           onSubmit={handleSubmit}
-          title="Register"
+          title="Register an Account"
         >
-          {error && <div className="text-red-500 mb-4">{error}</div>}
-          <ShortAnswer
-            type="email"
-            name="email"
-            label="Email*"
-            onChange={handleChange}
-            onBlur={handleBlur}
-            value={formData.email || ""}
-            required
-          />
-          {errors.email && (
-            <p className="text-red-500 text-sm -mt-2">{errors.email}</p>
-          )}
-          <ShortAnswer
-            type="password"
-            name="password"
-            label="Password*"
-            minLength={8}
-            onChange={handleChange}
-            value={formData.password || ""}
-            required
-          />
-          {errors.password && (
-            <p className="text-red-500 text-sm -mt-2">{errors.password}</p>
-          )}
-          <ShortAnswer
-            type="password"
-            name="re_password"
-            label="Confirm Password*"
-            minLength={8}
-            onChange={handleChange}
-            value={formData.re_password || ""}
-            required
-          />
-          {errors.re_password && (
-            <p className="text-red-500 text-sm -mt-2">{errors.re_password}</p>
-          )}
-          <div className="flex gap-4">
-            <div className="flex flex-col flex-1">
+          <div className="flex row gap-15">
+            <div className="flex flex-col flex-1 gap-4">
+              {error && <div className="text-red-500 mb-4">{error}</div>}
               <ShortAnswer
-                type="text"
-                name="first_name"
-                label="First Name*"
+                type="email"
+                name="email"
+                label="Email*"
                 onChange={handleChange}
-                value={formData.first_name || ""}
+                onBlur={handleBlur}
+                value={formData.email || ""}
                 required
               />
-              {errors.first_name && (
-                <p className="text-red-500 text-sm mt-1">{errors.first_name}</p>
+              {errors.email && (
+                <p className="text-red-500 text-sm -mt-2">{errors.email}</p>
               )}
-            </div>
-            <div className="flex flex-col flex-1">
               <ShortAnswer
-                type="text"
-                name="last_name"
-                label="Last Name*"
+                type="password"
+                name="password1"
+                label="Password*"
+                minLength={8}
                 onChange={handleChange}
-                value={formData.last_name || ""}
+                value={formData.password1 || ""}
                 required
               />
-              {errors.last_name && (
-                <p className="text-red-500 text-sm mt-1">{errors.last_name}</p>
+              {errors.password1 && (
+                <p className="text-red-500 text-sm -mt-2">{errors.password1}</p>
+              )}
+              <ShortAnswer
+                type="password"
+                name="password2"
+                label="Confirm Password*"
+                minLength={8}
+                onChange={handleChange}
+                value={formData.password2 || ""}
+                required
+              />
+              {errors.password2 && (
+                <p className="text-red-500 text-sm -mt-2">{errors.password2}</p>
               )}
             </div>
-          </div>
-          <button
-            onClick={handlePageChange}
-            className="self-stretch mb-24"
-            type="button"
-          >
-            <LongButton>Continue</LongButton>
-          </button>
-        </AuthPanel>
-      ) : (
-        <>
-          <AuthPanel
-            title="Register"
-            bottomLabel="Already registered? "
-            bottomLink="Sign In"
-            onSubmit={handleSubmit}
-          >
-            <div className="flex justify-between gap-4">
-              <div className="flex flex-col flex-1">
-                <ShortAnswer
-                  label="First Competition Year*"
-                  type="number"
-                  name="first_comp"
-                  min="1900"
-                  max="9999"
-                  onChange={handleChange}
-                  value={formData.first_comp || ""}
-                  className="w-40"
-                  required
-                />
-                {errors.first_comp && (
-                  <p className="text-red-500 text-sm mt-1">{errors.first_comp}</p>
-                )}
+            <div className="flex flex-col flex-1 gap-4">
+              <div className="flex gap-4">
+                <div className="flex flex-col flex-1">
+                  <ShortAnswer
+                    type="text"
+                    name="first_name"
+                    label="First Name*"
+                    onChange={handleChange}
+                    value={formData.first_name || ""}
+                    required
+                  />
+                  {errors.first_name && (
+                    <p className="text-red-500 text-sm mt-1">{errors.first_name}</p>
+                  )}
+                </div>
+                <div className="flex flex-col flex-1">
+                  <ShortAnswer
+                    type="text"
+                    name="last_name"
+                    label="Last Name*"
+                    onChange={handleChange}
+                    value={formData.last_name || ""}
+                    required
+                  />
+                  {errors.last_name && (
+                    <p className="text-red-500 text-sm mt-1">{errors.last_name}</p>
+                  )}
+                </div>
               </div>
-              <div className="flex flex-col flex-1">
-                <DatePicker
-                  label="Graduation Date*"
-                  name="grad_date"
+                <div className="flex justify-between gap-4">
+                  <div className="flex flex-col flex-1">
+                    <ShortAnswer
+                      label="First Competition Year*"
+                      type="number"
+                      name="first_comp"
+                      min="1900"
+                      max="9999"
+                      onChange={handleChange}
+                      value={formData.first_comp || ""}
+                      className="w-40"
+                      required
+                    />
+                    {errors.first_comp && (
+                      <p className="text-red-500 text-sm mt-1">{errors.first_comp}</p>
+                    )}
+                  </div>
+                  <div className="flex flex-col flex-1">
+                    <DatePicker
+                      label="Graduation Date*"
+                      name="grad_date"
+                      onChange={handleChange}
+                      value={formData.grad_date || ""}
+                      className="w-40"
+                      required
+                    />
+                    {errors.grad_date && (
+                      <p className="text-red-500 text-sm mt-1">{errors.grad_date}</p>
+                    )}
+                  </div>
+                </div>
+                <Dropdown
+                  options={skillLevels}
+                  label="Experience Level*"
+                  name="skill_level"
                   onChange={handleChange}
-                  value={formData.grad_date || ""}
-                  className="w-40"
+                  value={formData.skill_level || ""}
                   required
                 />
-                {errors.grad_date && (
-                  <p className="text-red-500 text-sm mt-1">{errors.grad_date}</p>
+                {errors.skill_level && (
+                  <p className="text-red-500 text-sm -mt-2">{errors.skill_level}</p>
                 )}
+                <Dropdown
+                  options={colleges}
+                  label="College*"
+                  name="school"
+                  onChange={handleChange}
+                  value={formData.school || ""}
+                  required
+                />
+                {errors.school && (
+                  <p className="text-red-500 text-sm -mt-2">{errors.school}</p>
+                )}
+                <div className="flex justify-between gap-2">
+                  <div className="flex flex-col flex-1">
+                    <Dropdown
+                      options={genderChoices}
+                      label="Gender*"
+                      name="gender"
+                      onChange={handleChange}
+                      value={formData.gender || ""}
+                      required
+                    />
+                    {errors.gender && (
+                      <p className="text-red-500 text-sm mt-1">{errors.gender}</p>
+                    )}
+                  </div>
+                  <div className="flex flex-col w-48">
+                    <Dropdown
+                      options={studentTypes}
+                      label="Student Type*"
+                      name="student_type"
+                      onChange={handleChange}
+                      value={formData.student_type || ""}
+                      required
+                    />
+                    {errors.student_type && (
+                      <p className="text-red-500 text-sm mt-1">{errors.student_type}</p>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
-            <Dropdown
-              options={skillLevels}
-              label="Experience Level*"
-              name="skill_level"
-              onChange={handleChange}
-              value={formData.skill_level || ""}
-              required
-            />
-            {errors.skill_level && (
-              <p className="text-red-500 text-sm -mt-2">{errors.skill_level}</p>
-            )}
-            <Dropdown
-              options={colleges}
-              label="College*"
-              name="school"
-              onChange={handleChange}
-              value={formData.school || ""}
-              required
-            />
-            {errors.school && (
-              <p className="text-red-500 text-sm -mt-2">{errors.school}</p>
-            )}
-            <div className="flex justify-between gap-2">
-              <div className="flex flex-col flex-1">
-                <Dropdown
-                  options={genderChoices}
-                  label="Gender*"
-                  name="gender"
-                  onChange={handleChange}
-                  value={formData.gender || ""}
-                  required
-                />
-                {errors.gender && (
-                  <p className="text-red-500 text-sm mt-1">{errors.gender}</p>
-                )}
-              </div>
-              <div className="flex flex-col w-48">
-                <Dropdown
-                  options={studentTypes}
-                  label="Student Type*"
-                  name="student_type"
-                  onChange={handleChange}
-                  value={formData.student_type || ""}
-                  required
-                />
-                {errors.student_type && (
-                  <p className="text-red-500 text-sm mt-1">{errors.student_type}</p>
-                )}
-              </div>
-            </div>
-            <button onClick={handleSubmit} type="submit" disabled={loading}>
+            <button
+              onClick={handleSubmit}
+              type="submit"
+              disabled={loading}
+              className="self-stretch mb-20"
+            >
               <LongButton>{loading ? "Registering..." : "Submit"}</LongButton>
             </button>
-            <button
-              onClick={handlePageChange}
-              className="self-stretch mb-20"
-              type="button"
-            >
-              <LongButton>Back</LongButton>
-            </button>
-          </AuthPanel>
-        </>
-      )}
+          </AuthPanelWide>
+      }
     </>
   );
 }

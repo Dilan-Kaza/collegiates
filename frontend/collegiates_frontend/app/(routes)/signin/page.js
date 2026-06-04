@@ -1,5 +1,6 @@
 import { AuthPanel } from "@/app/components/authPanel";
 import { Button } from "@/app/components/button";
+import { ShortAnswer } from "@/app/components/formComponents";
 
 export default function SignIn() {
   return (
@@ -13,7 +14,30 @@ export default function SignIn() {
         bottomLabel="Don't have an account? "
         title="Sign In"
       >
-        <Button isLink={true}>Register</Button>
+        <ShortAnswer
+          type="email"
+          name="email"
+          label="Email*"
+          required
+        />
+        <ShortAnswer
+          type="password"
+          name="password1"
+          label="Password*"
+        />
+        <div className="flex">
+          <div className="flex-col flex-1"></div>
+          <div className="flex-box">
+            <Button 
+              className="self-stretch mb-20">
+              Log In
+            </Button>
+          </div>
+        </div>
+        &nbsp;
+        <div className="flex">
+          <div>&nbsp;</div>
+        </div>
       </AuthPanel>
     </>
   );

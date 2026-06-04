@@ -9,24 +9,24 @@ import { CWCReps } from "./components/cwcReps";
 
 export default function Home() {
   // TODO: make more flexible to add/remove/change images
-  const carouselImages = ["test_img_1.png", "test_img_2.png", "test_img_3.png"];
+  const carouselImages = ["test_img_1.png", "test_img_2.png", "test_img_3.png", "test_img_4.png"];
 
   return (
     <>
       {/* Hero */}
-      <Heading className="text-8xl animate-fadeIn">
+      <Heading className="text-8xl animate-fadeIn text-secondary my-80">
         Welcome to Collegiate Wushu
       </Heading>
 
-      <div className="py-6">
+      <div className="py-6 bg-off-white rounded-lg">
         <Carousel imgs={carouselImages} />
       </div>
 
-      <div className="py-[12rem]">
+      <div className="py-[12rem] bg-primary text-secondary">
         <Timeline />
       </div>
 
-      <div className="py-[6rem]">
+      <div className="py-[6rem] bg-off-white">
         <CWCReps />
       </div>
     </>
