@@ -37,13 +37,13 @@ export default function Register() {
         if (!value) return "Email is required";
         if (!/\S+@\S+\.\S+/.test(value)) return "Invalid email address";
         return "";
-      case "password1":
+      case "password":
         if (!value) return "Password is required";
         if (value.length < 8) return "Password must be at least 8 characters";
         return "";
-      case "password2":
+      case "re_password":
         if (!value) return "Please confirm your password";
-        if (value != formData.password1) return "Passwords do not match";
+        if (value != formData.password) return "Passwords do not match";
         return "";
       case "first_name":
         if (!value) return "Required";
@@ -164,7 +164,7 @@ export default function Register() {
     init();
   }, []);
 
-  const SIGNUP_URL = "http://localhost:8000/collegiates_app/signup/";
+  const SIGNUP_URL = "http://localhost:8000/collegiates_app/auth/users/";
 
   const handleSubmit = async (e) => {
   e.preventDefault();

@@ -3,39 +3,6 @@ from .models import User, College, Blog, Registration, Groupset, GroupsetMember,
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
-
-class RegisterCompetitorSerializer(serializers.ModelSerializer):
-    password1 = serializers.CharField(write_only=True, validators=[validate_password])
-    password2 = serializers.CharField(write_only=True)
-
-    class Meta:
-        model = User
-        fields = ["email",
-                  "password1",
-                  "password2",        
-                  "first_name", 
-                  "last_name", 
-                  "gender", 
-                  "school", 
-                  "student_type",
-                  "first_comp",
-                  "skill_level",
-                  "grad_date"
-                  ]
-    
-    def validate(self, data):
-        if data['password1'] != data['password2']:
-            raise serializers.ValidationError({'password2': 'Passwords do not match'})
-        return data
-    
-    # called automatically on save()
-    def create(self, validated_data):
-        validated_data.pop('password2')
-        password = validated_data.pop('password1')
-        user = User(user_type='C', **validated_data)
-        user.set_password(password)
-        user.save()
-        return user
     
 class RegisterOrganizerSerializer(serializers.ModelSerializer):
     password1 = serializers.CharField(write_only=True, validators=[validate_password])
@@ -59,7 +26,7 @@ class RegisterOrganizerSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data.pop('password2')
         password = validated_data.pop('password1')
-        user = User(user_type='organizer', **validated_data)
+        user = User(user_type='O', **validated_data)
         user.set_password(password)
         user.save()
         return user
@@ -157,17 +124,20 @@ class RegistrationSerializer(serializers.ModelSerializer):
         data['event'] = data['event']['event_name']
         return data
 
-# serializer for displaying competitor information on frontend
+# serializer for creating and retrieving competitor information on frontend
 class CompetitorSerializer(serializers.ModelSerializer):
     school = serializers.StringRelatedField()
     registrations = serializers.SerializerMethodField()
-    
+    password = serializers.CharField(write_only=True, validators=[validate_password])
+    re_password = serializers.CharField(write_only=True)
 
     class Meta:
         model = User
         fields = ['user_id',
                   'first_name',
-                  'last_name', 
+                  'last_name',
+                  'password',
+                  're_password', 
                   'email', 
                   'gender', 
                   'school', 
@@ -181,6 +151,20 @@ class CompetitorSerializer(serializers.ModelSerializer):
     def get_registrations(self, obj):
         registrations = obj.registration_set.all()
         return RegistrationSerializer(registrations, many=True).data
+    
+    def validate(self, data):
+        if data['password'] != data['re_password2']:
+            raise serializers.ValidationError({'re_password': 'Passwords do not match'})
+        return data
+    
+    # called automatically on save()
+    def create(self, validated_data):
+        validated_data.pop('re_password')
+        password = validated_data.pop('password')
+        user = User(user_type='C', **validated_data)
+        user.set_password(password)
+        user.save()
+        return user
 
 class OrganizerSerializer(serializers.ModelSerializer):
     class Meta:
