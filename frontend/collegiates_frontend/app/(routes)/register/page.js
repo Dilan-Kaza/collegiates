@@ -164,7 +164,7 @@ export default function Register() {
     init();
   }, []);
 
-  const SIGNUP_URL = "http://localhost:8000/collegiates_app/auth/users/";
+  const SIGNUP_URL = "http://localhost:8000/collegiates_app/auth/signup/";
 
   const handleSubmit = async (e) => {
   e.preventDefault();
@@ -277,27 +277,27 @@ export default function Register() {
               )}
               <ShortAnswer
                 type="password"
-                name="password1"
+                name="password"
                 label="Password*"
                 minLength={8}
                 onChange={handleChange}
-                value={formData.password1 || ""}
+                value={formData.password || ""}
                 required
               />
-              {errors.password1 && (
-                <p className="text-red-500 text-sm -mt-2">{errors.password1}</p>
+              {errors.password && (
+                <p className="text-red-500 text-sm -mt-2">{errors.password}</p>
               )}
               <ShortAnswer
                 type="password"
-                name="password2"
+                name="re_password"
                 label="Confirm Password*"
                 minLength={8}
                 onChange={handleChange}
-                value={formData.password2 || ""}
+                value={formData.re_password || ""}
                 required
               />
-              {errors.password2 && (
-                <p className="text-red-500 text-sm -mt-2">{errors.password2}</p>
+              {errors.re_password && (
+                <p className="text-red-500 text-sm -mt-2">{errors.re_password}</p>
               )}
             </div>
             <div className="flex flex-col flex-1 gap-4">
