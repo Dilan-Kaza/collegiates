@@ -58,6 +58,35 @@ export default function About() {
           <div>&nbsp;</div>
           <header className="flex items-center text-6xl animate-fadeIn">Previous Hosts</header>
           <div>&nbsp;</div>
+          <div className="max-h-100 overflow-y-auto">
+            2026: University of California, Davis<br/>
+            2025: University of Maryland, College Park<br/>
+            2024: University of California, Los Angeles<br/>
+            2023: University of California, Berkeley<br/>
+            2019: University of California, Irvine<br/>
+            2018: University of PIttsburgh<br/>
+            2017: University of Washington<br/>
+            2016: Columbia University<br/>
+            2015: University of California, Irvine<br/>
+            2014: University of Maryland, College Park<br/>
+            2013: University of California, San Diego<br/>
+            2012: University of Virginia<br/>
+            2011: University of California, Los Angeles<br/>
+            2010: University of Oregon<br/>
+            2009: Georgia Institute of Technology<br/>
+            2008: Stanford University<br/>
+            2007: University of Maryland, College Park<br/>
+            2006: University of Oregon<br/>
+            2005: University of California, Davis<br/>
+            2004: Stanford University<br/>
+            2003: University of California, Berkeley<br/>
+            2002: University of Oregon<br/>
+            2001: California State University, Fullerton<br/>
+            2000: Stanford University<br/>
+            1999: University of California, Irvine<br/>
+            1998: University of California, Berkeley<br/>
+            1997: University of Oregon<br/>
+          </div>
         </div>
       </div>
       <div className="bg-off-white">

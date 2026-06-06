@@ -34,7 +34,7 @@ export default function RootLayout({ children }) {
         ></div>
         <NavBar />
         <div
-          className="text-dark font-grotesk w-[80%] translate-x-[12.5%] my-2"
+          className="antialiased text-dark font-grotesk w-[80%] translate-x-[12.5%] my-2"
         >
           <div className="mt-24">{children}</div>
         </div>
