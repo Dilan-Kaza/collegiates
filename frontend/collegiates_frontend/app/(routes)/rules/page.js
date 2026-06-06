@@ -1,6 +1,10 @@
+import { ImgHeader } from "@/app/layouts/headers";
+import { NavBar } from "@/app/components/navbar";
+import { UserLayout } from "@/app/layouts/user";
+
 export default function Rules() {
   return (
-    <>
+    <UserLayout navBar={<NavBar/>} header={<ImgHeader/>}>
       <div className="max-w-6xl mx-auto px-6 py-10 grid md:grid-cols-4 gap-8">
 
     <aside className="md:col-span-1">
@@ -178,6 +182,6 @@ export default function Rules() {
 
     </main>
   </div>
-    </>
+    </UserLayout>
   );
 }

@@ -6,14 +6,14 @@ import { Carousel } from "./components/carousel";
 import { Timeline } from "./components/timeline";
 import { Heading } from "./components/heading";
 import { CWCReps } from "./components/cwcReps";
+import { UserLayout } from "./layouts/user";
 
 export default function Home() {
   // TODO: make more flexible to add/remove/change images
   const carouselImages = ["test_img_1.png", "test_img_2.png", "test_img_3.png", "test_img_4.png"];
 
   return (
-    <>
-      {/* Hero */}
+    <UserLayout navBar={<NavBar/>}>
       <div className="relative overflow-hidden">
         <img className="w-full object-center object-fit -z-10" src="/test_img_4.png" />
         <div className="absolute inset-10 flex flex-col items-center justify-center">
@@ -35,6 +35,6 @@ export default function Home() {
       <div className="py-[6rem] bg-off-white">
         <CWCReps />
       </div>
-    </>
+    </UserLayout>
   );
 }

@@ -6,7 +6,7 @@ const tabs = ["News", "Multimedia", "Tournament", "Rules", "About"];
 
 function NavBar() {
   return (
-    <div className="flex fixed w-[80%] top-4 left-[10%] p-4 bg-primary text-off-white rounded-lg px-12 z-100">
+    <div className="fixed w-[70%] top-4 left-[15%] p-4 bg-primary text-off-white rounded-lg px-12 z-100">
       <div className="justify-between flex w-full">
         <div className="flex gap-10 items-center">
           

@@ -1,4 +1,7 @@
 "use client";
+import { UserLayout } from "@/app/layouts/user";
+import { NavBar } from "@/app/components/navbar";
+import { ImgHeader } from "@/app/layouts/headers";
 import { formatTimeAgo } from "@/app/utils/dateFormatter";
 import { useState, useEffect } from "react";
 
@@ -38,7 +41,7 @@ export default function News() {
   // posts.sort((a, b) => new Date(b.date_posted) - new Date(a.date_posted));
 
   return (
-    <>
+    <UserLayout navBar={<NavBar/>} header={<ImgHeader/>}>
       <div className="flex items-center justify-center text-off-white py-4 gap-4">
         <button
           type="button"
@@ -99,6 +102,6 @@ export default function News() {
           Next
         </button>
       </div>
-    </>
+    </UserLayout>
   );
 }

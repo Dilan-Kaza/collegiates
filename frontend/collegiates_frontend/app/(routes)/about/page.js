@@ -1,8 +1,11 @@
 import { CWCReps } from "@/app/components/cwcReps";
+import { ImgHeader } from "@/app/layouts/headers";
+import { NavBar } from "@/app/components/navbar";
+import { UserLayout } from "@/app/layouts/user";
 
 export default function About() {
   return (
-    <>
+    <UserLayout navBar={<NavBar/>} header={<ImgHeader/>}>
       <div className="flex-col bg-primary text-off-white py-10">
         <div className="content-center w-full max-w-8/10 translate-x-1/10">
           <div>&nbsp;</div>
@@ -92,6 +95,6 @@ export default function About() {
       <div className="bg-off-white">
         <CWCReps/>
       </div>
-    </>
+    </UserLayout>
   );
 }
