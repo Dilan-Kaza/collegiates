@@ -10,7 +10,7 @@ import {
 import { useEffect, useState } from "react";
 
 
-export default function Register() {
+export default function Signup() {
   // choices mirror the enums defined in models.py
   const skillLevels = { Beginner: "B", Intermediate: "I", Advanced: "A" };
   const genderChoices = { Male: "M", Female: "F" };
@@ -164,87 +164,87 @@ export default function Register() {
     init();
   }, []);
 
-  const SIGNUP_URL = "http://localhost:8000/collegiates_app/auth/signup/";
+  const SIGNUP_URL = "http://localhost:8000/collegiates_app/auth/users/";
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  const requiredFields = ["first_comp", "grad_date", "skill_level", "school", "gender", "student_type"];
+    const requiredFields = ["email", "password", "re_password", "first_name", "last_name", "first_comp", "grad_date", "skill_level", "school", "gender", "student_type"];
 
-  const allErrors = {};
-  requiredFields.forEach((name) => {
-    const error = validate(name, formData[name]);
-    if (error) allErrors[name] = error;
-  });
-
-  if (Object.keys(allErrors).length > 0) {
-    setErrors(allErrors);
-    return;
-  }
-
-  setLoading(true);
-
-  try {
-    // Prepare JSON payload
-    const payload = {
-      ...formData,
-      grad_date: formData.grad_date ? `${formData.grad_date}-01` : ""
-    };
-    console.log(payload);
-
-    const headers = {
-      "Content-Type": "application/json",
-    };
-    
-    if (csrfToken) {
-      headers["X-CSRFToken"] = csrfToken;
-    }
-
-    const resp = await fetch(SIGNUP_URL, {
-      method: "POST",
-      mode: "cors",
-      credentials: "include",
-      headers: headers,
-      body: JSON.stringify(payload),
+    const allErrors = {};
+    requiredFields.forEach((name) => {
+      const error = validate(name, formData[name]);
+      if (error) allErrors[name] = error;
     });
 
-    let data;
-    try { 
-      data = await resp.json(); 
-    } catch { 
-      data = null; 
+    if (Object.keys(allErrors).length > 0) {
+      setErrors(allErrors);
+      return;
     }
 
-    if (!resp.ok) {
-      console.log("Status:", resp.status);
-      console.log("Full error response:", JSON.stringify(data, null, 2));
+    setLoading(true);
+
+    try {
+      // Prepare JSON payload
+      const payload = {
+        ...formData,
+        grad_date: formData.grad_date ? `${formData.grad_date}-01` : ""
+      };
+
+      const headers = {
+        "Content-Type": "application/json",
+      };
       
-      // Handle field-specific errors from DRF serializer
-      if (data && data.errors) {
-        // Transform DRF error format to match your state structure
-        const transformedErrors = {};
-        Object.entries(data.errors).forEach(([field, messages]) => {
-          // DRF returns arrays of error messages, take the first one
-          transformedErrors[field] = Array.isArray(messages) ? messages[0] : messages;
-        });
-        setErrors(transformedErrors);
+      if (csrfToken) {
+        headers["X-CSRFToken"] = csrfToken;
       }
-      
-      setError(data?.errors ? "Please fix the errors below" : "Registration failed");
-    } else {
-      console.log("Registration successful", data);
-      // Success! data.success === true and data.user_id is available
-      // TODO: redirect to signin or dashboard
-      // Example: router.push('/signin');
-      // Or show success message
+
+      const resp = await fetch(SIGNUP_URL, {
+        method: "POST",
+        mode: "cors",
+        credentials: "include",
+        headers: headers,
+        body: JSON.stringify(payload),
+      });
+
+      let data;
+      try { 
+        data = await resp.json(); 
+      } catch { 
+        data = null; 
+      }
+
+      if (!resp.ok) {
+        console.log("Status:", resp.status);
+        console.log("Full error response:", JSON.stringify(data, null, 2));
+        
+        // Handle field-specific errors from DRF serializer
+        if (data && data.errors) {
+          // Transform DRF error format to match your state structure
+          const transformedErrors = {};
+          Object.entries(data.errors).forEach(([field, messages]) => {
+            // DRF returns arrays of error messages, take the first one
+            transformedErrors[field] = Array.isArray(messages) ? messages[0] : messages;
+          });
+          setErrors(transformedErrors);
+        }
+        
+        setError(data?.errors ? "Please fix the errors below" : "Registration failed");
+      } else {
+        console.log("Registration successful", data);
+        setError("");
+        // Success! data.success === true and data.user_id is available
+        // TODO: redirect to signin or dashboard
+        // Example: router.push('/signin');
+        // Or show success message
+      }
+    } catch (err) {
+      setError("Network error. Please try again.");
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    setError("Network error. Please try again.");
-    console.error(err);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
 
   return (
@@ -255,10 +255,10 @@ export default function Register() {
       ></div>
       {
         <AuthPanelWide
-          bottomLabel="Already registered? "
+          bottomLabel="Already have an account? "
           bottomLink="Sign In"
           onSubmit={handleSubmit}
-          title="Register an Account"
+          title="Create an Account"
         >
           <div className="flex row gap-15">
             <div className="flex flex-col flex-1 gap-4">
@@ -418,7 +418,7 @@ export default function Register() {
               disabled={loading}
               className="self-stretch mb-20"
             >
-              <LongButton>{loading ? "Registering..." : "Submit"}</LongButton>
+              <LongButton>{loading ? "Signing up..." : "Submit"}</LongButton>
             </button>
           </AuthPanelWide>
       }
