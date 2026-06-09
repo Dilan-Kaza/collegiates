@@ -27,6 +27,10 @@ class UserTypeChoices(models.TextChoices):
     COMPETITOR = 'C', 'Competitor'
     ORGANIZER = 'O', 'Organizer'
 
+class EventTypeChoices(models.TextChoices):
+    INTERNAL = 'I', 'Internal' 
+    EXTERNAL = 'E', 'External'
+
 class College(models.Model):
     college_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     college_name = models.CharField(max_length=255, unique=True)
@@ -41,6 +45,7 @@ class Event(models.Model):
     event_code = models.CharField(primary_key=True, max_length=50)
     event_name = models.CharField(max_length=255, unique=True)
     event_level = models.CharField(max_length=1, choices=SkillLevelChoices.choices)
+    event_category = models.CharField(max_length=1, choices=EventTypeChoices.choices)
     gender_category = models.CharField(max_length=1, choices=GenderChoices.choices)
     is_nandu = models.BooleanField()
     
