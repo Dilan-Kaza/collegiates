@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ButtonInverse } from "./button";
 import Image from "next/image";
 
-const tabs = ["News", "Multimedia", "Tournament", "Rules", "About"];
+const tabs = ["Tournament", "Rules", "About"];
 
 function NavBar() {
   return (

@@ -1,6 +1,6 @@
 import { ImgHeader } from "@/app/layouts/headers";
 import { NavBar } from "@/app/components/navbar";
-import { UserLayout } from "@/app/layouts/user";
+import { UserLayout } from "@/app/layouts/layouts";
 
 export default function Rules() {
   return (
@@ -182,6 +182,7 @@ export default function Rules() {
 
     </main>
   </div>
+  <div className="px-1 text-off-white"> this page is vibecoded, pls take your complaints to dilan for now</div>
     </UserLayout>
   );
 }

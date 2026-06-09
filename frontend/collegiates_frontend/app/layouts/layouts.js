@@ -1,4 +1,7 @@
-function UserLayout({ navBar, header, children }) {
+import { NavBar } from "../components/navbar";
+import { MtHeader } from "./headers";
+
+function UserLayout({ header = <MtHeader/>, children }) {
     return (
         <>
             <div
@@ -7,7 +10,7 @@ function UserLayout({ navBar, header, children }) {
             />
 
             <div className="">
-                {navBar}
+                <NavBar/>
             </div>
             <div
                 className="antialiased text-dark font-grotesk lg:w-[80%] lg:translate-x-[12.5%] my-2"
