@@ -5,6 +5,7 @@ import { Button } from "@/app/components/button";
 import { ShortAnswer } from "@/app/components/formComponents";
 import { useEffect, useState } from "react";
 import { UserLayout } from "@/app/layouts/layouts";
+import axios from "@/axios/axios";
 
 export default function SignIn() {
   
@@ -54,14 +55,13 @@ export default function SignIn() {
   useEffect(() => {
       const init = async () => {
         // hit the CSRF endpoint so Django sets the csrftoken cookie
-        try {
-          await fetch("http://localhost:8000/collegiates_app/csrf/", {
-            mode: "cors",
-            credentials: "include",
-          });
-        } catch {
-          console.warn("Could not fetch CSRF token");
-        }
+        axios
+              .get("/csrf/", {
+                mode: "cors",
+                credentials: "include",
+              })
+              .then((response) => (null))
+              .catch((err) => console.warn("Could not fetch CSRF token"));
   
         // set csrf token
         const token = getCsrfToken();
@@ -90,67 +90,25 @@ export default function SignIn() {
     }
 
     setLoading(true);
-
-    try {
-      // Prepare JSON payload
-      const payload = {
-        ...formData
+    
+    const payload = {
+        ...formData,
+        grad_date: formData.grad_date ? `${formData.grad_date}-01` : ""
       };
-      const headers = {
-        "Content-Type": "application/json",
-      };
-      
-      if (csrfToken) {
-        headers["X-CSRFToken"] = csrfToken;
-      }
 
-      console.log(payload)
-
-      const resp = await fetch("http://localhost:8000/collegiates_app/auth/jwt/create/", {
-        method: "POST",
+    axios
+        .post("/auth/jwt/create/", payload, {
         mode: "cors",
         credentials: "include",
-        headers: headers,
-        body: JSON.stringify(payload),
-      });
-
-      let data;
-      try { 
-        data = await resp.json(); 
-      } catch { 
-        data = null; 
-      }
-
-      if (!resp.ok) {
-        console.log("Status:", resp.status);
-        console.log("Full error response:", JSON.stringify(data, null, 2));
-        
-        // Handle field-specific errors from DRF serializer
-        if (data && data.errors) {
-          // Transform DRF error format to match your state structure
-          const transformedErrors = {};
-          Object.entries(data.errors).forEach(([field, messages]) => {
-            // DRF returns arrays of error messages, take the first one
-            transformedErrors[field] = Array.isArray(messages) ? messages[0] : messages;
-          });
-          setErrors(transformedErrors);
-        }
-        
-        setError(data?.errors ? "Please fix the errors below" : "Registration failed");
-      } else {
-        console.log("Registration successful", data);
-        setError("");
-        // Success! data.success === true and data.user_id is available
-        // TODO: redirect to signin or dashboard
-        // Example: router.push('/signin');
-        // Or show success message
-      }
-    } catch (err) {
-      setError("Network error. Please try again.");
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
+      })
+        .then((res)=>{
+          console.log("Registration successful", res.data);
+          setError("");
+      })
+        .catch((err)=>{
+          setError(err.response?.data?.detail? err.response.data.detail : "Sign In failed");
+        });
+    setLoading(false);
   };
 
   return (
@@ -165,9 +123,7 @@ export default function SignIn() {
         onSubmit={handleSubmit}
         title="Sign In"
       >
-        {errors.email && (
-                <p className="text-red-500 text-sm -mt-2">{errors.email}</p>
-              )}
+        {error && <div className="text-red-500 mb-4">{error}</div>}
         <ShortAnswer
           type="email"
           name="email"
@@ -176,9 +132,6 @@ export default function SignIn() {
           value={formData.email || ""}
           required
         />
-        {errors.password && (
-                <p className="text-red-500 text-sm -mt-2">{errors.password}</p>
-              )}
         <ShortAnswer
           type="password"
           name="password"

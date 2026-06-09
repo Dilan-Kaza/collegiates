@@ -9,6 +9,7 @@ import {
 } from "@/app/components/formComponents";
 import { useEffect, useState } from "react";
 import { UserLayout } from "@/app/layouts/layouts";
+import axios from "@/axios/axios";
 
 
 export default function Signup() {
@@ -130,42 +131,38 @@ export default function Signup() {
 
   useEffect(() => {
     const init = async () => {
-      // hit the CSRF endpoint so Django sets the csrftoken cookie
-      try {
-        await fetch("http://localhost:8000/collegiates_app/csrf/", {
-          mode: "cors",
-          credentials: "include",
-        });
-      } catch {
-        console.warn("Could not fetch CSRF token");
-      }
+
+      axios
+            .get("/csrf/", {
+              mode: "cors",
+              credentials: "include",
+            })
+            .then((response) => (null))
+            .catch((err) => console.warn("Could not fetch CSRF token"));
 
       // set csrf token
       const token = getCsrfToken();
       setCsrfToken(token);
 
-      try {
-        const res = await fetch("http://localhost:8000/collegiates_app/college_data/", {
-          mode: "cors",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-        });
-        const json = await res.json();
-        setColleges(
-          Object.fromEntries(
-            json.map(({ college_name, college_id }) => [college_name, college_id])
-          )
-        );
-      } catch(err) {
-        console.warn("Could not fetch colleges", err);
-      }
+      axios
+            .get("/college_data/", {
+              mode: "cors",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+            })
+            .then((response) => setColleges(
+              Object.fromEntries(
+                response.data.map(({ college_name, college_id }) => [college_name, college_id])
+              )
+            ))
+            .catch((err) => console.warn("Could not fetch colleges", err));
+
       setCsrfToken(getCsrfToken());
     };
 
     init();
   }, []);
 
-  const SIGNUP_URL = "http://localhost:8000/collegiates_app/auth/users/";
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -185,66 +182,40 @@ export default function Signup() {
 
     setLoading(true);
 
-    try {
-      // Prepare JSON payload
-      const payload = {
-        ...formData,
-        grad_date: formData.grad_date ? `${formData.grad_date}-01` : ""
-      };
+    // Prepare JSON payload
+    const payload = {
+      ...formData,
+      grad_date: formData.grad_date ? `${formData.grad_date}-01` : ""
+    };
 
-      const headers = {
-        "Content-Type": "application/json",
-      };
-      
-      if (csrfToken) {
-        headers["X-CSRFToken"] = csrfToken;
-      }
-
-      const resp = await fetch(SIGNUP_URL, {
-        method: "POST",
+    axios
+        .post("/auth/users/", payload, {
         mode: "cors",
         credentials: "include",
-        headers: headers,
-        body: JSON.stringify(payload),
-      });
+      })
+        .then((res)=>{
+          console.log("Registration successful", data);
+          setError("");
+      })
+        .catch((err)=>{
+          console.log("Status:", err.status);
+          console.log("Full error response:", JSON.stringify(err.response.data, null, 2));
+          
+          // Handle field-specific errors from DRF serializer
+          if (err.response.data) {
+            // Transform DRF error format to match your state structure
+            const transformedErrors = {};
+            Object.entries(err.response.data).forEach(([field, messages]) => {
+              // DRF returns arrays of error messages, take the first one
+              transformedErrors[field] = Array.isArray(messages) ? messages[0] : messages;
+            });
+            setErrors(transformedErrors);
+          }
+          
+          setError(err.response?.data? "Please fix the errors below" : "Registration failed");
+        });
+    setLoading(false);
 
-      let data;
-      try { 
-        data = await resp.json(); 
-      } catch { 
-        data = null; 
-      }
-
-      if (!resp.ok) {
-        console.log("Status:", resp.status);
-        console.log("Full error response:", JSON.stringify(data, null, 2));
-        
-        // Handle field-specific errors from DRF serializer
-        if (data && data.errors) {
-          // Transform DRF error format to match your state structure
-          const transformedErrors = {};
-          Object.entries(data.errors).forEach(([field, messages]) => {
-            // DRF returns arrays of error messages, take the first one
-            transformedErrors[field] = Array.isArray(messages) ? messages[0] : messages;
-          });
-          setErrors(transformedErrors);
-        }
-        
-        setError(data?.errors ? "Please fix the errors below" : "Registration failed");
-      } else {
-        console.log("Registration successful", data);
-        setError("");
-        // Success! data.success === true and data.user_id is available
-        // TODO: redirect to signin or dashboard
-        // Example: router.push('/signin');
-        // Or show success message
-      }
-    } catch (err) {
-      setError("Network error. Please try again.");
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
   };
 
 
