@@ -1,7 +1,6 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { NavBar } from "./components/navbar";
-import Image from "next/image";
+import StoreProvider from "./storeProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -20,16 +19,17 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    
-    <html lang="en">
-      
-      <head>
-        <link rel="stylesheet" href="https://use.typekit.net/org5cfx.css" />
-        <link rel="stylesheet" href="https://use.typekit.net/zao2vdq.css" />
-      </head>
-      <body>
-        {children}
-      </body>
-    </html>
+    <StoreProvider>
+      <html lang="en">
+        
+        <head>
+          <link rel="stylesheet" href="https://use.typekit.net/org5cfx.css" />
+          <link rel="stylesheet" href="https://use.typekit.net/zao2vdq.css" />
+        </head>
+        <body>
+          {children}
+        </body>
+      </html>
+    </StoreProvider>
   );
 }

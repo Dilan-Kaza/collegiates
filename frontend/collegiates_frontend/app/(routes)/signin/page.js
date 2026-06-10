@@ -3,17 +3,21 @@
 import { AuthPanel } from "@/app/components/authPanel";
 import { Button } from "@/app/components/button";
 import { ShortAnswer } from "@/app/components/formComponents";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { UserLayout } from "@/app/layouts/layouts";
 import axios from "@/axios/axios";
+import useCsrf from "@/hooks/useCsrf";
+import { setJwt } from "@/lib/slices/jwt";
+import { useAppDispatch} from "@/lib/hooks";
 
 export default function SignIn() {
   
   const [formData, setFormData] = useState({});
-  const [csrfToken, setCsrfToken] = useState("");
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const dispatch = useAppDispatch();
 
 
   const validate = (name, value) => {
@@ -35,43 +39,6 @@ export default function SignIn() {
       [name]: validate(name, value),
     }));
   };
-
-  const getCsrfToken = () => {
-    const name = "csrftoken";
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== "") {
-      const cookies = document.cookie.split(";");
-      for (let i = 0; i < cookies.length; i++) {
-        const cookie = cookies[i].trim();
-        if (cookie.substring(0, name.length + 1) === name + "=") {
-          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-          break;
-        }
-      }
-    }
-    return cookieValue;
-  };
-
-  useEffect(() => {
-      const init = async () => {
-        // hit the CSRF endpoint so Django sets the csrftoken cookie
-        axios
-              .get("/csrf/", {
-                mode: "cors",
-                credentials: "include",
-              })
-              .then((response) => (null))
-              .catch((err) => console.warn("Could not fetch CSRF token"));
-  
-        // set csrf token
-        const token = getCsrfToken();
-        setCsrfToken(token);
-
-        setCsrfToken(getCsrfToken());
-      };
-  
-      init();
-    }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -102,14 +69,18 @@ export default function SignIn() {
         credentials: "include",
       })
         .then((res)=>{
-          console.log("Registration successful", res.data);
+          console.log(res.data);
+          dispatch(setJwt(res.data.access));
+          console.log("Sign In succsessful")
           setError("");
-      })
-        .catch((err)=>{
-          setError(err.response?.data?.detail? err.response.data.detail : "Sign In failed");
-        });
+      });
+        // .catch((err)=>{
+        //   setError(err.response?.data?.detail? err.response.data.detail : "Sign In failed");
+        // });
     setLoading(false);
   };
+
+  useCsrf();
 
   return (
     <UserLayout>

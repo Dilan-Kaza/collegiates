@@ -1,6 +1,7 @@
 import { NavBar } from "../components/navbar";
 import { MtHeader } from "./headers";
 
+
 function UserLayout({ header = <MtHeader/>, children }) {
     return (
         <>

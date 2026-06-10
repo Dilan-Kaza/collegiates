@@ -10,6 +10,8 @@ import {
 import { useEffect, useState } from "react";
 import { UserLayout } from "@/app/layouts/layouts";
 import axios from "@/axios/axios";
+import useCsrf from "@/hooks/useCsrf";
+import { useRouter } from "next/navigation";
 
 
 export default function Signup() {
@@ -26,11 +28,12 @@ export default function Signup() {
     "International Student": "7",
   };
 
+  const router = useRouter();
+
   const [colleges, setColleges] = useState({});
   const [formData, setFormData] = useState({});
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [csrfToken, setCsrfToken] = useState("");
   const [errors, setErrors] = useState({});
 
   const validate = (name, value) => {
@@ -94,22 +97,6 @@ export default function Signup() {
     }
   };
 
-  // Helper to extract CSRF token from cookies
-  const getCsrfToken = () => {
-    const name = "csrftoken";
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== "") {
-      const cookies = document.cookie.split(";");
-      for (let i = 0; i < cookies.length; i++) {
-        const cookie = cookies[i].trim();
-        if (cookie.substring(0, name.length + 1) === name + "=") {
-          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-          break;
-        }
-      }
-    }
-    return cookieValue;
-  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -131,19 +118,6 @@ export default function Signup() {
 
   useEffect(() => {
     const init = async () => {
-
-      axios
-            .get("/csrf/", {
-              mode: "cors",
-              credentials: "include",
-            })
-            .then((response) => (null))
-            .catch((err) => console.warn("Could not fetch CSRF token"));
-
-      // set csrf token
-      const token = getCsrfToken();
-      setCsrfToken(token);
-
       axios
             .get("/college_data/", {
               mode: "cors",
@@ -156,8 +130,6 @@ export default function Signup() {
               )
             ))
             .catch((err) => console.warn("Could not fetch colleges", err));
-
-      setCsrfToken(getCsrfToken());
     };
 
     init();
@@ -194,8 +166,10 @@ export default function Signup() {
         credentials: "include",
       })
         .then((res)=>{
-          console.log("Registration successful", data);
+          console.log("Registration successful");
           setError("");
+          router.push('/signin'); 
+
       })
         .catch((err)=>{
           console.log("Status:", err.status);
@@ -215,9 +189,9 @@ export default function Signup() {
           setError(err.response?.data? "Please fix the errors below" : "Registration failed");
         });
     setLoading(false);
-
   };
 
+  useCsrf();
 
   return (
     <UserLayout>
