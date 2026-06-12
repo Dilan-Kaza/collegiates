@@ -51,47 +51,6 @@ def signup(request):
         return Response({'success': False, 'errors': serializer.errors}, 
                         status=status.HTTP_400_BAD_REQUEST)
 
-# SEND PASSWORD RECOVERY LINK
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def reset_password_link(request):
-    email = request.data.get('email')
-    try:
-        user = User.objects.get(email__iexact=email)
-        token = default_token_generator.make_token(user)
-        uid = urlsafe_base64_encode(force_bytes(user.user_id))
-        reset_link = f"http://localhost:3000/reset-password?uid={uid}&token={token}"
-        send_mail(
-            subject="Password Reset",
-            message=f"Click the link to reset your password: {reset_link}",
-            from_email="noreply@collegiatewushu.com",
-            recipient_list=[email],
-        )
-    except User.DoesNotExist:
-        pass
-    return Response({'success': True})
-
-# PASSWORD RECOVERY LINK
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def reset_password_confirm(request):
-    uid = request.data.get('uid')
-    token = request.data.get('token')
-    new_password = request.data.get('password')
-
-    try:
-        pk = force_str(urlsafe_base64_decode(uid))
-        user = User.objects.get(user_id = pk)
-    except (User.DoesNotExist, ValueError, ValidationError):
-        return Response({'error': 'Invalid reset link'}, status=status.HTTP_400_BAD_REQUEST)
-    if not default_token_generator.check_token(user, token):
-        return Response({'error': 'Link is invalid or has expired'}, status=status.HTTP_400_BAD_REQUEST)
-    
-    user.set_password(new_password)
-    user.save()
-
-    return Response({'success': True})
-
 # CHECK DB FOR COMPETITOR ACCOUNT ASSOCIATED WITH EMAIL
 @api_view(['GET'])
 @permission_classes([AllowAny])

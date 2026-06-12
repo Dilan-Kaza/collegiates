@@ -205,7 +205,8 @@ class GroupsetSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         config = Settings.load()
-        if GroupsetMember.objects.filter(member=self.context['request'].user, groupset__comp_year=config.reg_year).exists():
+        user = self.context['request'].user
+        if user.is_competitor & GroupsetMember.objects.filter(member=user, groupset__comp_year=config.reg_year).exists():
             raise serializers.ValidationError({'groupset': 'You are already in a groupset'})
         if Groupset.objects.filter(team_name=data['team_name'], comp_year=config.reg_year).exists():
             raise serializers.ValidationError({'groupset': 'A groupset with this name already exists'})
@@ -221,18 +222,20 @@ class GroupsetMemberSerializer(serializers.ModelSerializer):
     def validate(self, data):
         config = Settings.load()
         groupset = Groupset.objects.filter(groupset_id=data['groupset'].groupset_id).first()
-        if groupset is None:
-            raise serializers.ValidationError({'groupset': 'Groupset does not exist'})
-        if groupset.comp_year != config.reg_year:
-            raise serializers.ValidationError({'groupset': 'Groupset is not in current registration year'})
-        if self.context['request'].user.school != groupset.school:
-            raise serializers.ValidationError({'groupset': 'You must sign up for a groupset from your school'})
-        if GroupsetMember.objects.filter(groupset=groupset.groupset_id, member=self.context['request'].user).exists():
-            raise serializers.ValidationError({'groupset': 'You are already registered with this groupset'})
-        if GroupsetMember.objects.filter(member=self.context['request'].user, groupset__comp_year=config.reg_year).exists():
-            raise serializers.ValidationError({'groupset': 'You are already in a groupset'})
-        if GroupsetMember.objects.filter(groupset=groupset.groupset_id).count() == 6:
-            raise serializers.ValidationError({'groupset': 'Groupset is full'})
+        user = self.context['request'].user
+        if user.is_competitor:
+            if groupset is None:
+                raise serializers.ValidationError({'groupset': 'Groupset does not exist'})
+            if groupset.comp_year != config.reg_year:
+                raise serializers.ValidationError({'groupset': 'Groupset is not in current registration year'})
+            if self.context['request'].user.school != groupset.school:
+                raise serializers.ValidationError({'groupset': 'You must sign up for a groupset from your school'})
+            if GroupsetMember.objects.filter(groupset=groupset.groupset_id, member=user).exists():
+                raise serializers.ValidationError({'groupset': 'You are already registered with this groupset'})
+            if GroupsetMember.objects.filter(member=user, groupset__comp_year=config.reg_year).exists():
+                raise serializers.ValidationError({'groupset': 'You are already in a groupset'})
+            if GroupsetMember.objects.filter(groupset=groupset.groupset_id).count() == 6:
+                raise serializers.ValidationError({'groupset': 'Groupset is full'})
         return data
     
 # Serializers for organizer tournament settings
@@ -262,3 +265,76 @@ class SettingsSerializer(serializers.ModelSerializer):
         if data['reg_start'] > data['reg_end']:
             return serializers.ValidationError("Registration start must come after registration ends")
         return data
+    
+class OrganizerGroupsetSerializer(serializers.ModelSerializer):
+    members = serializers.PrimaryKeyRelatedField(many=True, queryset=User.objects.all(), allow_null=True)
+    school = serializers.PrimaryKeyRelatedField(queryset=College.objects.all())
+    leader = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), write_only=True, allow_null=True)
+    
+    class Meta:
+        model = Groupset
+        fields = ['team_name', 'school', 'comp_year', 'date_created', 'members', 'leader']
+        read_only_fields = ['comp_year', 'date_created']
+
+    def validate(self, data):
+        config = Settings.load()
+        school = data['school']
+        method = self.context['request'].method
+        if len(data['members']) != len(set(data['members'])):
+            raise serializers.ValidationError({'groupset': 'Duplicate members'})
+        if len(data['members']) > 6:
+            raise serializers.ValidationError({'groupset': 'Number of members cannot exceed 6'})
+        if method == 'PUT' or method == 'PATCH':
+            pass
+        elif method == 'POST':
+            for member in data['members']:
+                if member.is_competitor and GroupsetMember.objects.filter(member=member, groupset__comp_year=config.reg_year).exists():
+                    raise serializers.ValidationError({'groupset': 'You are already in a groupset'})
+                if member.school != school:
+                    raise serializers.ValidationError({'groupset': 'Members must be from same school as groupset'})
+            if Groupset.objects.filter(team_name=data['team_name'], comp_year=config.reg_year).exists():
+                raise serializers.ValidationError({'groupset': 'A groupset with this name already exists'})
+        return data
+    
+    def create(self, validated_data):
+        members = validated_data.pop('members')
+        leader = validated_data.pop('leader')
+        groupset = Groupset.objects.create(**validated_data)
+        for member in members:
+            if member == leader:
+                GroupsetMember.objects.create(member=member, groupset=groupset, leader=True)
+            else:
+                GroupsetMember.objects.create(member=member, groupset=groupset, leader=False)
+        return groupset
+    
+    def update(self, instance, validated_data):
+        old_members = instance.members.all()
+        new_members = validated_data.pop('members', None)
+        new_leader = validated_data.pop('leader', None)
+        
+        if instance.school != validated_data.get('school', instance.school):
+            instance.school = validated_data['school']
+            GroupsetMember.objects.filter(groupset=instance, member__in=old_members).delete()
+            old_members = set()
+        
+        instance.team_name = validated_data.get('team_name', instance.team_name)
+        
+        if new_members is not None:
+            to_delete = set(old_members).difference(set(new_members))
+            to_add = set(new_members).difference(set(old_members))
+
+            if to_delete:
+                GroupsetMember.objects.filter(groupset=instance, member__in=to_delete).delete()
+
+            for member in to_add:
+                is_leader = (new_leader is not None and member == new_leader)
+                GroupsetMember.objects.create(member=member, groupset=instance, leader=is_leader)
+
+            if new_leader is not None:
+                GroupsetMember.objects.filter(groupset=instance, leader=True).update(leader=False)
+                GroupsetMember.objects.filter(groupset=instance, member=new_leader).update(leader=True)
+            
+        instance.save()
+        return instance
+
+
