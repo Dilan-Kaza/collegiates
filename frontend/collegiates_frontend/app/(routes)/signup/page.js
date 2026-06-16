@@ -10,11 +10,11 @@ import {
 import { useState } from "react";
 import { UserLayout } from "@/app/layouts/layouts";
 import axios from "@/axios/axios";
-import useCsrf from "@/hooks/useCsrf";
+import { useCsrf, useColleges} from "@/hooks/publicApiHooks";
 import { useRouter } from "next/navigation";
 import { useAppDispatch } from "@/lib/hooks";
 import { setSuccessMsg } from "@/lib/slices/success";
-import useColleges from "@/hooks/useColleges";
+import { validate, handleFormBlur, handleFormChange } from "@/app/handlers/forms";
 
 
 export default function Signup() {
@@ -40,51 +40,6 @@ export default function Signup() {
 
   const dispatch = useAppDispatch();
 
-  const validate = (name, value) => {
-    switch(name) {
-      case "email":
-        if (!value) return "Email is required";
-        if (!/\S+@\S+\.\S+/.test(value)) return "Invalid email address";
-        return "";
-      case "password":
-        if (!value) return "Password is required";
-        if (value.length < 8) return "Password must be at least 8 characters";
-        return "";
-      case "re_password":
-        if (!value) return "Please confirm your password";
-        if (value != formData.password) return "Passwords do not match";
-        return "";
-      case "first_name":
-        if (!value) return "Required";
-        return "";
-      case "last_name":
-        if (!value) return "Required";
-        return "";
-      case "first_comp":
-        if (!value) return "Please provide year of first competition";
-        if (value < 1900 || value > 9999) return "Invalid year";
-        return "";
-      case "grad_date":
-        if (!value) return "Please provide a graduation date";
-        return "";
-      case "school":
-        if (!value) return "Please select a college";
-        return "";
-      case "skill_level":
-        if (!value) return "Please select an experience level";
-        return "";
-      case "gender":
-        if (!value) return "Please select a gender";
-        return "";
-      case "student_type":
-        if (!value) return "Please select a student type";
-        return "";
-
-      default:
-        return "";
-    }
-  }
-
   const checkEmailExists = async (email) => {
     if (!email || !/\S+@\S+\.\S+/.test(email)) return;
     try {
@@ -101,22 +56,15 @@ export default function Signup() {
     }
   };
 
+  const handleChange = handleFormChange(setFormData,setErrors);
+  const handleBlur = handleFormBlur(setErrors, formData);
 
-  const handleChange = (e) => {
+  const handleEmailBlur = (e) => {
     const { name, value } = e.target;
-    setFormData((prevData) => ({
-      ...prevData,
-      [name]: value,
-    }));
-
-    setErrors((prevErrors) => ({
-      ...prevErrors,
-      [name]: validate(name, value),
-    }));
-  };
-
-  const handleBlur = (e) => {
-    const { name, value } = e.target;
+            setErrors((prevErrors) => ({
+                ...prevErrors,
+                [name]: validate(name, value),
+            }));
     if (name === "email") checkEmailExists(value);
   };
 
@@ -203,7 +151,7 @@ export default function Signup() {
                 name="email"
                 label="Email*"
                 onChange={handleChange}
-                onBlur={handleBlur}
+                onBlur={handleEmailBlur}
                 value={formData.email || ""}
                 required
               />
@@ -216,6 +164,7 @@ export default function Signup() {
                 label="Password*"
                 minLength={8}
                 onChange={handleChange}
+                onBlur={handleBlur}
                 value={formData.password || ""}
                 required
               />
@@ -228,6 +177,7 @@ export default function Signup() {
                 label="Confirm Password*"
                 minLength={8}
                 onChange={handleChange}
+                onBlur={handleBlur}
                 value={formData.re_password || ""}
                 required
               />
@@ -243,6 +193,7 @@ export default function Signup() {
                     name="first_name"
                     label="First Name*"
                     onChange={handleChange}
+                    onBlur={handleBlur}
                     value={formData.first_name || ""}
                     required
                   />
@@ -256,6 +207,7 @@ export default function Signup() {
                     name="last_name"
                     label="Last Name*"
                     onChange={handleChange}
+                    onBlur={handleBlur}
                     value={formData.last_name || ""}
                     required
                   />
@@ -273,6 +225,7 @@ export default function Signup() {
                       min="1900"
                       max="9999"
                       onChange={handleChange}
+                      onBlur={handleBlur}
                       value={formData.first_comp || ""}
                       className="w-40"
                       required
@@ -286,6 +239,7 @@ export default function Signup() {
                       label="Graduation Date*"
                       name="grad_date"
                       onChange={handleChange}
+                      onBlur={handleBlur}
                       value={formData.grad_date || ""}
                       className="w-40"
                       required
@@ -300,6 +254,7 @@ export default function Signup() {
                   label="Experience Level*"
                   name="skill_level"
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   value={formData.skill_level || ""}
                   required
                 />
@@ -311,6 +266,7 @@ export default function Signup() {
                   label="College*"
                   name="school"
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   value={formData.school || ""}
                   required
                 />
@@ -324,6 +280,7 @@ export default function Signup() {
                       label="Gender*"
                       name="gender"
                       onChange={handleChange}
+                      onBlur={handleBlur}
                       value={formData.gender || ""}
                       required
                     />
@@ -337,6 +294,7 @@ export default function Signup() {
                       label="Student Type*"
                       name="student_type"
                       onChange={handleChange}
+                      onBlur={handleBlur}
                       value={formData.student_type || ""}
                       required
                     />

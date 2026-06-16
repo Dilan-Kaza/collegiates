@@ -19,6 +19,7 @@ function AuthPanel(props, onSubmit) {
             >
               {props.children}
             </form>
+            <div className="py-10"/>
             <div className="absolute bottom-4 left-4 inset-x-4 py-4 flex items-center justify-center border border-brown/15 bg-brown/5 rounded-md">
               <div>
                 {props.bottomLabel}

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import useCurrentUser from "@/hooks/useCurrentUser";
+import { useCurrentUser } from "@/hooks/userApiHooks";
 import { useRouter } from "next/navigation";
 
 const tabs = ["Tournament", "Rules", "About"];

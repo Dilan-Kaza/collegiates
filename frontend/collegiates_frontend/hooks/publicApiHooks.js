@@ -1,8 +1,25 @@
 import { useEffect, useState } from "react";
 import axios from "@/axios/axios";
 
+function useCsrf(){
 
-export default function useColleges(){
+  useEffect(() => {
+    const csrf = async () => {
+        axios
+            .get("/csrf/", {
+                mode: "cors",
+                withCredentials: true,
+                credentials: "include",
+            })
+            .catch(() => console.warn("Could not fetch CSRF token"));
+    };
+
+    csrf();
+
+  },[]);
+}
+
+function useColleges(){
 
     const [colleges, setColleges] = useState({});
     
@@ -29,3 +46,5 @@ export default function useColleges(){
 
     return colleges;
 }
+
+export {useCsrf, useColleges};

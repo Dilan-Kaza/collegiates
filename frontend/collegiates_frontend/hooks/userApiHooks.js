@@ -2,7 +2,7 @@ import axios from "@/axios/axios";
 import { useAppSelector } from "@/lib/hooks";
 import { useEffect, useState } from "react";
 
-export default function useCurrentUser(){
+function useCurrentUser(){
 
     const [userInfo, setUserInfo] = useState({});
 
@@ -32,3 +32,5 @@ export default function useCurrentUser(){
 
   return userInfo;
 }
+
+export { useCurrentUser };

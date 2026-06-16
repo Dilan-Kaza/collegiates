@@ -2,7 +2,7 @@
 
 import { Button } from "@/app/components/button";
 import { UserLayout } from "@/app/layouts/layouts"
-import useCurrentUser from "@/hooks/useCurrentUser"
+import { useCurrentUser } from "@/hooks/userApiHooks"
 
 export default function Dashboard (){
     

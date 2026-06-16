@@ -1,6 +1,6 @@
 import { NavBar } from "../components/navbar";
 import { MtHeader } from "./headers";
-import { SuccessNotif } from "../components/notif";
+import { SuccessNotif, ErrorNotif } from "../components/notif";
 
 
 function UserLayout({ header = <MtHeader/>, children }) {
@@ -24,6 +24,7 @@ function UserLayout({ header = <MtHeader/>, children }) {
             </div>
 
             <SuccessNotif/>
+            <ErrorNotif/>
         </>
     );
 }
