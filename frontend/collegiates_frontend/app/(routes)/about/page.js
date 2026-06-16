@@ -1,3 +1,4 @@
+"use client"
 import { CWCReps } from "@/app/components/cwcReps";
 import { ImgHeader } from "@/app/layouts/headers";
 import { UserLayout } from "@/app/layouts/layouts";

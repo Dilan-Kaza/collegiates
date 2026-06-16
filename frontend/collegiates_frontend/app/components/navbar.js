@@ -1,14 +1,14 @@
 import Link from "next/link";
-import { ButtonInverse } from "./button";
 import Image from "next/image";
 import useCurrentUser from "@/hooks/useCurrentUser";
-import button from "daisyui/components/button";
+import { useRouter } from "next/navigation";
 
 const tabs = ["Tournament", "Rules", "About"];
 
 function NavBar() {
 
   const username = useCurrentUser().first_name;
+  const router = useRouter();
 
   return (
     <div className="fixed w-[70%] top-4 left-[15%] p-4 bg-primary text-off-white rounded-lg px-12 z-100">
@@ -28,7 +28,10 @@ function NavBar() {
             </Link>
           ))}
         </div>
-        {username ? <ButtonInverse><a className="text-white" href="dashboard">{username}</a></ButtonInverse> : <ButtonInverse className="bg-white" isLink={true}>Sign In</ButtonInverse>}
+        {username ? 
+          <button className="btn btn-off-white btn-outline" onClick={()=>router.push('/dashboard')}>{username}</button> :
+          <button className="btn btn-off-white btn-outline" onClick={()=>router.push('/signin')}>Sign In</button>
+        }
       </div>
     </div>
   );

@@ -36,12 +36,20 @@ export default function SignIn() {
       ...prevData,
       [name]: value,
     }));
+    setErrors((prevErrors) => ({
+      ...prevErrors,
+      [name]: "",
+    }));
+  };
 
+  const handleBlur = (e) => {
+    const { name, value } = e.target;
     setErrors((prevErrors) => ({
       ...prevErrors,
       [name]: validate(name, value),
     }));
-  };
+  }
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -106,9 +114,11 @@ export default function SignIn() {
           name="email"
           label="Email*"
           onChange={handleChange}
+          onBlur={handleBlur}
           value={formData.email || ""}
           required
         />
+        {errors.email && <div className="text-red-500 mb-4">Invalid email address</div>}
         <ShortAnswer
           type="password"
           name="password"

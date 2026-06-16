@@ -7,13 +7,14 @@ import {
   Dropdown,
   ShortAnswer,
 } from "@/app/components/formComponents";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { UserLayout } from "@/app/layouts/layouts";
 import axios from "@/axios/axios";
 import useCsrf from "@/hooks/useCsrf";
 import { useRouter } from "next/navigation";
 import { useAppDispatch } from "@/lib/hooks";
 import { setSuccessMsg } from "@/lib/slices/success";
+import useColleges from "@/hooks/useColleges";
 
 
 export default function Signup() {
@@ -32,7 +33,6 @@ export default function Signup() {
 
   const router = useRouter();
 
-  const [colleges, setColleges] = useState({});
   const [formData, setFormData] = useState({});
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -121,25 +121,7 @@ export default function Signup() {
   };
 
   useCsrf();
-
-  useEffect(() => {
-    const init = async () => {
-      axios
-            .get("/college_data/", {
-              mode: "cors",
-              headers: { "Content-Type": "application/json" },
-              credentials: "include",
-            })
-            .then((response) => setColleges(
-              Object.fromEntries(
-                response.data.map(({ college_name, college_id }) => [college_name, college_id])
-              )
-            ))
-            .catch((err) => console.warn("Could not fetch colleges", err));
-    };
-
-    init();
-  }, []);
+  const colleges = useColleges();
 
 
   const handleSubmit = async (e) => {

@@ -10,17 +10,23 @@ export default function useCurrentUser(){
     console.log(access);
 
   useEffect(() => {
-    axios
-        .get("/auth/users/me", {
-            mode: "cors",
-            withCredentials: true,
-            credentials: "include",
-            headers: {
-                Authorization: `Bearer ${access}`,
-            }
-        })
-        .then((res) => setUserInfo(res.data))
-        .catch(() => console.warn("not logged in"));
+
+    const getMe = async () => {
+
+        axios
+            .get("/auth/users/me", {
+                mode: "cors",
+                withCredentials: true,
+                credentials: "include",
+                headers: {
+                    Authorization: `Bearer ${access}`,
+                }
+            })
+            .then((res) => setUserInfo(res.data))
+            .catch(() => console.warn("not logged in"));
+    }
+
+    getMe();
 
   },[]);
 

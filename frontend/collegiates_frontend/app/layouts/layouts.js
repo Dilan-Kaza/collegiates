@@ -1,14 +1,9 @@
-import { clearSuccessMsg } from "@/lib/slices/success";
 import { NavBar } from "../components/navbar";
 import { MtHeader } from "./headers";
-import { useAppDispatch, useAppSelector } from "@/lib/hooks";
+import { SuccessNotif } from "../components/notif";
 
 
 function UserLayout({ header = <MtHeader/>, children }) {
-
-    const dispatch = useAppDispatch();
-    const success = useAppSelector(state => state.success.message);
-
 
     return (
         <>
@@ -28,13 +23,7 @@ function UserLayout({ header = <MtHeader/>, children }) {
                 <div>{children}</div>
             </div>
 
-            {success ?
-                <div className="toast">
-                <div className="alert alert-success">
-                    <span>{success}</span>
-                <button className="btn btn-success btn-circle" onClick={()=>dispatch(clearSuccessMsg())}>X</button>
-                </div>
-            </div> : <></>}
+            <SuccessNotif/>
         </>
     );
 }

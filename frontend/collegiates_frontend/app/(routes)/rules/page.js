@@ -1,3 +1,4 @@
+"use client"
 import { ImgHeader } from "@/app/layouts/headers";
 import { NavBar } from "@/app/components/navbar";
 import { UserLayout } from "@/app/layouts/layouts";
