@@ -25,8 +25,9 @@ function useCurrentUser(){
             .then((res) => setUserInfo(res.data))
             .catch(() => console.warn("not logged in"));
     }
-
-    getMe();
+    if (access !== "") {
+        getMe();
+    }
 
   },[access]);
 
