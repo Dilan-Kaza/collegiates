@@ -47,7 +47,7 @@ USER appuser
 # Expose the application port
 EXPOSE $PORT 
  
-ENTRYPOINT [ "./entrypoint.sh" ]
+ENTRYPOINT [ "/entrypoint.sh" ]
 
 # Start the application using Gunicorn
 # CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "django_backend.wsgi:application"]
