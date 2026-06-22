@@ -9,7 +9,9 @@ router.register(r'groupset', OrganizerGroupsetView, basename='groupset')
 
 urlpatterns = [
     re_path(r'^auth/', include('djoser.urls')),
-    re_path(r'^auth/', include('djoser.urls.jwt')),
+    path('auth/jwt/create/', CookieTokenObtainPairView.as_view()),
+    path('auth/jwt/refresh/', CookieTokenRefreshView.as_view()),
+    path('auth/jwt/logout/', LogoutView.as_view()),
     path("auth/signup/", signup, name="signup"),
     path("auth/signin/", signin, name="signin"),
     path("auth/signout/", signout, name="signout"),

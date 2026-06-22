@@ -6,7 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
 
 from ..permissions import IsCompetitor
-from ..models import User, Registration, Groupset, GroupsetMember, Settings, Event, Blog
+from ..models import User, Registration, Groupset, GroupsetMember, Settings, Event
 from ..serializers import EventRegistrationSerializer, \
     CompetitorSerializer, GroupsetSerializer, \
         GroupsetMemberSerializer, EventSerializer
