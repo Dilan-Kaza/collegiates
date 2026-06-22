@@ -4,29 +4,30 @@ from rest_framework.routers import DefaultRouter
 from .views import *
 
 router = DefaultRouter()
-router.register(r'blog', BlogView, basename='blog')
+router.register(r'blog', OrganizerBlogView, basename='blog')
+router.register(r'groupset', OrganizerGroupsetView, basename='groupset')
 
 urlpatterns = [
     re_path(r'^auth/', include('djoser.urls')),
-    re_path(r'^auth/', include('djoser.urls.jwt')),
+    path('auth/jwt/create/', CookieTokenObtainPairView.as_view()),
+    path('auth/jwt/refresh/', CookieTokenRefreshView.as_view()),
+    path('auth/jwt/logout/', LogoutView.as_view()),
     path("auth/signup/", signup, name="signup"),
     path("auth/signin/", signin, name="signin"),
     path("auth/signout/", signout, name="signout"),
     path("csrf/", get_csrf_token, name="get_csrf_token"),
     path("college_data/", college_data, name="college_data"),
-    # path("reset-password/", reset_password_link, name="reset_password"),
-    # path("reset-password-confirm/", reset_password_confirm, name="reset_password_confirm"),
     path('check-email/', check_email, name="check_email"),
-    path('profile/', CompetitorView.as_view(), name="my_profile"),
-    path('registration/', RegistrationView.as_view(), name="registration"),
-    path('events/', EventsView.as_view(), name="get_events"),
-    path('groupset/', CreateGroupsetView.as_view(), name="groupset"),
-    path('groupset-members/', JoinGroupsetView.as_view(), name="groupset_members"),
-    path('settings/', SettingsView.as_view({'get': 'retrieve', 
+    path('competitor/profile/', CompetitorInfoView.as_view(), name="my_profile"),
+    path('competitor/registration/', CompetitorRegistrationView.as_view(), name="registration"),
+    path('competitor/events/', CompetitorEventsView.as_view(), name="get_events"),
+    path('competitor/groupset/', CompetitorCreateGroupsetView.as_view(), name="groupset"),
+    path('competitor/groupset-members/', CompetitorJoinGroupsetView.as_view(), name="groupset_members"),
+    path('organizer/settings/', OrganizerSettingsView.as_view({'get': 'retrieve', 
                                                    'post': 'create',
                                                    'patch': 'update'}), 
                                                    name="competition_settings"),
-    path('', include(router.urls))
+    path('organizer/', include(router.urls))
 ]
 
 

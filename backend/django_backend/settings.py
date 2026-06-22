@@ -65,8 +65,7 @@ MIDDLEWARE = [
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-        'rest_framework.authentication.TokenAuthentication',
+        'collegiate_app.authentication.CookieJWTAuthentication'
         'rest_framework.authentication.SessionAuthentication'
     ],
     'DEFAULT_RENDERER_CLASSES': [
@@ -112,7 +111,7 @@ TEMPLATES = [
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
-    "ROTATE_REFRESH_TOKENS": False,
+    "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
     "UPDATE_LAST_LOGIN": False,
 
@@ -154,6 +153,16 @@ SIMPLE_JWT = {
     "REVOKE_TOKEN_CLAIM": "hash_password",
     "CHECK_USER_IS_ACTIVE": True,
 }
+
+AUTH_COOKIE_ACCESS = 'access'
+AUTH_COOKIE_REFRESH = 'refresh'
+AUTH_COOKIE_SECURE = True        # False only for local http dev
+AUTH_COOKIE_HTTP_ONLY = True
+AUTH_COOKIE_SAMESITE = None     # 'None' if frontend is a different domain (requires Secure=True)
+
+CSRF_COOKIE_SECURE = True
+CSRF_COOKIE_SAMESITE = None     # match AUTH_COOKIE_SAMESITE
+CSRF_HEADER_NAME = 'HTTP_X_CSRFTOKEN'  # default
 
 WSGI_APPLICATION = 'django_backend.wsgi.application'
 
