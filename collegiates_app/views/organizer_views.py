@@ -59,7 +59,7 @@ class OrganizerSettingsView(viewsets.GenericViewSet,
         POST: create competition settings
         PATCH: update competition settings
     """
-    queryset = Settings.objects.first()
+    queryset = Settings.objects.none()
     serializer_class = SettingsSerializer
     permission_classes = [IsOrganizer]
 
@@ -68,11 +68,11 @@ class OrganizerSettingsView(viewsets.GenericViewSet,
     
     def perform_create(self, serializer):
         obj = serializer.save()
-        cache.set("competition_settings_latest", obj, timeout=3600)
+        # cache.set("competition_settings_latest", obj, timeout=3600)
 
     def perform_update(self, serializer):
         obj = serializer.save()
-        cache.set("competition_settings_latest", obj, timeout=3600)
+        # cache.set("competition_settings_latest", obj, timeout=3600)
     
 class OrganizerBlogView(viewsets.ModelViewSet):
     """

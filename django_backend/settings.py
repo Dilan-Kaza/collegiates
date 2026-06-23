@@ -14,6 +14,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from datetime import timedelta
 import os
+import dj_database_url
 
 # Load .env file from the backend directory (parent of django_backend)
 ENV_PATH = Path(__file__).resolve().parent.parent / '.env'
@@ -166,14 +167,8 @@ CSRF_HEADER_NAME = 'HTTP_X_CSRFTOKEN'  # default
 
 WSGI_APPLICATION = 'django_backend.wsgi.application'
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:8000",
-    "http://localhost:3000",
-]
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:3000",
-    "http://localhost:8000",
-]
+CORS_ALLOWED_ORIGINS = os.getenv('DJANGO_CORS_ALLOWED_ORIGINS', '').split(',')
+CSRF_TRUSTED_ORIGINS = os.getenv('DJANGO_CSRF_TRUSTED_ORIGINS','').split(',')
 CORS_ALLOW_CREDENTIALS = True
 
 # Database
@@ -199,6 +194,9 @@ DATABASES = {
     }
 }
 
+DATABASES["default"] = dj_database_url.parse('postgresql://collegiate_db_user:K2Xok8QJy6mZWkthCg8T4WQuXry9uxrL@dpg-d8taq2taeets73ck0pjg-a.oregon-postgres.render.com/collegiate_db')
+
+# postgresql://collegiate_db_user:K2Xok8QJy6mZWkthCg8T4WQuXry9uxrL@dpg-d8taq2taeets73ck0pjg-a.oregon-postgres.render.com/collegiate_db
 
 # Custom User Model
 AUTH_USER_MODEL = 'collegiates_app.User'
