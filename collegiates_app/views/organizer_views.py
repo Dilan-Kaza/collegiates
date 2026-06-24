@@ -63,16 +63,24 @@ class OrganizerSettingsView(viewsets.GenericViewSet,
     serializer_class = SettingsSerializer
     permission_classes = [IsOrganizer]
 
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            permission_classes = [AllowAny]
+        else:
+            permission_classes = [IsOrganizer]
+        
+         return [permission() for permission in permission_classes]
+
     def get_object(self):
         return Settings.load()
     
     def perform_create(self, serializer):
         obj = serializer.save()
-        # cache.set("competition_settings_latest", obj, timeout=3600)
+        cache.set("competition_settings_latest", obj, timeout=3600)
 
     def perform_update(self, serializer):
         obj = serializer.save()
-        # cache.set("competition_settings_latest", obj, timeout=3600)
+        cache.set("competition_settings_latest", obj, timeout=3600)
     
 class OrganizerBlogView(viewsets.ModelViewSet):
     """

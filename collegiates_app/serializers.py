@@ -68,7 +68,8 @@ class BlogSerializer(serializers.ModelSerializer):
 class EventSerializer(serializers.ModelSerializer):
     class Meta:
         model = Event
-        fields = ['event_name', 
+        fields = ['event_code',
+                  'event_name', 
                   'event_level',
                   'is_nandu']
         

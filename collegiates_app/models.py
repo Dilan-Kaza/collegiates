@@ -57,11 +57,12 @@ class Event(models.Model):
 
 class CustomUserManager(UserManager):
     def _create_user(self, email, password, **extra_fields):
-        if not email:
-            raise ValueError("The email must be set")
         email = self.normalize_email(email)
+        school = extra_fields.pop('school', None)  # pop to avoid direct assignment
         user = self.model(email=email, **extra_fields)
-        user.set_password(password)          # uses default hashing
+        if school:
+            user.school_id = school  # assign raw UUID via _id field
+        user.set_password(password)
         user.save(using=self._db)
         return user
 
