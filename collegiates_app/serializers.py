@@ -121,7 +121,7 @@ class EventRegistrationSerializer(serializers.ModelSerializer):
         if event.gender_category != user.gender:
             raise serializers.ValidationError({'event': "Competitor signed up for wrong gender category"})
         
-        if event.event_level != user.level:
+        if event.event_level != user.skill_level:
             raise serializers.ValidationError({'event': "Competitor signed up for wrong level"})
         
         if Registration.objects.filter(competitor=user, event=event, comp_year=config.reg_year).exists(): 
