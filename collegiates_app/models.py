@@ -58,10 +58,10 @@ class Event(models.Model):
 class CustomUserManager(UserManager):
     def _create_user(self, email, password, **extra_fields):
         email = self.normalize_email(email)
-        school = extra_fields.pop('school', None)  # pop to avoid direct assignment
+        school = extra_fields.pop('school', None)
         user = self.model(email=email, **extra_fields)
         if school:
-            user.school_id = school  # assign raw UUID via _id field
+            user.school = school
         user.set_password(password)
         user.save(using=self._db)
         return user

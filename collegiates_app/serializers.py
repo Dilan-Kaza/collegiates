@@ -151,7 +151,8 @@ class RegistrationSerializer(serializers.ModelSerializer):
 
 # serializer for creating and retrieving competitor information on frontend
 class CompetitorSerializer(serializers.ModelSerializer):
-    school = serializers.StringRelatedField()
+    school = serializers.PrimaryKeyRelatedField(queryset=College.objects.all())  # handles write (UUID)
+    school_name = serializers.StringRelatedField(source='school', read_only=True)  # handles read (string)
     registrations = serializers.SerializerMethodField()
     password = serializers.CharField(write_only=True, validators=[validate_password])
     re_password = serializers.CharField(write_only=True)
@@ -165,7 +166,8 @@ class CompetitorSerializer(serializers.ModelSerializer):
                   're_password', 
                   'email', 
                   'gender', 
-                  'school', 
+                  'school',
+                  'school_name', 
                   'student_type', 
                   'first_comp', 
                   'skill_level', 
@@ -178,7 +180,7 @@ class CompetitorSerializer(serializers.ModelSerializer):
         return RegistrationSerializer(registrations, many=True).data
     
     def validate(self, data):
-        if data['password'] != data['re_password2']:
+        if data['password'] != data['re_password']:
             raise serializers.ValidationError({'re_password': 'Passwords do not match'})
         return data
     
