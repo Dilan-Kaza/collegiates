@@ -96,7 +96,7 @@ class EventRegistrationSerializer(serializers.ModelSerializer):
                   'event_code',
                   'nandu_str']
         list_serializer_class = EventRegistrationListSerializer
-        read_only_fields = ['comp_year', 'date_created']
+        read_only_fields = ['competitor', 'comp_year', 'date_created']
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
