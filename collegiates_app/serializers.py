@@ -105,7 +105,6 @@ class EventRegistrationSerializer(serializers.ModelSerializer):
         for key in data['event']:
             data[key] = data['event'][key]
         data.pop("event", None)
-        data.pop("competitor")
         return data
 
     def validate(self, data):

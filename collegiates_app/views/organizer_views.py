@@ -1,12 +1,18 @@
 
 from rest_framework import viewsets, mixins
 from rest_framework.permissions import AllowAny
+from rest_framework import generics
 from django.core.cache import cache
 from ..permissions import IsOrganizer
-from ..models import Groupset, Settings, Blog, Registration, User
-from ..serializers import GroupsetSerializer, \
-        SettingsSerializer, BlogSerializer, \
-        OrganizerGroupsetSerializer, OrganizerRegistrationSerializer
+from ..models import Groupset, Settings, Blog, Registration, User, Event
+from ..serializers import (
+        GroupsetSerializer,
+        SettingsSerializer, 
+        BlogSerializer,
+        OrganizerGroupsetSerializer, 
+        OrganizerRegistrationSerializer,
+        EventSerializer
+    )
 from .competitor_views import requires_settings
 
 # ORGANIZER ENDPOINTS
@@ -132,3 +138,10 @@ class OrganizerRegistrationView(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         serializer.save(comp_year=self.config.reg_year)
     
+class OrganizerEventsView(generics.ListAPIView):
+    """
+        GET: List all events
+    """
+    queryset = Event.objects.all()
+    serializer_class = EventSerializer
+    permission_classes = [IsOrganizer]

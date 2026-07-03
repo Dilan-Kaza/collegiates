@@ -25,7 +25,8 @@ urlpatterns = [
                                                    'post': 'create',
                                                    'patch': 'update'}), 
                                                    name="competition_settings"),
-    path('organizer/', include(router.urls))
+    path('organizer/', include(router.urls)),
+    path('organizer/events/', OrganizerEventsView.as_view(), name="get_events_organizer")
 ]
 
 
