@@ -54,8 +54,11 @@ class CompetitorRegistrationView(generics.ListCreateAPIView):
 
     @requires_settings
     def perform_create(self, serializer):
-        serializer.save(competitor=self.request.user,
+        user = self.request.user
+        serializer.save(competitor=user,
                         comp_year=self.config.reg_year)
+        user.is_competing = True
+        user.save()
 
     def get_queryset(self):
         if not hasattr(self, 'config'):

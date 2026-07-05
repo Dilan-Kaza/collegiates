@@ -1,7 +1,6 @@
 
-from rest_framework import viewsets, mixins
 from rest_framework.permissions import AllowAny
-from rest_framework import generics
+from rest_framework import generics, filters, viewsets, mixins
 from django.core.cache import cache
 from ..permissions import IsOrganizer
 from ..models import Groupset, Settings, Blog, Registration, User, Event
@@ -14,6 +13,7 @@ from ..serializers import (
         EventSerializer
     )
 from .competitor_views import requires_settings
+
 
 # ORGANIZER ENDPOINTS
 class OrganizerGroupsetView(viewsets.ModelViewSet):
@@ -114,6 +114,9 @@ class OrganizerRegistrationView(viewsets.ModelViewSet):
     serializer_class = OrganizerRegistrationSerializer
     permission_classes = [IsOrganizer]
     http_method_names = ['get', 'patch']
+    # filter_backends = [filters.SearchFilter]
+    # search_fields = ['first_name', 'school__college_name']
+    filterset_fields = ['has_paid', 'proof_of_reg', 'is_competing', 'school']
 
     def get_queryset(self):
         if not hasattr(self, 'config'):
