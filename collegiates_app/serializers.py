@@ -416,13 +416,11 @@ class OrganizerRegistrationSerializer(serializers.ModelSerializer):
             to_delete = set(old_events).difference(set(new_events))
             to_add = set(new_events).difference(set(old_events))
             to_update = set(new_events).intersection(set(old_events))
-            print('new_reg')
+
             if to_delete:
-                print('delete')
                 Registration.objects.filter(competitor=instance, event__in=to_delete, comp_year=year).delete()
 
             if to_add:
-                print('add')
                 create_list = []
                 add = [r for r in new_reg if r['event'] in to_add]
                 for reg in add:
@@ -430,7 +428,6 @@ class OrganizerRegistrationSerializer(serializers.ModelSerializer):
                 Registration.objects.bulk_create(create_list)
 
             if to_update:
-                print("update")
                 changed = False
                 update = [r for r in new_reg if r['event'] in to_update]
                 update_dict = {item['event']: item['nandu_str'] for item in update}
