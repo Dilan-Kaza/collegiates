@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from django.db import transaction
 
-from ..permissions import IsCompetitor
+from ..permissions import IsCompetitor, RegistrationActive
 from ..models import User, Registration, Groupset, GroupsetMember, Settings, Event
 from ..serializers import EventRegistrationSerializer, \
     CompetitorSerializer, GroupsetSerializer, \
@@ -46,7 +46,7 @@ class CompetitorRegistrationView(generics.ListCreateAPIView):
     """
     queryset = Registration.objects.select_related('event')
     serializer_class = EventRegistrationSerializer
-    permission_classes = [IsCompetitor]
+    permission_classes = [IsCompetitor, RegistrationActive]
     
     def get_serializer(self, *args, **kwargs):
         kwargs['many'] = True
@@ -85,14 +85,15 @@ class CompetitorInfoView(generics.RetrieveUpdateDestroyAPIView):
     def get_object(self):
         return self.request.user
 
-class CompetitorCreateGroupsetView(generics.CreateAPIView):
+class CompetitorCreateGroupsetView(generics.ListCreateAPIView):
     """
+        GET: Show competitor's groupset
         POST: Create a new groupset and add competitor as leader
     """
 
     queryset = Groupset.objects.prefetch_related('members')
     serializer_class = GroupsetSerializer
-    permission_classes = [IsCompetitor]
+    permission_classes = [IsCompetitor, RegistrationActive]
 
     @requires_settings
     def perform_create(self, serializer):
@@ -100,6 +101,19 @@ class CompetitorCreateGroupsetView(generics.CreateAPIView):
             groupset = serializer.save(school=self.request.user.school, comp_year=self.config.reg_year) # type: ignore
             GroupsetMember.objects.create(groupset=groupset, member=self.request.user, leader=True)
 
+    def get_queryset(self):
+        if not hasattr(self, 'config'):
+            return Groupset.objects.none()
+
+        return Groupset.objects.filter(
+            members = self.request.user,
+            comp_year = self.config.reg_year
+        ).prefetch_related('members')
+    
+    @requires_settings
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+    
 class CompetitorJoinGroupsetView(generics.ListCreateAPIView):
     """
         GET: List all groupsets that a competitor can sign up for
@@ -108,7 +122,7 @@ class CompetitorJoinGroupsetView(generics.ListCreateAPIView):
 
     queryset = Groupset.objects.prefetch_related('members')
     serializer_class = GroupsetSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsCompetitor, RegistrationActive]
     
     def get_serializer_class(self):
         if self.request.method == 'POST':

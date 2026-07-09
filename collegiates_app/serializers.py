@@ -251,10 +251,9 @@ class SettingsSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         # need to implement: dates cannot be before or after current comp year
-        if data['early_reg_start'] > data['early_reg_end']:
-            return serializers.ValidationError("Early registration start must come after early registration ends")
-        if data['early_reg_end'] > data['reg_start']:
-            return serializers.ValidationError("Early registration cannot end before registration starts")
+        early_reg_start = data.get('early_reg_start', None)
+        if early_reg_start and (early_reg_start > data['reg_start'] or early_reg_start > data['reg_end']):
+            return serializers.ValidationError("Early registration start must come before registration start and registration end")
         if data['reg_start'] > data['reg_end']:
             return serializers.ValidationError("Registration start must come after registration ends")
         return data
@@ -301,21 +300,21 @@ class OrganizerGroupsetSerializer(serializers.ModelSerializer):
     def validate(self, data):
         config = Settings.load()
         school = data['school']
-        method = self.context['request'].method
         if len(data['members']) != len(set(data['members'])):
             raise serializers.ValidationError({'groupset': 'Duplicate members'})
         if len(data['members']) > 6:
             raise serializers.ValidationError({'groupset': 'Number of members cannot exceed 6'})
-        if method == 'PUT' or method == 'PATCH':
-            pass
-        elif method == 'POST':
-            for member in data['members']:
-                if member.is_competitor and GroupsetMember.objects.filter(member=member, groupset__comp_year=config.reg_year).exists():
-                    raise serializers.ValidationError({'groupset': 'Member is already in a groupset'})
-                if member.school != school:
-                    raise serializers.ValidationError({'groupset': 'Members must be from same school as groupset'})
+        if self.instance is None: # create only validation
             if Groupset.objects.filter(team_name=data['team_name'], comp_year=config.reg_year).exists():
                 raise serializers.ValidationError({'groupset': 'A groupset with this name already exists'})
+        for member in data['members']:
+            if member.school != school:
+                raise serializers.ValidationError({'groupset': 'Members must be from same school as groupset'})
+            if GroupsetMember.objects.filter(member=member, groupset__comp_year=config.reg_year).exists():
+                raise serializers.ValidationError({'groupset': 'Member is already in a groupset'})
+            if not Registration.objects.filter(competitor=member, event='NAN901', comp_year=config.reg_year).exists():
+                raise serializers.ValidationError({'groupset': 'Member did not register for groupset'})
+    
         return data
     
     def create(self, validated_data):

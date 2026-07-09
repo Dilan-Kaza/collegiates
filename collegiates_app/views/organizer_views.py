@@ -14,8 +14,6 @@ from ..serializers import (
     )
 from .competitor_views import requires_settings
 
-
-# ORGANIZER ENDPOINTS
 class OrganizerGroupsetView(viewsets.ModelViewSet):
     """
         GET: list current year groupsets

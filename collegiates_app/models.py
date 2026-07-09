@@ -185,11 +185,11 @@ CACHE_KEY = "competition_settings_latest"
 
 class Settings(models.Model):
     reg_year = models.IntegerField()
-    early_reg_start = models.DateField(blank=True, null=True)
+    early_reg_start = models.DateTimeField(blank=True, null=True)
     early_reg_cost_first = models.IntegerField(blank=True, null=True)
     early_reg_cost_extra = models.IntegerField(blank=True, null=True)
-    reg_start = models.DateField()
-    reg_end = models.DateField()
+    reg_start = models.DateTimeField()
+    reg_end = models.DateTimeField()
     reg_cost_first = models.IntegerField()
     reg_cost_extra = models.IntegerField()
     comp_date = models.DateField(blank=True, null=True)
@@ -209,9 +209,18 @@ class Settings(models.Model):
     def reg_active(self):
         now = timezone.now()
         if self.early_reg_start:
-            if self.early_reg_start <= now <= self.reg_start:
+            if self.early_reg_start <= now <= self.reg_end:
                 return True
         elif self.reg_start <= now <= self.reg_end:
+            return True
+        return False
+    
+    @property
+    def early_reg_active(self):
+        now = timezone.now()
+        if not self.early_reg_start:
+            return False
+        if self.early_reg_start <= now <= self.reg_start:
             return True
         return False
 
