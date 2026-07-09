@@ -308,10 +308,10 @@ class OrganizerGroupsetSerializer(serializers.ModelSerializer):
             if Groupset.objects.filter(team_name=data['team_name'], comp_year=config.reg_year).exists():
                 raise serializers.ValidationError({'groupset': 'A groupset with this name already exists'})
         for member in data['members']:
+            if self.instance is None and GroupsetMember.objects.filter(member=member, groupset__comp_year=config.reg_year).exists():
+                raise serializers.ValidationError({'groupset': 'Member is already in a groupset'})
             if member.school != school:
                 raise serializers.ValidationError({'groupset': 'Members must be from same school as groupset'})
-            if GroupsetMember.objects.filter(member=member, groupset__comp_year=config.reg_year).exists():
-                raise serializers.ValidationError({'groupset': 'Member is already in a groupset'})
             if not Registration.objects.filter(competitor=member, event='NAN901', comp_year=config.reg_year).exists():
                 raise serializers.ValidationError({'groupset': 'Member did not register for groupset'})
     
@@ -348,6 +348,7 @@ class OrganizerGroupsetSerializer(serializers.ModelSerializer):
                 GroupsetMember.objects.filter(groupset=instance, member__in=to_delete).delete()
 
             for member in to_add:
+                GroupsetMember.objects.filter(groupset__comp_year=instance.comp_year, member=member).delete()
                 is_leader = (new_leader is not None and member == new_leader)
                 GroupsetMember.objects.create(member=member, groupset=instance, leader=is_leader)
 
