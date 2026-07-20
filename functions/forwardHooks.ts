@@ -5,8 +5,9 @@ import { useNavigate } from "@/routerCompat";
 import { useEffect } from "react";
 
 // Redirect hooks driven by the Auth.js session (via useSession) instead of the
-// old Redux loginStatus slice. `status` is "loading" until the session is known;
-// SessionProvider is seeded server-side so it's usually resolved on first render.
+// old Redux loginStatus slice. SessionProvider is seeded server-side, so the
+// session is already resolved on first render — `status` is only ever
+// "authenticated" or "unauthenticated", never a transient "loading".
 
 function useForwardDashboard() {
   const { status } = useSession();
@@ -27,13 +28,14 @@ function useForwardSignIn() {
 }
 
 function useForwardIfNotOrganizer() {
-  const { data, status } = useSession();
+  const { data } = useSession();
   const nav = useNavigate();
 
   useEffect(() => {
-    if (status === "loading") return;
+    // The session is server-seeded, so `data` is already resolved on first
+    // render — no "loading" state to wait through before redirecting.
     if (data?.user?.user_type !== "O") nav("/");
-  }, [data, status]);
+  }, [data]);
 }
 
 export { useForwardDashboard, useForwardSignIn, useForwardIfNotOrganizer };

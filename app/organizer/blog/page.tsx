@@ -1,6 +1,6 @@
 "use client";
 
-import { MtHeader, OrganizerBlogList, Dropdown } from "@components";
+import { MtHeader, OrganizerBlogList } from "@components";
 import { setErrorMsg } from "@slices";
 import { createBlogPost } from "@functions/actions";
 import { useState } from "react";
