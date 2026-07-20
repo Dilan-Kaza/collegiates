@@ -1,0 +1,145 @@
+// Prisma schema mirroring the Django `collegiates_app` database structure.
+//
+// Table names (@@map) and column names (@map) match Django's db_table /
+// db_column so this schema maps onto a copy of the existing Postgres database.
+// Choice fields (gender, skill_level, user_type, etc.) are plain varchar(1) in
+// Django (CharField with choices), so they are modeled as String here — not
+// Prisma enums — to match the real column types.
+//
+// Django framework tables (auth_*, django_*, token_blacklist_*) are intentionally
+// omitted; only the application tables are modeled.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model College {
+  college_id   String @id @default(uuid()) @db.Uuid
+  college_name String @unique @db.VarChar(255)
+
+  users     User[]
+  groupsets Groupset[]
+  settings  Settings[]
+
+  @@map("colleges")
+}
+
+model Event {
+  event_code     String   @id @db.VarChar(50)
+  event_name     String?  @unique @db.VarChar(255)
+  event_level    String?  @db.VarChar(1)
+  event_category String?  @db.VarChar(1)
+  gender_category String? @db.VarChar(1)
+  is_nandu       Boolean?
+
+  registrations Registration[]
+
+  @@map("events")
+}
+
+model User {
+  // Django AbstractUser columns that exist on the real `users` table
+  password     String    @db.VarChar(128)
+  last_login   DateTime? @db.Timestamptz(6)
+  is_superuser Boolean   @default(false)
+  first_name   String    @default("") @db.VarChar(150)
+  last_name    String    @default("") @db.VarChar(150)
+  is_staff     Boolean   @default(false)
+  is_active    Boolean   @default(true)
+  date_joined  DateTime  @default(now()) @db.Timestamptz(6)
+
+  // Custom fields
+  user_id      String    @id @default(uuid()) @db.Uuid
+  email        String    @unique @db.VarChar(254)
+  user_type    String    @default("C") @db.VarChar(1)
+  gender       String?   @db.VarChar(1)
+  school       College?  @relation(fields: [school_id], references: [college_id], onDelete: SetNull)
+  school_id    String?   @db.Uuid
+  student_type String?   @db.VarChar(1)
+  first_comp   Int?
+  skill_level  String?   @db.VarChar(1)
+  grad_date    DateTime? @db.Date
+  is_competing Boolean   @default(false)
+  has_paid     Boolean   @default(false)
+  proof_of_reg Boolean   @default(false)
+
+  registration     Registration[]
+  groupset_member  GroupsetMember[]
+
+  @@map("users")
+}
+
+model Registration {
+  id           BigInt   @id @default(autoincrement())
+  competitor   User     @relation(fields: [competitor_id], references: [user_id], onDelete: Cascade)
+  competitor_id String  @db.Uuid
+  event        Event    @relation(fields: [event_code], references: [event_code], onDelete: Cascade)
+  event_code   String   @db.VarChar(50)
+  comp_year    Int
+  date_created DateTime @default(now()) @db.Timestamptz(6)
+  nandu_str    String?
+
+  @@unique([competitor_id, comp_year, event_code])
+  @@map("registration")
+}
+
+model Groupset {
+  groupset_id  String   @id @default(uuid()) @db.Uuid
+  comp_year    Int
+  school       College  @relation(fields: [school_id], references: [college_id], onDelete: Cascade)
+  school_id    String   @db.Uuid
+  team_name    String   @db.VarChar(255)
+  date_created DateTime @default(now()) @db.Timestamptz(6)
+
+  members GroupsetMember[]
+
+  @@map("groupset")
+}
+
+model GroupsetMember {
+  id          BigInt   @id @default(autoincrement())
+  groupset    Groupset @relation(fields: [groupset_id], references: [groupset_id], onDelete: Cascade)
+  groupset_id String   @db.Uuid
+  member      User     @relation(fields: [member_id], references: [user_id], onDelete: Cascade)
+  member_id   String   @map("member") @db.Uuid
+  date_joined DateTime @default(now()) @db.Timestamptz(6)
+  leader      Boolean
+
+  @@unique([groupset_id, member_id])
+  @@map("groupset_members")
+}
+
+model Blog {
+  blog_id      String   @id @default(uuid()) @db.Uuid
+  date_created DateTime @default(now()) @db.Timestamptz(6)
+  author       String   @db.VarChar(255)
+  category     String   @db.VarChar(255)
+  title        String   @db.VarChar(255)
+  blog_content String
+
+  @@map("blog")
+}
+
+model Settings {
+  id                   BigInt    @id @default(autoincrement())
+  reg_year             Int
+  early_reg_start      DateTime? @db.Timestamptz(6)
+  early_reg_cost_first Int?
+  early_reg_cost_extra Int?
+  reg_start            DateTime  @db.Timestamptz(6)
+  reg_end              DateTime  @db.Timestamptz(6)
+  reg_cost_first       Int
+  reg_cost_extra       Int
+  comp_date            DateTime? @db.Date
+  contact_email        String    @db.VarChar(254)
+  host                 College   @relation(fields: [school_id], references: [college_id], onDelete: Cascade)
+  school_id            String    @db.Uuid
+  created_at           DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@map("settings")
+}
