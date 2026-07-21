@@ -60,10 +60,14 @@ export default function Dashboard ({ settings = {} }: { settings?: Partial<Setti
 
     const [userinfo, setUserinfo] = useState<Partial<CompetitorDTO>>({});
     const [hasPublicOrder, setHasPublicOrder] = useState(false);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         if (status !== "authenticated") return;
-        fetchCurrentUser().then(setUserinfo);
+        setLoading(true);
+        fetchCurrentUser()
+            .then(setUserinfo)
+            .finally(() => setLoading(false));
         // getPublicOrder already filters to public: true, so a non-null result means a public order exists.
         fetchEventOrder().then((order) => setHasPublicOrder(!!order));
     }, [status]);
@@ -81,6 +85,11 @@ export default function Dashboard ({ settings = {} }: { settings?: Partial<Setti
                 id="bg-component"
                 className="bg-gradient-to-b from-tertiary via-secondary via-100% to-primary h-[60vh] w-[80%] absolute top-20 left-[10%] -z-20 [clip-path:polygon(0%_0%,100%_0%,100%_100%,50%_88%,0%_100%)]"
             />
+            {loading ? (
+            <div className="bg-off-white rounded-lg px-[5%] py-8 max-w-3xl mx-auto w-full flex items-center justify-center min-h-[200px]">
+                <span className="loading loading-spinner loading-lg text-primary" aria-label="Loading" />
+            </div>
+            ) : (
             <div className="bg-off-white grid grid-cols-[1fr_2fr] rounded-lg px-[5%] py-8 max-w-3xl mx-auto w-full">
                 <div className="grid-row p-1">
                     <div className="flex flex-col gap-2">
@@ -142,6 +151,7 @@ export default function Dashboard ({ settings = {} }: { settings?: Partial<Setti
                     </div>
                 )}
             </div>
+            )}
         </>
     )
 }
