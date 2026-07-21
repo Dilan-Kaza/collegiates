@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { getOrganizerOrder } from "@functions/actions";
 import type { OrderData, OrderItem } from "./types";
 // read-only ring layout
 
@@ -24,7 +25,7 @@ function StaticRing({ label, items }: { label: string; items: StillItem[] }) {
             <div className="flex flex-col gap-2 p-3">
                 {items.map((item) =>
                     item.type === "break" ? (
-                        <div key={item.id} className="rounded border border-dashed border-gray-300 bg-gray-50 px-3 py-2 flex items-center gap-2 text-sm">
+                        <div key={item.id} className="cg-chip">
                             <span className="text-gray-400 text-xs">⏸</span>
                             <span className="font-medium text-gray-600">{item.name}</span>
                             <span className="text-xs text-gray-400 ml-auto">{item.duration} min</span>
@@ -55,8 +56,10 @@ function StaticRing({ label, items }: { label: string; items: StillItem[] }) {
 }
 
 export default function StillView() {
-    // The event-order backend was removed; nothing to fetch.
-    const [order] = useState<OrderData | null>(null);
+    // undefined = still loading, null = no saved order for this year.
+    const [order, setOrder] = useState<OrderData | null | undefined>(undefined);
+
+    useEffect(() => { getOrganizerOrder().then((o) => setOrder(o)); }, []);
 
     const rings = useMemo<StillRings | null>(() => {
         if (!order) return null;
@@ -77,6 +80,9 @@ export default function StillView() {
         };
     }, [order]);
 
+    if (order === undefined) {
+        return <div className="text-sm text-gray-400">Loading…</div>;
+    }
     if (!order || !rings) {
         return <div className="text-sm text-gray-400">No saved order found. Use the Build tab to create one.</div>;
     }

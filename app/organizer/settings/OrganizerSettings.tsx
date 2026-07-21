@@ -60,9 +60,9 @@ export default function OrganizerSettings({ settings = {} }: { settings?: Partia
                 <div className="bg-off-white rounded-2xl px-6 py-5 flex flex-col gap-5">
                     {Object.keys(form).map((key) => (
                         <div key={key} className="flex flex-col gap-1">
-                            <label className="text-xs text-gray-400 uppercase tracking-wide">{key}</label>
+                            <label className="cg-eyebrow-muted">{key}</label>
                             <input
-                                className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-primary"
+                                className="cg-input"
                                 value={form[key] ?? ""}
                                 onChange={(e) => handleChange(key, e.target.value)}
                             />

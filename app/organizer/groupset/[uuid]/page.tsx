@@ -1,14 +1,15 @@
 "use client";
 
 import { MtHeader, OrganizerFindUser } from "@components";
-import { useOrganizerGroupset, useForwardIfNotOrganizer } from "@functions";
+import { fetchOrganizerGroupset, useForwardIfNotOrganizer } from "@functions";
+import { useSession } from "@functions/sessionContext";
 import { setErrorMsg } from "@slices";
 import { clearSessionCache } from "@functions/sessionCache";
 import { updateOrganizerGroupset } from "@functions/actions";
 import { useParams, useNavigate } from "@/routerCompat";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useDispatch } from "react-redux";
-import type { OrganizerMemberDTO } from "@/lib/api";
+import type { OrganizerGroupsetDTO, OrganizerMemberDTO } from "@/lib/api";
 // organizer groupset detail/edit page
 
 export default function OrganizerGroupsetDetail() {
@@ -17,13 +18,21 @@ export default function OrganizerGroupsetDetail() {
     const uuid = useParams().uuid as string;
     const nav = useNavigate();
     const dispatch = useDispatch();
-    const groupset = useOrganizerGroupset(uuid);
+    const { status } = useSession();
 
+    const [groupset, setGroupset] = useState<Partial<OrganizerGroupsetDTO>>({});
     const [editing, setEditing] = useState(false);
     const [teamName, setTeamName] = useState("");
     const [leaderId, setLeaderId] = useState("");
     const [members, setMembers] = useState<OrganizerMemberDTO[]>([]);
     const [loading, setLoading] = useState(false);
+
+    const load = useCallback(() => {
+        if (!uuid) return;
+        fetchOrganizerGroupset(uuid).then(setGroupset);
+    }, [uuid]);
+
+    useEffect(() => { load(); }, [load, status]);
 
     useEffect(() => {
         if (groupset && Object.keys(groupset).length > 0) {
@@ -56,6 +65,7 @@ export default function OrganizerGroupsetDetail() {
         } else {
             clearSessionCache(`groupset_${uuid}`);
             clearSessionCache("organizerGroupsets");
+            load();
             setEditing(false);
         }
         setLoading(false);
@@ -83,7 +93,7 @@ export default function OrganizerGroupsetDetail() {
                         {groupset.school && (
                             <div className="text-sm text-gray-400">{groupset.school.school_name}</div>
                         )}
-                        <div className="bg-off-white rounded-lg px-6 py-5 flex flex-col gap-4 border border-gray-200">
+                        <div className="cg-card-bordered">
                             <div className="text-xl font-semibold text-primary border-b border-gray-200 pb-2">Members</div>
                             {members.length > 0 ? (
                                 <div className="flex flex-col gap-2">
@@ -121,7 +131,7 @@ export default function OrganizerGroupsetDetail() {
                         {groupset.school && (
                             <div className="text-sm text-gray-400">{groupset.school.school_name}</div>
                         )}
-                        <div className="bg-off-white rounded-lg px-6 py-5 flex flex-col gap-4 border border-gray-200">
+                        <div className="cg-card-bordered">
                             <div className="text-xl font-semibold text-primary border-b border-gray-200 pb-2">Members</div>
                             {(groupset.members?.length ?? 0) > 0 ? (
                                 <div className="flex flex-col gap-2">

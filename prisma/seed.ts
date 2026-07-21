@@ -1,0 +1,278 @@
+import "dotenv/config";
+import { PrismaClient } from "@prisma/client";
+import { PrismaPostgresAdapter } from "@prisma/adapter-ppg";
+
+// Seed script — mirrors the reference data from
+// collegiates_backend/sql_files/metadata_queries.sql (colleges + events).
+// Run with: npm run seed  (see prisma.config.ts -> migrations.seed).
+//
+// Self-contained on purpose: it builds its own PrismaClient with the Prisma
+// Postgres driver adapter rather than importing @/lib/prisma, so it can run
+// under `node prisma/seed.ts` without tsconfig path-alias resolution.
+
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  throw new Error("DATABASE_URL is not set.");
+}
+
+const adapter = new PrismaPostgresAdapter({ connectionString });
+const prisma = new PrismaClient({ adapter });
+
+const colleges: string[] = [
+  "U Maryland: College Park",
+  "Columbia U",
+  "UC Berkeley",
+  "Cornell U",
+  "Georgia Tech",
+  "Harvard U",
+  "Northern Arizona U",
+  "Ohio State U",
+  "San Jose State U",
+  "Stanford U",
+  "UC Irvine",
+  "UC Los Angeles",
+  "U Houston",
+  "U Maryland: Baltimore County",
+  "U North Carolina",
+  "U Oregon",
+  "U Texas",
+  "U Virginia",
+  "U Washington",
+  "Virginia Tech",
+  "Yale U",
+  "Wellesley U",
+  "UC San Diego",
+  "UC Davis",
+  "U Southern California",
+  "Cal Poly Pomona",
+  "UC Merced",
+  "California State U, Fullerton",
+  "Palmer College of Chiropractic West",
+  "Santa Monica College",
+  "East Lost Angeles College",
+  "UC San Francisco",
+  "UC Santa Cruz",
+  "Pasadena City College",
+  "Portland Community College",
+  "UC Santa Barbara",
+  "U Pennsylvania",
+  "Berklee College of Music",
+  "U Maryland: Baltimore",
+  "Santa Rosa Junior College",
+  "Georgetown University",
+  "U Nebraska, Kearney",
+  "Pacific College of Oriental Medicine",
+  "UC Riverside",
+  "U Maryland: University College",
+  "California College of the Arts",
+  "Arizona State U",
+  "U Hawaii - Maui College",
+  "Leeward Community College",
+  "Kapi'olani Community College",
+  "U Hawaii - Manoa",
+  "U Hawaii - West Oahu",
+  "Carnegie Mellon U",
+  "U Pittsburgh",
+  "Virginia Commonwealth U",
+  "Point Park University",
+  "Massachusetts Institute of Technology",
+  "Bentley University",
+  "Rutgers U - New Brunswick",
+  "U Illinois Urbana-Champaign",
+  "Saint Peter's University",
+  "College of Staten Island",
+  "Seattle Central College",
+  "San Francisco State U",
+  "Bastyr U",
+  "Central Washington U",
+  "San Diego Miramar College",
+  "California State U, Long Beach",
+  "SUNY Stony Brook ",
+  "New York U",
+  "Maryland Institute College of Art",
+  "Cosumnes River College",
+  "West Coast University",
+  "U Oklahoma",
+  "Univ of Oklahoma",
+  "George Mason U",
+  "Chapman Univ",
+  "SUNY Empire State College",
+  "U Chicago",
+  "University of Alaska Southeast",
+  "Northeastern University",
+  "San Diego State University",
+  "Case Western Reserve University",
+  "Berkeley City College",
+  "New Jersey Institute of Technology",
+  "Boston University",
+  "The Juilliard School",
+];
+
+interface EventSeed {
+  event_code: string;
+  event_category: string;
+  event_name: string;
+  event_level: string;
+  gender_category: string;
+  is_nandu: boolean;
+}
+
+const events: EventSeed[] = [
+  { event_code: "NFN111", event_category: "E", event_name: "Advanced Female Nandu Longfist", event_level: "A", gender_category: "F", is_nandu: true },
+  { event_code: "NMN111", event_category: "E", event_name: "Advanced Male Nandu Longfist", event_level: "A", gender_category: "M", is_nandu: true },
+  { event_code: "NFN112", event_category: "E", event_name: "Advanced Female Nandu Southern Fist", event_level: "A", gender_category: "F", is_nandu: true },
+  { event_code: "NMN112", event_category: "E", event_name: "Advanced Male Nandu Southern Fist", event_level: "A", gender_category: "M", is_nandu: true },
+  { event_code: "NFN311", event_category: "I", event_name: "Advanced Female Nandu Taiji Barehand", event_level: "A", gender_category: "F", is_nandu: true },
+  { event_code: "NMN311", event_category: "I", event_name: "Advanced Male Nandu Taiji Barehand", event_level: "A", gender_category: "M", is_nandu: true },
+  { event_code: "AFA101", event_category: "E", event_name: "Advanced Female Longfist", event_level: "A", gender_category: "F", is_nandu: false },
+  { event_code: "AMA101", event_category: "E", event_name: "Advanced Male Longfist", event_level: "A", gender_category: "M", is_nandu: false },
+  { event_code: "AFA102", event_category: "E", event_name: "Advanced Female Southern Fist", event_level: "A", gender_category: "F", is_nandu: false },
+  { event_code: "AMA102", event_category: "E", event_name: "Advanced Male Southern Fist", event_level: "A", gender_category: "M", is_nandu: false },
+  { event_code: "AFA121", event_category: "E", event_name: "Advanced Female Straightsword", event_level: "A", gender_category: "F", is_nandu: false },
+  { event_code: "AMA121", event_category: "E", event_name: "Advanced Male Straightsword", event_level: "A", gender_category: "M", is_nandu: false },
+  { event_code: "AFA122", event_category: "E", event_name: "Advanced Female Broadsword", event_level: "A", gender_category: "F", is_nandu: false },
+  { event_code: "AMA122", event_category: "E", event_name: "Advanced Male Broadsword", event_level: "A", gender_category: "M", is_nandu: false },
+  { event_code: "AFA123", event_category: "E", event_name: "Advanced Female Southern Broadsword", event_level: "A", gender_category: "F", is_nandu: false },
+  { event_code: "AMA123", event_category: "E", event_name: "Advanced Male Southern Broadsword", event_level: "A", gender_category: "M", is_nandu: false },
+  { event_code: "AFA141", event_category: "E", event_name: "Advanced Female Spear", event_level: "A", gender_category: "F", is_nandu: false },
+  { event_code: "AMA141", event_category: "E", event_name: "Advanced Male Spear", event_level: "A", gender_category: "M", is_nandu: false },
+  { event_code: "AFA142", event_category: "E", event_name: "Advanced Female Staff", event_level: "A", gender_category: "F", is_nandu: false },
+  { event_code: "AMA142", event_category: "E", event_name: "Advanced Male Staff", event_level: "A", gender_category: "M", is_nandu: false },
+  { event_code: "AFA143", event_category: "E", event_name: "Advanced Female Southern Staff", event_level: "A", gender_category: "F", is_nandu: false },
+  { event_code: "AMA143", event_category: "E", event_name: "Advanced Male Southern Staff", event_level: "A", gender_category: "M", is_nandu: false },
+  { event_code: "AMF201", event_category: "E", event_name: "Advanced Female Traditional Open Barehand", event_level: "A", gender_category: "F", is_nandu: false },
+  { event_code: "AMA201", event_category: "E", event_name: "Advanced Male Traditional Open Barehand", event_level: "A", gender_category: "M", is_nandu: false },
+  { event_code: "AFA221", event_category: "E", event_name: "Advanced Female Traditional Short Weapon", event_level: "A", gender_category: "F", is_nandu: false },
+  { event_code: "AMA221", event_category: "E", event_name: "Advanced Male Traditional Short Weapon", event_level: "A", gender_category: "M", is_nandu: false },
+  { event_code: "AFA241", event_category: "E", event_name: "Advanced Female Traditional Long Weapon", event_level: "A", gender_category: "F", is_nandu: false },
+  { event_code: "AMA241", event_category: "E", event_name: "Advanced Male Traditional Long Weapon", event_level: "A", gender_category: "M", is_nandu: false },
+  { event_code: "AFA281", event_category: "E", event_name: "Advanced Female Traditional Soft Weapon", event_level: "A", gender_category: "F", is_nandu: false },
+  { event_code: "AMA281", event_category: "E", event_name: "Advanced Male Traditional Soft Weapon", event_level: "A", gender_category: "M", is_nandu: false },
+  { event_code: "AFA181", event_category: "E", event_name: "Advanced Female Other Weapon", event_level: "A", gender_category: "F", is_nandu: false },
+  { event_code: "AMA181", event_category: "E", event_name: "Advanced Male Other Weapon", event_level: "A", gender_category: "M", is_nandu: false },
+  { event_code: "AFA321", event_category: "I", event_name: "Advanced Female Taiji 24", event_level: "A", gender_category: "F", is_nandu: false },
+  { event_code: "AMA321", event_category: "I", event_name: "Advanced Male Taiji 24", event_level: "A", gender_category: "M", is_nandu: false },
+  { event_code: "AFA322", event_category: "I", event_name: "Advanced Female Yang", event_level: "A", gender_category: "F", is_nandu: false },
+  { event_code: "AMA322", event_category: "I", event_name: "Advanced Male Yang", event_level: "A", gender_category: "M", is_nandu: false },
+  { event_code: "AFA323", event_category: "I", event_name: "Advanced Female Chen", event_level: "A", gender_category: "F", is_nandu: false },
+  { event_code: "AMA323", event_category: "I", event_name: "Advanced Male Chen", event_level: "A", gender_category: "M", is_nandu: false },
+  { event_code: "AFA301", event_category: "I", event_name: "Advanced Female 42 Fist", event_level: "A", gender_category: "F", is_nandu: false },
+  { event_code: "AMA301", event_category: "I", event_name: "Advanced Male 42 Fist", event_level: "A", gender_category: "M", is_nandu: false },
+  { event_code: "AFA302", event_category: "I", event_name: "Advanced Female 42 Sword", event_level: "A", gender_category: "F", is_nandu: false },
+  { event_code: "AMA302", event_category: "I", event_name: "Advanced Male 42 Sword", event_level: "A", gender_category: "M", is_nandu: false },
+  { event_code: "AFA341", event_category: "I", event_name: "Advanced Female Taiji Weapon", event_level: "A", gender_category: "F", is_nandu: false },
+  { event_code: "AMA341", event_category: "I", event_name: "Advanced Male Taiji Weapon", event_level: "A", gender_category: "M", is_nandu: false },
+  { event_code: "AFA361", event_category: "I", event_name: "Advanced Female Internal Open Barehand", event_level: "A", gender_category: "F", is_nandu: false },
+  { event_code: "AMA361", event_category: "I", event_name: "Advanced Male Internal Open Barehand", event_level: "A", gender_category: "M", is_nandu: false },
+  { event_code: "AFA381", event_category: "I", event_name: "Advanced Female Internal Open Weapon", event_level: "A", gender_category: "F", is_nandu: false },
+  { event_code: "AMA381", event_category: "I", event_name: "Advanced Male Internal Open Weapon", event_level: "A", gender_category: "M", is_nandu: false },
+  { event_code: "IFA101", event_category: "E", event_name: "Intermediate Female Longfist", event_level: "I", gender_category: "F", is_nandu: false },
+  { event_code: "IMA101", event_category: "E", event_name: "Intermediate Male Longfist", event_level: "I", gender_category: "M", is_nandu: false },
+  { event_code: "IFA102", event_category: "E", event_name: "Intermediate Female Southern Fist", event_level: "I", gender_category: "F", is_nandu: false },
+  { event_code: "IMA102", event_category: "E", event_name: "Intermediate Male Southern Fist", event_level: "I", gender_category: "M", is_nandu: false },
+  { event_code: "IFA121", event_category: "E", event_name: "Intermediate Female Straightsword", event_level: "I", gender_category: "F", is_nandu: false },
+  { event_code: "IMA121", event_category: "E", event_name: "Intermediate Male Straightsword", event_level: "I", gender_category: "M", is_nandu: false },
+  { event_code: "IFA122", event_category: "E", event_name: "Intermediate Female Broadsword", event_level: "I", gender_category: "F", is_nandu: false },
+  { event_code: "IMA122", event_category: "E", event_name: "Intermediate Male Broadsword", event_level: "I", gender_category: "M", is_nandu: false },
+  { event_code: "IFA123", event_category: "E", event_name: "Intermediate Female Southern Broadsword", event_level: "I", gender_category: "F", is_nandu: false },
+  { event_code: "IMA123", event_category: "E", event_name: "Intermediate Male Southern Broadsword", event_level: "I", gender_category: "M", is_nandu: false },
+  { event_code: "IFA141", event_category: "E", event_name: "Intermediate Female Spear", event_level: "I", gender_category: "F", is_nandu: false },
+  { event_code: "IMA141", event_category: "E", event_name: "Intermediate Male Spear", event_level: "I", gender_category: "M", is_nandu: false },
+  { event_code: "IFA142", event_category: "E", event_name: "Intermediate Female Staff", event_level: "I", gender_category: "F", is_nandu: false },
+  { event_code: "IMA142", event_category: "E", event_name: "Intermediate Male Staff", event_level: "I", gender_category: "M", is_nandu: false },
+  { event_code: "IFA143", event_category: "E", event_name: "Intermediate Female Southern Staff", event_level: "I", gender_category: "F", is_nandu: false },
+  { event_code: "IMA143", event_category: "E", event_name: "Intermediate Male Southern Staff", event_level: "I", gender_category: "M", is_nandu: false },
+  { event_code: "IMF201", event_category: "E", event_name: "Intermediate Female Traditional Open Barehand", event_level: "I", gender_category: "F", is_nandu: false },
+  { event_code: "IMA201", event_category: "E", event_name: "Intermediate Male Traditional Open Barehand", event_level: "I", gender_category: "M", is_nandu: false },
+  { event_code: "IFA221", event_category: "E", event_name: "Intermediate Female Traditional Short Weapon", event_level: "I", gender_category: "F", is_nandu: false },
+  { event_code: "IMA221", event_category: "E", event_name: "Intermediate Male Traditional Short Weapon", event_level: "I", gender_category: "M", is_nandu: false },
+  { event_code: "IFA241", event_category: "E", event_name: "Intermediate Female Traditional Long Weapon", event_level: "I", gender_category: "F", is_nandu: false },
+  { event_code: "IMA241", event_category: "E", event_name: "Intermediate Male Traditional Long Weapon", event_level: "I", gender_category: "M", is_nandu: false },
+  { event_code: "IFA281", event_category: "E", event_name: "Intermediate Female Traditional Soft Weapon", event_level: "I", gender_category: "F", is_nandu: false },
+  { event_code: "IMA281", event_category: "E", event_name: "Intermediate Male Traditional Soft Weapon", event_level: "I", gender_category: "M", is_nandu: false },
+  { event_code: "IFA181", event_category: "E", event_name: "Intermediate Female Other Weapon", event_level: "I", gender_category: "F", is_nandu: false },
+  { event_code: "IMA181", event_category: "E", event_name: "Intermediate Male Other Weapon", event_level: "I", gender_category: "M", is_nandu: false },
+  { event_code: "IFA321", event_category: "I", event_name: "Intermediate Female Taiji 24", event_level: "I", gender_category: "F", is_nandu: false },
+  { event_code: "IMA321", event_category: "I", event_name: "Intermediate Male Taiji 24", event_level: "I", gender_category: "M", is_nandu: false },
+  { event_code: "IFA322", event_category: "I", event_name: "Intermediate Female Yang", event_level: "I", gender_category: "F", is_nandu: false },
+  { event_code: "IMA322", event_category: "I", event_name: "Intermediate Male Yang", event_level: "I", gender_category: "M", is_nandu: false },
+  { event_code: "IFA323", event_category: "I", event_name: "Intermediate Female Chen", event_level: "I", gender_category: "F", is_nandu: false },
+  { event_code: "IMA323", event_category: "I", event_name: "Intermediate Male Chen", event_level: "I", gender_category: "M", is_nandu: false },
+  { event_code: "IFA301", event_category: "I", event_name: "Intermediate Female 42 Fist", event_level: "I", gender_category: "F", is_nandu: false },
+  { event_code: "IMA301", event_category: "I", event_name: "Intermediate Male 42 Fist", event_level: "I", gender_category: "M", is_nandu: false },
+  { event_code: "IFA302", event_category: "I", event_name: "Intermediate Female 42 Sword", event_level: "I", gender_category: "F", is_nandu: false },
+  { event_code: "IMA302", event_category: "I", event_name: "Intermediate Male 42 Sword", event_level: "I", gender_category: "M", is_nandu: false },
+  { event_code: "IFA341", event_category: "I", event_name: "Intermediate Female Taiji Weapon", event_level: "I", gender_category: "F", is_nandu: false },
+  { event_code: "IMA341", event_category: "I", event_name: "Intermediate Male Taiji Weapon", event_level: "I", gender_category: "M", is_nandu: false },
+  { event_code: "IFA361", event_category: "I", event_name: "Intermediate Female Internal Open Barehand", event_level: "I", gender_category: "F", is_nandu: false },
+  { event_code: "IMA361", event_category: "I", event_name: "Intermediate Male Internal Open Barehand", event_level: "I", gender_category: "M", is_nandu: false },
+  { event_code: "IFA381", event_category: "I", event_name: "Intermediate Female Internal Open Weapon", event_level: "I", gender_category: "F", is_nandu: false },
+  { event_code: "IMA381", event_category: "I", event_name: "Intermediate Male Internal Open Weapon", event_level: "I", gender_category: "M", is_nandu: false },
+  { event_code: "BFA101", event_category: "E", event_name: "Beginner Female Longfist", event_level: "B", gender_category: "F", is_nandu: false },
+  { event_code: "BMA101", event_category: "E", event_name: "Beginner Male Longfist", event_level: "B", gender_category: "M", is_nandu: false },
+  { event_code: "BFA102", event_category: "E", event_name: "Beginner Female Southern Fist", event_level: "B", gender_category: "F", is_nandu: false },
+  { event_code: "BMA102", event_category: "E", event_name: "Beginner Male Southern Fist", event_level: "B", gender_category: "M", is_nandu: false },
+  { event_code: "BFA121", event_category: "E", event_name: "Beginner Female Straightsword", event_level: "B", gender_category: "F", is_nandu: false },
+  { event_code: "BMA121", event_category: "E", event_name: "Beginner Male Straightsword", event_level: "B", gender_category: "M", is_nandu: false },
+  { event_code: "BFA122", event_category: "E", event_name: "Beginner Female Broadsword", event_level: "B", gender_category: "F", is_nandu: false },
+  { event_code: "BMA122", event_category: "E", event_name: "Beginner Male Broadsword", event_level: "B", gender_category: "M", is_nandu: false },
+  { event_code: "BFA123", event_category: "E", event_name: "Beginner Female Southern Broadsword", event_level: "B", gender_category: "F", is_nandu: false },
+  { event_code: "BMA123", event_category: "E", event_name: "Beginner Male Southern Broadsword", event_level: "B", gender_category: "M", is_nandu: false },
+  { event_code: "BFA141", event_category: "E", event_name: "Beginner Female Spear", event_level: "B", gender_category: "F", is_nandu: false },
+  { event_code: "BMA141", event_category: "E", event_name: "Beginner Male Spear", event_level: "B", gender_category: "M", is_nandu: false },
+  { event_code: "BFA142", event_category: "E", event_name: "Beginner Female Staff", event_level: "B", gender_category: "F", is_nandu: false },
+  { event_code: "BMA142", event_category: "E", event_name: "Beginner Male Staff", event_level: "B", gender_category: "M", is_nandu: false },
+  { event_code: "BFA143", event_category: "E", event_name: "Beginner Female Southern Staff", event_level: "B", gender_category: "F", is_nandu: false },
+  { event_code: "BMA143", event_category: "E", event_name: "Beginner Male Southern Staff", event_level: "B", gender_category: "M", is_nandu: false },
+  { event_code: "BMF201", event_category: "E", event_name: "Beginner Female Traditional Open Barehand", event_level: "B", gender_category: "F", is_nandu: false },
+  { event_code: "BMA201", event_category: "E", event_name: "Beginner Male Traditional Open Barehand", event_level: "B", gender_category: "M", is_nandu: false },
+  { event_code: "BFA221", event_category: "E", event_name: "Beginner Female Traditional Short Weapon", event_level: "B", gender_category: "F", is_nandu: false },
+  { event_code: "BMA221", event_category: "E", event_name: "Beginner Male Traditional Short Weapon", event_level: "B", gender_category: "M", is_nandu: false },
+  { event_code: "BFA241", event_category: "E", event_name: "Beginner Female Traditional Long Weapon", event_level: "B", gender_category: "F", is_nandu: false },
+  { event_code: "BMA241", event_category: "E", event_name: "Beginner Male Traditional Long Weapon", event_level: "B", gender_category: "M", is_nandu: false },
+  { event_code: "BFA281", event_category: "E", event_name: "Beginner Female Traditional Soft Weapon", event_level: "B", gender_category: "F", is_nandu: false },
+  { event_code: "BMA281", event_category: "E", event_name: "Beginner Male Traditional Soft Weapon", event_level: "B", gender_category: "M", is_nandu: false },
+  { event_code: "BFA181", event_category: "E", event_name: "Beginner Female Other Weapon", event_level: "B", gender_category: "F", is_nandu: false },
+  { event_code: "BMA181", event_category: "E", event_name: "Beginner Male Other Weapon", event_level: "B", gender_category: "M", is_nandu: false },
+  { event_code: "BFA321", event_category: "I", event_name: "Beginner Female Taiji 24", event_level: "B", gender_category: "F", is_nandu: false },
+  { event_code: "BMA321", event_category: "I", event_name: "Beginner Male Taiji 24", event_level: "B", gender_category: "M", is_nandu: false },
+  { event_code: "BFA322", event_category: "I", event_name: "Beginner Female Yang", event_level: "B", gender_category: "F", is_nandu: false },
+  { event_code: "BMA322", event_category: "I", event_name: "Beginner Male Yang", event_level: "B", gender_category: "M", is_nandu: false },
+  { event_code: "BFA323", event_category: "I", event_name: "Beginner Female Chen", event_level: "B", gender_category: "F", is_nandu: false },
+  { event_code: "BMA323", event_category: "I", event_name: "Beginner Male Chen", event_level: "B", gender_category: "M", is_nandu: false },
+  { event_code: "BFA301", event_category: "I", event_name: "Beginner Female 42 Fist", event_level: "B", gender_category: "F", is_nandu: false },
+  { event_code: "BMA301", event_category: "I", event_name: "Beginner Male 42 Fist", event_level: "B", gender_category: "M", is_nandu: false },
+  { event_code: "BFA302", event_category: "I", event_name: "Beginner Female 42 Sword", event_level: "B", gender_category: "F", is_nandu: false },
+  { event_code: "BMA302", event_category: "I", event_name: "Beginner Male 42 Sword", event_level: "B", gender_category: "M", is_nandu: false },
+  { event_code: "BFA341", event_category: "I", event_name: "Beginner Female Taiji Weapon", event_level: "B", gender_category: "F", is_nandu: false },
+  { event_code: "BMA341", event_category: "I", event_name: "Beginner Male Taiji Weapon", event_level: "B", gender_category: "M", is_nandu: false },
+  { event_code: "BFA361", event_category: "I", event_name: "Beginner Female Internal Open Barehand", event_level: "B", gender_category: "F", is_nandu: false },
+  { event_code: "BMA361", event_category: "I", event_name: "Beginner Male Internal Open Barehand", event_level: "B", gender_category: "M", is_nandu: false },
+  { event_code: "BFA381", event_category: "I", event_name: "Beginner Female Internal Open Weapon", event_level: "B", gender_category: "F", is_nandu: false },
+  { event_code: "BMA381", event_category: "I", event_name: "Beginner Male Internal Open Weapon", event_level: "B", gender_category: "M", is_nandu: false },
+  { event_code: "NAN901", event_category: "I", event_name: "Groupset", event_level: "", gender_category: "", is_nandu: false },
+];
+
+async function main() {
+  const collegeResult = await prisma.college.createMany({
+    data: colleges.map((college_name) => ({ college_name })),
+    skipDuplicates: true,
+  });
+  console.log(`Colleges: ${collegeResult.count} inserted (${colleges.length} total).`);
+
+  const eventResult = await prisma.event.createMany({
+    data: events,
+    skipDuplicates: true,
+  });
+  console.log(`Events: ${eventResult.count} inserted (${events.length} total).`);
+}
+
+main()
+  .then(async () => {
+    await prisma.$disconnect();
+  })
+  .catch(async (e) => {
+    console.error(e);
+    await prisma.$disconnect();
+    process.exit(1);
+  });

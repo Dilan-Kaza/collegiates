@@ -33,7 +33,7 @@ export default function OrganizerFindUser({ onFound }: OrganizerFindUserProps) {
         <form onSubmit={handleSubmit} className="flex gap-2 items-center">
             <input
                 type="email"
-                className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-primary flex-1"
+                className="cg-input flex-1"
                 placeholder="Search by email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}

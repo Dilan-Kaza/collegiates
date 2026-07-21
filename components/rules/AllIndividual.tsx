@@ -218,31 +218,31 @@ export default function AllIndividual() {
           <div>
             <h4 className="font-medium mb-1 text-primary">E. Additional Deductions — Scoring Judges</h4>
             <div className="space-y-2 text-gray-700">
-              <p className="text-xs font-semibold uppercase tracking-wide text-primary">Forgetfulness</p>
+              <p className="cg-eyebrow">Forgetfulness</p>
               <ul className="list-disc pl-5 space-y-1">
                 <li>Pause affecting harmony: 0.1</li>
                 <li>Long pause: 0.2</li>
                 <li>Pause leading to confused movements: 0.3</li>
               </ul>
-              <p className="text-xs font-semibold uppercase tracking-wide text-primary mt-2">Costume/Uniform</p>
+              <p className="cg-eyebrow mt-2">Costume/Uniform</p>
               <ul className="list-disc pl-5 space-y-1">
                 <li>Body caught by broadsword flags or sword tassel: 0.1 per incident</li>
                 <li>Weapon or garment decoration falls off: 0.1</li>
                 <li>Uniform tears, sash/top/shoe falls off: 0.1</li>
               </ul>
-              <p className="text-xs font-semibold uppercase tracking-wide text-primary mt-2">Loss/Breakage of Weapon</p>
+              <p className="cg-eyebrow mt-2">Loss/Breakage of Weapon</p>
               <ul className="list-disc pl-5 space-y-1">
                 <li>Weapon touches body/floor inappropriately or comes loose: 0.1</li>
                 <li>Weapon obviously bent or deformed: 0.2</li>
                 <li>Weapon breaks or falls to ground: 0.5</li>
               </ul>
-              <p className="text-xs font-semibold uppercase tracking-wide text-primary mt-2">Loss of Balance</p>
+              <p className="cg-eyebrow mt-2">Loss of Balance</p>
               <ul className="list-disc pl-5 space-y-1">
                 <li>Sway or superfluous step: 0.1 (cumulative for repeats)</li>
                 <li>Touching ground for support: 0.3</li>
                 <li>Fall to ground: 0.5</li>
               </ul>
-              <p className="text-xs font-semibold uppercase tracking-wide text-primary mt-2">Out of Ring Boundary</p>
+              <p className="cg-eyebrow mt-2">Out of Ring Boundary</p>
               <ul className="list-disc pl-5 space-y-1">
                 <li>Any part of body trespassing: 0.1</li>
                 <li>Whole body trespassing: 0.2</li>

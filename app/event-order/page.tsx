@@ -29,7 +29,7 @@ function StaticRing({ label, items }: { label: string; items: EventOrderItem[] }
             <div className="flex flex-col gap-2 p-3">
                 {[...items].sort((a, b) => a.order - b.order).map((item, i) =>
                     !item.event_id ? (
-                        <div key={item.id ?? i} className="rounded border border-dashed border-gray-300 bg-gray-50 px-3 py-2 flex items-center gap-2 text-sm">
+                        <div key={item.id ?? i} className="cg-chip">
                             <span className="text-gray-400 text-xs">⏸</span>
                             <span className="font-medium text-gray-600">{item.name}</span>
                             <span className="text-xs text-gray-400 ml-auto">{item.break_length} min</span>
@@ -53,7 +53,8 @@ function StaticRing({ label, items }: { label: string; items: EventOrderItem[] }
 }
 
 export default function EventOrder() {
-    // fetchEventOrder() has no backend yet (resolves null); undefined = still loading.
+    // fetchEventOrder() resolves the server-cached published order, or null when
+    // none is public yet; undefined = still loading.
     const [order, setOrder] = useState<EventOrderData | null | undefined>(undefined);
 
     useEffect(() => {

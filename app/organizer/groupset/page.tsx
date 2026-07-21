@@ -17,7 +17,7 @@ export default function OrganizerGroupset() {
                     <button className="btn btn-primary btn-sm" onClick={() => nav("/organizer")}>← Back</button>
                     <div className="text-3xl text-secondary font-semibold">Group Sets</div>
                 </div>
-                <div className="bg-off-white rounded-lg px-6 py-5 flex flex-col gap-4">
+                <div className="cg-card">
                     <GroupsetList />
                 </div>
             </div>

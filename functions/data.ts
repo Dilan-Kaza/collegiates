@@ -1,8 +1,8 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
 import prisma from "@/lib/prisma";
-import { shapeSettings, shapeBlog } from "@/lib/api";
-import type { SettingsDTO, BlogDTO } from "@/lib/api";
+import { shapeSettings, shapeBlog, shapeOrder, ORDER_INCLUDE } from "@/lib/api";
+import type { SettingsDTO, BlogDTO, OrderDTO } from "@/lib/api";
 import { loadSettings } from "@/lib/settings";
 
 // Cached, static async data-fetching functions for public data. These query
@@ -52,6 +52,24 @@ export const getBlogPosts = unstable_cache(
   ["blog-list"],
   { tags: ["blog"], revalidate: 3600 }
 );
+
+// The single saved order for a competition year (comp_year is its PK), read
+// through Next's Data Cache. Auth and public/organizer gating are the caller's
+// responsibility — this is pure, year-keyed data tagged "order" (and
+// "order-<year>") so saveOrder can invalidate it with revalidateTag.
+export async function getOrderByYear(year: number): Promise<OrderDTO | null> {
+  const order = await unstable_cache(
+    async (): Promise<OrderDTO | null> => {
+      const o = await prisma.order.findUnique({ where: { comp_year: year }, include: ORDER_INCLUDE });
+      return o ? shapeOrder(o) : null;
+    },
+    ["order", String(year)],
+    { tags: ["order", `order-${year}`], revalidate: 3600 }
+  )();
+  // Restore the Date the cache serialized to a string, matching OrderDTO.
+  if (order) order.updated_at = new Date(order.updated_at);
+  return order;
+}
 
 export async function getBlogPost(blogId: string): Promise<BlogDTO | null> {
   if (!blogId) return null;

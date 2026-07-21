@@ -36,7 +36,7 @@ function Dropdown({ label, options, ...props }: DropdownProps) {
     <>
       <label className="min-w-[11rem] flex flex-col gap-2">
         <span className="capitalize text-sm">{label}</span>
-        <div className="relative flex flex-col gap-2 transition-outline ease-in-out duration-200 border border-gray-300 focus-within:outline-2 focus-within:outline-primary rounded-md py-[10px] px-2">
+        <div className="cg-field">
           <select {...props}>
             <option value="" disabled hidden></option>
             {optionsList.map((optionPair, index) => (

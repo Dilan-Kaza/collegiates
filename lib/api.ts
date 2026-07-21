@@ -19,6 +19,7 @@ export interface EventDTO {
   event_code: string;
   event_name: string | null;
   event_level: string | null;
+  gender_category: string | null;
   is_nandu: boolean | null;
 }
 
@@ -134,6 +135,7 @@ export interface CompetitorDTO {
   skill_level: string | null;
   grad_date: Date | null;
   registrations: RegistrationDTO[];
+  groupset: GroupsetDTO | null;
   user_type: string;
 }
 
@@ -159,6 +161,19 @@ type RingInclude = {
 export type OrderWithRings = Prisma.OrderGetPayload<{
   include: { ring1: RingInclude; ring2: RingInclude; ring3: RingInclude };
 }>;
+
+// Runtime include values matching the payload types above. Shared by every
+// order query (server actions + the cached reader) so the shape stays in one
+// place. `satisfies` preserves the literal so Prisma infers the related payload.
+export const EVENT_ORDER_INCLUDE = {
+  competitor_orders: { include: { competitor: true } },
+} satisfies Prisma.EventOrderInclude;
+
+export const ORDER_INCLUDE = {
+  ring1: { include: { eventorder: { include: EVENT_ORDER_INCLUDE } } },
+  ring2: { include: { eventorder: { include: EVENT_ORDER_INCLUDE } } },
+  ring3: { include: { eventorder: { include: EVENT_ORDER_INCLUDE } } },
+} satisfies Prisma.OrderInclude;
 
 // ---------- response helpers ----------
 
@@ -190,6 +205,7 @@ export const shapeEvent = (e: Event): EventDTO => ({
   event_code: e.event_code,
   event_name: e.event_name,
   event_level: e.event_level,
+  gender_category: e.gender_category,
   is_nandu: e.is_nandu,
 });
 
@@ -316,7 +332,11 @@ export function shapeOrder(o: OrderWithRings): OrderDTO {
   };
 }
 
-export function shapeCompetitor(user: UserWithSchool, registrations: RegistrationWithEvent[] = []): CompetitorDTO {
+export function shapeCompetitor(
+  user: UserWithSchool,
+  registrations: RegistrationWithEvent[] = [],
+  groupset: GroupsetWithMembers | null = null,
+): CompetitorDTO {
   return {
     user_id: user.user_id,
     first_name: user.first_name,
@@ -330,6 +350,7 @@ export function shapeCompetitor(user: UserWithSchool, registrations: Registratio
     skill_level: user.skill_level,
     grad_date: user.grad_date,
     registrations: registrations.map(shapeRegistration),
+    groupset: groupset ? shapeGroupset(groupset) : null,
     user_type: user.user_type,
   };
 }

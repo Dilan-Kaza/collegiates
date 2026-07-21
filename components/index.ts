@@ -12,6 +12,7 @@ export { default as GroupsetList } from "./GroupsetList";
 export { default as OrganizerFindUser } from "./OrganizerFindUser";
 export { default as OrganizerRegistrationList } from "./OrganizerRegistrationList";
 export { default as OrganizerRegistrationByEvent } from "./OrganizerRegistrationByEvent";
+export { default as OrganizerRegistrationEdit } from "./OrganizerRegistrationEdit";
 export { ShortAnswer, Dropdown, DatePicker } from "./FormComponents";
 export { ImgHeader, MtHeader } from "./Headers";
 export { Heading } from "./Heading";

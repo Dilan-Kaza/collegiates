@@ -12,7 +12,7 @@ export default function AllAround() {
         </ul>
         <p className="text-gray-700 mb-4">Each competitor may only register for one All-Around title per tournament and must specify prior to tournament day.</p>
         <div className="space-y-3">
-          <div className="border-l-4 border-l-secondary border border-gray-200 rounded-lg p-4">
+          <div className="cg-card-accent">
             <h4 className="font-semibold mb-2 text-primary">External All-Around Champion</h4>
             <ol className="list-decimal pl-4 sm:pl-5 space-y-1 text-gray-700">
               <li>One event must be Changquan or Nanquan</li>
@@ -21,7 +21,7 @@ export default function AllAround() {
               <li>Any other form not counted in 1, 2, and 3</li>
             </ol>
           </div>
-          <div className="border-l-4 border-l-secondary border border-gray-200 rounded-lg p-4">
+          <div className="cg-card-accent">
             <h4 className="font-semibold mb-2 text-primary">Internal All-Around Champion</h4>
             <ol className="list-decimal pl-4 sm:pl-5 space-y-1 text-gray-700">
               <li>One event must be an internal bare-hand form</li>

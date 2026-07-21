@@ -63,7 +63,7 @@ export default function SheetView() {
         <div className="flex flex-col gap-6">
             <form onSubmit={handleLoad} className="flex gap-2 items-center">
                 <input
-                    className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-primary flex-1"
+                    className="cg-input flex-1"
                     placeholder="Google Sheet ID"
                     value={sheetId}
                     onChange={(e) => setSheetId(e.target.value)}

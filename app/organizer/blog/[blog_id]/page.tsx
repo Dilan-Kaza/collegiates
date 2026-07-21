@@ -67,19 +67,19 @@ export default function OrganizerBlogPost() {
                     {editing ? (
                         <>
                             <input
-                                className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-primary text-2xl font-semibold"
+                                className="cg-input text-2xl font-semibold"
                                 value={form.title}
                                 onChange={(e) => setForm(f => ({ ...f, title: e.target.value }))}
                                 placeholder="Title"
                             />
                             <input
-                                className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-primary"
+                                className="cg-input"
                                 value={form.author}
                                 onChange={(e) => setForm(f => ({ ...f, author: e.target.value }))}
                                 placeholder="Author"
                             />
                             <select
-                                className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-primary bg-off-white"
+                                className="cg-input bg-off-white"
                                 value={form.category}
                                 onChange={(e) => setForm(f => ({ ...f, category: e.target.value }))}
                             >
@@ -87,7 +87,7 @@ export default function OrganizerBlogPost() {
                                 <option value="Multimedia">Multimedia</option>
                             </select>
                             <textarea
-                                className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-primary min-h-[12rem] resize-y"
+                                className="cg-input min-h-[12rem] resize-y"
                                 value={form.blog_content}
                                 onChange={(e) => setForm(f => ({ ...f, blog_content: e.target.value }))}
                                 placeholder="Content"

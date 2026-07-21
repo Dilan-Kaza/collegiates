@@ -1,12 +1,28 @@
 "use client";
 
-import { useOrganizerRegistrations } from "@functions";
+import { useState, useEffect } from "react";
+import { fetchOrganizerRegistrations } from "@functions";
+import { useSession } from "@functions/sessionContext";
+import type { OrganizerRegistrationDTO } from "@/lib/api";
 // registrations by athlete
 
 export default function OrganizerRegistrationList() {
 
-    const registrations = useOrganizerRegistrations();
+    const { status } = useSession();
+    const [registrations, setRegistrations] = useState<OrganizerRegistrationDTO[]>([]);
+    const [loading, setLoading] = useState(true);
 
+    useEffect(() => {
+        if (status !== "authenticated") return;
+        fetchOrganizerRegistrations().then((data) => {
+            setRegistrations(data);
+            setLoading(false);
+        });
+    }, [status]);
+
+    if (loading) {
+        return <div className="text-sm text-gray-400">Loading…</div>;
+    }
     if (registrations.length === 0) {
         return <div className="text-sm text-gray-400">No registrations found.</div>;
     }
@@ -14,7 +30,7 @@ export default function OrganizerRegistrationList() {
     return (
         <div className="flex flex-col gap-3">
             {registrations.map((user) => (
-                <div key={user.user_id} className="border border-gray-200 rounded-lg px-4 py-3 flex flex-col gap-2">
+                <div key={user.user_id} className="cg-list-row flex flex-col gap-2">
                     <div className="flex items-start justify-between gap-2">
                         <div>
                             <div className="font-medium text-dark">{user.name}</div>

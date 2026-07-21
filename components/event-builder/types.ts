@@ -41,13 +41,14 @@ export interface Conflicts {
   close: Set<string>;
 }
 
-// Persisted order shape (the event-order backend was removed, so these are only
-// referenced by now-dead reconstruction paths, but remain typed).
+// Persisted order shape. Structurally a superset-compatible view of the server's
+// EventOrderDTO (event_id / name are nullable there), so an OrderDTO ring can be
+// passed straight into the reconstruction paths below.
 export interface OrderItem {
   id: string;
   order: number;
-  event_id?: string;
-  name?: string;
+  event_id?: string | null;
+  name?: string | null;
   break_length?: number;
   competitor_list?: { id: string; order: number }[];
 }

@@ -16,8 +16,9 @@ import { loadSettings, regActive } from "@/lib/settings";
 import {
   shapeCompetitor, shapeRegistration, shapeEvent, shapeBlog,
   shapeSettings, shapeGroupset, shapeOrganizerGroupset, shapeOrganizerRegistration,
-  shapeOrder,
+  shapeOrder, ORDER_INCLUDE,
 } from "@/lib/api";
+import { getOrderByYear } from "./data";
 import type {
   CompetitorDTO, RegistrationDTO, EventDTO, BlogDTO, SettingsDTO,
   GroupsetDTO, OrganizerGroupsetDTO, OrganizerRegistrationDTO, OrderDTO,
@@ -206,10 +207,21 @@ export async function registerUser(body: RegisterBody): Promise<Mutation<Competi
   return { data: shapeCompetitor(user, []) };
 }
 
-function loadFullUser(userId: string) {
+async function loadFullUser(userId: string) {
+  const settings = await loadSettings();
   return prisma.user.findUnique({
     where: { user_id: userId },
-    include: { school: true, registration: { include: { event: true } } },
+    include: {
+      school: true,
+      registration: { include: { event: true } },
+      // The competitor's group set for the current registration cycle, bundled
+      // with the user so it loads the same way registrations do. Mirrors
+      // getMyGroupset's year filter; matches nothing until settings exist.
+      groupset_member: {
+        where: { groupset: { comp_year: settings?.reg_year ?? -1 } },
+        include: { groupset: { include: { school: true, members: { include: { member: true } } } } },
+      },
+    },
   });
 }
 
@@ -218,7 +230,7 @@ export async function getMe(): Promise<CompetitorDTO | null> {
   if (!current) return null;
   const user = await loadFullUser(current.user_id);
   if (!user) return null;
-  return shapeCompetitor(user, user.registration);
+  return shapeCompetitor(user, user.registration, user.groupset_member[0]?.groupset ?? null);
 }
 
 export async function updateMe(body: UpdateMeBody): Promise<Mutation<CompetitorDTO>> {
@@ -237,7 +249,7 @@ export async function updateMe(body: UpdateMeBody): Promise<Mutation<CompetitorD
   await prisma.user.update({ where: { user_id: current.user_id }, data });
   const user = await loadFullUser(current.user_id);
   if (!user) return { error: { detail: "User not found." } };
-  return { data: shapeCompetitor(user, user.registration) };
+  return { data: shapeCompetitor(user, user.registration, user.groupset_member[0]?.groupset ?? null) };
 }
 
 export async function deleteMe(): Promise<Mutation<{ detail: string }>> {
@@ -705,18 +717,8 @@ export async function deleteOrganizerGroupset(uuid: string): Promise<Mutation<{ 
 
 // ---------- event order ----------
 
-// Resolve an Order down to each ring's EventOrder + its competitors (matches the
-// nested OrderSerializer representation). `satisfies` keeps the literal include
-// type so Prisma infers the related payload instead of widening it away.
-const EVENT_ORDER_INCLUDE = {
-  competitor_orders: { include: { competitor: true } },
-} satisfies Prisma.EventOrderInclude;
-
-const ORDER_INCLUDE = {
-  ring1: { include: { eventorder: { include: EVENT_ORDER_INCLUDE } } },
-  ring2: { include: { eventorder: { include: EVENT_ORDER_INCLUDE } } },
-  ring3: { include: { eventorder: { include: EVENT_ORDER_INCLUDE } } },
-} satisfies Prisma.OrderInclude;
+// Order/EventOrder include shapes live in lib/api (ORDER_INCLUDE) so the query
+// shape and its shaper stay together and are shared with the cached reader.
 
 // EventOrderSerializer._sync_competitors: upsert each provided competitor's
 // CompetitorOrder, then drop any that are no longer listed. (CompetitorOrder has
@@ -821,17 +823,14 @@ async function replaceRing(
   }
 }
 
-// OrganizerOrderView retrieve: the saved order for the current comp_year.
+// OrganizerOrderView retrieve: the saved order for the current comp_year, served
+// from the Data Cache (getOrderByYear) behind the organizer gate.
 export async function getOrganizerOrder(): Promise<OrderDTO | null> {
   const { error } = await requireOrganizer();
   if (error) return null;
   const settings = await loadSettings();
   if (!settings) return null;
-  const order = await prisma.order.findUnique({
-    where: { comp_year: settings.reg_year },
-    include: ORDER_INCLUDE,
-  });
-  return order ? shapeOrder(order) : null;
+  return getOrderByYear(settings.reg_year);
 }
 
 // OrganizerOrderView create/update: upsert the single Order for the current year
@@ -860,20 +859,21 @@ export async function saveOrder(body: OrderBody): Promise<Mutation<OrderDTO>> {
     }
   });
 
+  revalidateTag(`order-${year}`);
+
   const saved = await prisma.order.findUnique({ where: { comp_year: year }, include: ORDER_INCLUDE });
   if (!saved) return { error: { detail: "Failed to save order." } };
   return { data: shapeOrder(saved) };
 }
 
 // CompetitorOrderView: the published (public) order for the current year, if any.
+// Shares the cached per-year read; visibility is filtered here so the cache
+// entry can be reused by both the organizer and competitor paths.
 export async function getPublicOrder(): Promise<OrderDTO | null> {
   const user = await getCurrentUser();
   if (!user || !isCompetitor(user)) return null;
   const settings = await loadSettings();
   if (!settings) return null;
-  const order = await prisma.order.findFirst({
-    where: { comp_year: settings.reg_year, public: true },
-    include: ORDER_INCLUDE,
-  });
-  return order ? shapeOrder(order) : null;
+  const order = await getOrderByYear(settings.reg_year);
+  return order?.public ? order : null;
 }

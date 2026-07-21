@@ -11,7 +11,11 @@ import type { CompetitorDTO, EventDTO, GroupsetDTO, OrderDTO } from "@/lib/api";
 
 export async function fetchCurrentUser(): Promise<Partial<CompetitorDTO>> {
   const cached = getSessionCache<Partial<CompetitorDTO>>("currentUser");
-  if (cached && Object.keys(cached).length > 0) return cached;
+  // A cached user is only usable if it was written by the current shape. Older
+  // sessions cached the user before `groupset` was bundled in; those lack the
+  // key entirely (a present-but-null groupset is valid), so treat them as a
+  // miss and refetch rather than render stale data without the group set.
+  if (cached && Object.keys(cached).length > 0 && "groupset" in cached) return cached;
   const data = (await getMe()) ?? {};
   setSessionCache("currentUser", data);
   return data;

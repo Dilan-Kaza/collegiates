@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useOrganizerRegistrations } from "@functions";
+import { fetchOrganizerRegistrations } from "@functions";
+import { getOrganizerOrder, saveOrder } from "@functions/actions";
+import { useSession } from "@functions/sessionContext";
+import type { OrganizerRegistrationDTO } from "@/lib/api";
 import { ReactSortable } from "react-sortablejs";
 import SortableRing from "./SortableRing";
 import { eventRank, eventSeconds, toHrMin, buildIdToName, computeConflicts } from "./utils";
@@ -14,7 +17,13 @@ const BREAK_PRESETS: BreakItem[] = [
 ];
 
 export default function BuildView() {
-    const rawRegistrations = useOrganizerRegistrations();
+    const { status } = useSession();
+    const [rawRegistrations, setRawRegistrations] = useState<OrganizerRegistrationDTO[]>([]);
+
+    useEffect(() => {
+        if (status !== "authenticated") return;
+        fetchOrganizerRegistrations().then(setRawRegistrations);
+    }, [status]);
 
     const allEvents = useMemo<EventItem[]>(() => {
         const eventMap = new Map<string, EventItem>();
@@ -65,8 +74,8 @@ export default function BuildView() {
     const [initialized, setInitialized] = useState(false);
     const [thirdRing, setThirdRing] = useState(false);
     const [existingOrder, setExistingOrder] = useState<OrderData | null | undefined>(undefined); // undefined = not fetched yet, null = none found
-    const [saving] = useState(false);
-    const [publishing] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [publishing, setPublishing] = useState(false);
     const [stagedBreaks, setStagedBreaks] = useState<BreakItem[]>([]);
     const [breakName, setBreakName] = useState("");
     const [breakDuration, setBreakDuration] = useState(60);
@@ -78,8 +87,11 @@ export default function BuildView() {
         setBreakDuration(60);
     };
 
-    // The event-order backend was removed; start with no saved order.
-    useEffect(() => { setExistingOrder(null); }, []);
+    // Load the organizer's saved order for the current year (null when none exists yet).
+    useEffect(() => {
+        if (status !== "authenticated") return;
+        getOrganizerOrder().then((o) => setExistingOrder(o));
+    }, [status]);
 
     useEffect(() => {
         if (allEvents.length === 0 || initialized || existingOrder === undefined) return;
@@ -104,7 +116,9 @@ export default function BuildView() {
         setInitialized(true);
     }, [allEvents, initialized, existingOrder]);
 
-    // Serializes a ring for the (removed) event-order backend; retained for shape.
+    // Serializes a ring into the event-order write payload (EventOrderInput[]):
+    // each item carries its position (`order`), its saved slot id when re-saving,
+    // and either event + ordered competitors or a break length.
     const serializeRing = (items: RingEvent[]) => items.map((item, index) => {
         const base: { order: number; id?: string } = { order: index };
         if (item.orderId) base.id = item.orderId;
@@ -112,11 +126,33 @@ export default function BuildView() {
             ? { ...base, name: item.name, break_length: item.duration }
             : { ...base, event_id: item.id, name: item.event_name, competitor_list: item.competitors.map((c, i) => ({ id: c.id, order: i })) };
     });
-    void serializeRing;
 
-    // Saving/publishing require an event-order backend that no longer exists.
-    const handleSave = () => {};
-    const handleTogglePublic = () => {};
+    // Persist all three rings for the current year, then re-hydrate from the saved
+    // order so each slot picks up its server-assigned orderId for the next save.
+    const handleSave = async () => {
+        if (saving) return;
+        setSaving(true);
+        const res = await saveOrder({
+            ring1: serializeRing(rings.ring1),
+            ring2: serializeRing(rings.ring2),
+            ring3: serializeRing(rings.ring3),
+        });
+        if (res.data) {
+            setExistingOrder(res.data);
+            setRings(reconstructRings(res.data));
+        }
+        setSaving(false);
+    };
+
+    // Toggle the saved order's public flag. Rings are omitted from the payload so
+    // they are left untouched — this only flips visibility for competitors.
+    const handleTogglePublic = async () => {
+        if (!existingOrder || publishing) return;
+        setPublishing(true);
+        const res = await saveOrder({ public: !existingOrder.public });
+        if (res.data) setExistingOrder(res.data);
+        setPublishing(false);
+    };
 
     const setRing = (key: RingKey) => (list: RingEvent[]) => setRings((prev) => ({ ...prev, [key]: list }));
 

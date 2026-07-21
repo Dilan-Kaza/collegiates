@@ -1,6 +1,6 @@
 "use client";
 
-import { MtHeader, OrganizerRegistrationList, OrganizerRegistrationByEvent } from "@components";
+import { MtHeader, OrganizerRegistrationList, OrganizerRegistrationByEvent, OrganizerRegistrationEdit } from "@components";
 import { useNavigate } from "@/routerCompat";
 import { useForwardIfNotOrganizer } from "@functions";
 import { useState } from "react";
@@ -32,9 +32,17 @@ export default function OrganizerRegistrations() {
                     >
                         By Event
                     </button>
+                    <button
+                        className={`btn btn-sm ${view === "edit" ? "btn-primary" : "btn-ghost"}`}
+                        onClick={() => setView("edit")}
+                    >
+                        Create / Edit
+                    </button>
                 </div>
-                <div className="bg-off-white rounded-lg px-6 py-5 flex flex-col gap-4">
-                    {view === "athlete" ? <OrganizerRegistrationList /> : <OrganizerRegistrationByEvent />}
+                <div className="cg-card">
+                    {view === "athlete" && <OrganizerRegistrationList />}
+                    {view === "event" && <OrganizerRegistrationByEvent />}
+                    {view === "edit" && <OrganizerRegistrationEdit />}
                 </div>
             </div>
         </>

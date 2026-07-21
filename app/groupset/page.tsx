@@ -17,6 +17,7 @@ export default function Groupset(){
     const [joinName, setJoinName] = useState("");
     const [groupSetMembers, setGroupSetMembers] = useState<GroupsetDTO[]>([]);
     const [myGroupSet, setMyGroupSet] = useState<GroupsetDTO[]>([]);
+    const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
         if (status !== "authenticated") return;
@@ -28,18 +29,34 @@ export default function Groupset(){
     const myTeam = myGroupSet?.[0];
 
     const onCreate = async () => {
-        const { error } = await createGroupset({ team_name: createName });
-        if (!error) {
-            clearSessionCache("groupSet");
-            fetchGroupSet().then(setMyGroupSet);
+        if (submitting) return;
+        setSubmitting(true);
+        try {
+            const { error } = await createGroupset({ team_name: createName });
+            if (!error) {
+                clearSessionCache("groupSet");
+                // The group set is now bundled into getMe, so refresh that cache too.
+                clearSessionCache("currentUser");
+                await fetchGroupSet().then(setMyGroupSet);
+            }
+        } finally {
+            setSubmitting(false);
         }
     };
 
     const onJoin = async () => {
-        const { error } = await joinGroupset({ groupset: joinName });
-        if (!error) {
-            clearSessionCache("groupSet");
-            fetchGroupSet().then(setMyGroupSet);
+        if (submitting) return;
+        setSubmitting(true);
+        try {
+            const { error } = await joinGroupset({ groupset: joinName });
+            if (!error) {
+                clearSessionCache("groupSet");
+                // The group set is now bundled into getMe, so refresh that cache too.
+                clearSessionCache("currentUser");
+                await fetchGroupSet().then(setMyGroupSet);
+            }
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -100,8 +117,9 @@ export default function Groupset(){
                                 <button
                                     className="btn btn-primary"
                                     onClick={onCreate}
-                                    disabled={!createName.trim()}
+                                    disabled={!createName.trim() || submitting}
                                 >
+                                    {submitting && <span className="loading loading-spinner loading-sm" />}
                                     Create
                                 </button>
                             </div>
@@ -121,8 +139,9 @@ export default function Groupset(){
                                 <button
                                     className="btn btn-primary"
                                     onClick={onJoin}
-                                    disabled={!joinName.trim()}
+                                    disabled={!joinName.trim() || submitting}
                                 >
+                                    {submitting && <span className="loading loading-spinner loading-sm" />}
                                     Join
                                 </button>
                             </div>

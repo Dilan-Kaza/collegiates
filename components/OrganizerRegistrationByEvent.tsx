@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { useOrganizerRegistrations } from "@functions";
+import { useState, useEffect } from "react";
+import { fetchOrganizerRegistrations } from "@functions";
+import { useSession } from "@functions/sessionContext";
+import type { OrganizerRegistrationDTO } from "@/lib/api";
 
 const TABS = [
     { label: "Beginner", level: "B" },
@@ -37,10 +39,23 @@ const eventRank = (name: string) => {
 
 export default function OrganizerRegistrationByEvent() {
 
-    const registrations = useOrganizerRegistrations();
+    const { status } = useSession();
+    const [registrations, setRegistrations] = useState<OrganizerRegistrationDTO[]>([]);
+    const [loading, setLoading] = useState(true);
     const [activeLevel, setActiveLevel] = useState("B");
     const [activeGender, setActiveGender] = useState("Male");
 
+    useEffect(() => {
+        if (status !== "authenticated") return;
+        fetchOrganizerRegistrations().then((data) => {
+            setRegistrations(data);
+            setLoading(false);
+        });
+    }, [status]);
+
+    if (loading) {
+        return <div className="text-sm text-gray-400">Loading…</div>;
+    }
     if (registrations.length === 0) {
         return <div className="text-sm text-gray-400">No registrations found.</div>;
     }
@@ -93,7 +108,7 @@ export default function OrganizerRegistrationByEvent() {
             ) : (
                 <div className="flex flex-col gap-3">
                     {sorted.map(([code, { event_name, athletes }]) => (
-                        <div key={code} className="border border-gray-200 rounded-lg px-4 py-3 flex flex-col gap-2">
+                        <div key={code} className="cg-list-row flex flex-col gap-2">
                             <div className="flex items-center justify-between">
                                 <div className="font-medium text-dark text-sm">{event_name.replace(/\b(Beginner|Intermediate|Advanced|Male|Female)\b\s*/g, "")}</div>
                                 <span className="text-xs text-gray-400">{athletes.length}</span>

@@ -1,6 +1,6 @@
 "use client"
 
-import { fetchCurrentUser, useForwardSignIn, fetchGroupSet } from "@functions";
+import { fetchCurrentUser, useForwardSignIn, fetchEventOrder } from "@functions";
 import { MtHeader, LogoutButton } from "@components";
 import { useNavigate } from "@/routerCompat";
 import { useSession } from "@functions/sessionContext";
@@ -59,14 +59,17 @@ export default function Dashboard ({ settings = {} }: { settings?: Partial<Setti
     const nav = useNavigate();
 
     const [userinfo, setUserinfo] = useState<Partial<CompetitorDTO>>({});
-    const [myTeam, setMyTeam] = useState<GroupsetDTO | undefined>(undefined);
+    const [hasPublicOrder, setHasPublicOrder] = useState(false);
 
     useEffect(() => {
         if (status !== "authenticated") return;
         fetchCurrentUser().then(setUserinfo);
-        fetchGroupSet().then((gs) => setMyTeam(gs?.[0]));
+        // getPublicOrder already filters to public: true, so a non-null result means a public order exists.
+        fetchEventOrder().then((order) => setHasPublicOrder(!!order));
     }, [status]);
 
+    // The group set now loads bundled with the current user (like registrations).
+    const myTeam = userinfo.groupset ?? undefined;
     const cost = computeTotalOwed(userinfo.registrations, settings as SettingsDTO, myTeam);
 
     useForwardSignIn();
@@ -93,7 +96,7 @@ export default function Dashboard ({ settings = {} }: { settings?: Partial<Setti
                         <div>skill level: {userinfo.skill_level}</div>
                     </div>
                 </div>
-                <div className="p-1 content-center flex flex-col items-center">
+                <div className="p-1 content-center flex flex-col items-center gap-2 w-full">
                     {(userinfo.registrations?.length ?? 0) > 0 ? (
                         <div className="space-y-2 flex flex-col items-center w-full">
                             <div className="text-lg font-semibold mb-2">Registered Events</div>
@@ -103,24 +106,25 @@ export default function Dashboard ({ settings = {} }: { settings?: Partial<Setti
                                     {reg.nandu_str && <div className="text-gray-500">Nandu: {reg.nandu_str}</div>}
                                 </div>
                             ))}
-                            {myTeam ? (
-                                <div className="border border-gray-200 rounded-lg px-4 py-2 text-sm w-full text-center mt-2">
-                                    <div className="text-xs uppercase tracking-wide text-gray-400">Group Set</div>
-                                    <div className="font-medium">{myTeam.team_name}</div>
-                                    {myTeam.members.length > 0 && (
-                                        <div className="text-gray-500 text-xs mt-1">{myTeam.members.join(", ")}</div>
-                                    )}
-                                </div>
-                            ) : (
-                                <button className="btn btn-secondary mt-2" onClick={() => nav('/groupset')}>Group Set</button>
-                            )}
                         </div>
                     ) : (
                         <button className="btn btn-primary" onClick={() => nav('/register')}>Register</button>
                     )}
+                    {myTeam ? (
+                        <div className="border border-gray-200 rounded-lg px-4 py-2 text-sm w-full text-center mt-2">
+                            <div className="cg-eyebrow-muted">Group Set</div>
+                            <div className="font-medium">{myTeam.team_name}</div>
+                            {myTeam.school && <div className="text-gray-400 text-xs">{myTeam.school}</div>}
+                            {myTeam.members.length > 0 && (
+                                <div className="text-gray-500 text-xs mt-1">{myTeam.members.join(", ")}</div>
+                            )}
+                        </div>
+                    ) : (
+                        <button className="btn btn-secondary mt-2" onClick={() => nav('/groupset')}>Group Set</button>
+                    )}
                 </div>
                 {cost && (
-                    <div className="col-span-2 border border-gray-200 rounded-lg px-4 py-3 mt-4 text-sm flex items-center justify-between">
+                    <div className="col-span-2 cg-list-row mt-4 text-sm flex items-center justify-between">
                         <div>
                             <div className="font-semibold">Total Owed</div>
                             <div className="text-gray-500 text-xs">
@@ -132,9 +136,11 @@ export default function Dashboard ({ settings = {} }: { settings?: Partial<Setti
                         <div className="text-xl font-bold text-primary">${cost.total}</div>
                     </div>
                 )}
-                <div className="col-span-2 flex justify-center pt-4">
-                    <button className="btn btn-secondary" onClick={() => nav('/event-order')}>Event Order</button>
-                </div>
+                {hasPublicOrder && (
+                    <div className="col-span-2 flex justify-center pt-4">
+                        <button className="btn btn-secondary" onClick={() => nav('/event-order')}>Event Order</button>
+                    </div>
+                )}
             </div>
         </>
     )

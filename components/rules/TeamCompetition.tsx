@@ -20,7 +20,7 @@ export default function TeamCompetition() {
         <h3 className="text-base font-semibold mb-3 text-primary">II. Criteria and Methods of Scoring</h3>
         <p className="text-gray-700 mb-3">A team's total score = Group Set Placement + Individual Placements of each team member. The highest total wins.</p>
         <div className="space-y-4">
-          <div className="border-l-4 border-l-secondary border border-gray-200 rounded-lg p-4">
+          <div className="cg-card-accent">
             <h4 className="font-semibold mb-2 text-primary">1. Group Set Placement</h4>
             <table className="w-full border border-primary/20 text-sm">
               <thead className="bg-primary text-white">
@@ -34,7 +34,7 @@ export default function TeamCompetition() {
               </tbody>
             </table>
           </div>
-          <div className="border-l-4 border-l-secondary border border-gray-200 rounded-lg p-4">
+          <div className="cg-card-accent">
             <h4 className="font-semibold mb-2 text-primary">2. Individual Placement ("Team Placements")</h4>
             <p className="text-sm text-gray-700 mb-2">Points awarded per team member for their two best events, counting only among competitors in the team competition (Class 2 placements are skipped). Max contribution per member: 6 points.</p>
             <table className="w-full border border-primary/20 text-sm">

@@ -14,12 +14,23 @@ interface RegistrationConfirmProps {
   extraCost?: number | null;
   totalCost?: number | null;
   onBack?: MouseEventHandler<HTMLButtonElement>;
-  onConfirm?: MouseEventHandler<HTMLButtonElement>;
+  onConfirm?: () => void | Promise<void>;
 }
 
 export default function RegistrationConfirm({ events, isEarly, firstCost, extraCost, totalCost, onBack, onConfirm }: RegistrationConfirmProps) {
     const { status } = useSession();
     const [eventsFromApi, setEventsFromApi] = useState<EventDTO[]>([]);
+    const [submitting, setSubmitting] = useState(false);
+
+    const handleConfirm = async () => {
+        if (submitting) return;
+        setSubmitting(true);
+        try {
+            await onConfirm?.();
+        } finally {
+            setSubmitting(false);
+        }
+    };
 
     useEffect(() => {
         if (status !== "authenticated") return;
@@ -54,8 +65,11 @@ export default function RegistrationConfirm({ events, isEarly, firstCost, extraC
                 </div>
             )}
             <div className="flex justify-between">
-                <button className="btn btn-ghost text-off-white" onClick={onBack}>Back</button>
-                <button className="btn btn-secondary" onClick={onConfirm}>Confirm</button>
+                <button className="btn btn-ghost text-off-white" onClick={onBack} disabled={submitting}>Back</button>
+                <button className="btn btn-secondary" onClick={handleConfirm} disabled={submitting}>
+                    {submitting && <span className="loading loading-spinner loading-sm" />}
+                    Confirm
+                </button>
             </div>
         </div>
     );
