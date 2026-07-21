@@ -1,6 +1,6 @@
 import { getSessionCache, setSessionCache } from "@functions/sessionCache";
-import { getMe, getCompetitorEvents, getJoinableGroupsets, getMyGroupset } from "@functions/actions";
-import type { CompetitorDTO, EventDTO, GroupsetDTO } from "@/lib/api";
+import { getMe, getCompetitorEvents, getJoinableGroupsets, getMyGroupset, getPublicOrder } from "@functions/actions";
+import type { CompetitorDTO, EventDTO, GroupsetDTO, OrderDTO } from "@/lib/api";
 
 // Plain async data-fetchers that replace the old use*-hooks. Each reads the
 // sessionStorage cache first and falls back to the server action on a miss,
@@ -41,8 +41,9 @@ export async function fetchGroupSet(): Promise<GroupsetDTO[]> {
   return data;
 }
 
-// The event-order feature has no backend yet; returns null so the page can show
-// its empty state without a network call.
-export async function fetchEventOrder(): Promise<null> {
-  return null;
+// The published event order for the current year, or null when the organizer
+// hasn't made one public yet. Not session-cached — it can change between visits
+// and the payload is small.
+export async function fetchEventOrder(): Promise<OrderDTO | null> {
+  return getPublicOrder();
 }

@@ -1,10 +1,10 @@
 // Shared API helpers plus object shapers mirroring the Django REST serializers.
 //
 // Responses are serialized with superjson so rich types survive the wire:
-// BigInt (Prisma autoincrement ids) and Date (Prisma timestamps) are preserved
-// and reconstructed on the client (see lib/apiClient.ts). This replaces the old
-// hand-rolled JSON.stringify replacer that flattened BigInt to Number and Date
-// to an ISO string.
+// Date (Prisma timestamps) is preserved and reconstructed on the client (see
+// lib/apiClient.ts). This replaces the old hand-rolled JSON.stringify replacer
+// that flattened Date to an ISO string. (Ids are all UUID strings now, so no
+// BigInt crosses the wire.)
 import superjson from "superjson";
 import type { Prisma, College, Event, Blog } from "@prisma/client";
 
@@ -96,6 +96,31 @@ export interface OrganizerRegistrationDTO {
   proof_of_reg: boolean;
 }
 
+export interface EventOrderCompetitorDTO {
+  id: string;
+  name: string;
+  order: number;
+}
+
+export interface EventOrderDTO {
+  id: string;
+  comp_year: number;
+  event_id: string | null;
+  break_length: number;
+  name: string | null;
+  competitor_list: EventOrderCompetitorDTO[];
+  order: number;
+}
+
+export interface OrderDTO {
+  comp_year: number;
+  ring1: EventOrderDTO[];
+  ring2: EventOrderDTO[];
+  ring3: EventOrderDTO[];
+  public: boolean;
+  updated_at: Date;
+}
+
 export interface CompetitorDTO {
   user_id: string;
   first_name: string;
@@ -122,6 +147,17 @@ export type GroupsetWithMembers = Prisma.GroupsetGetPayload<{
 export type UserWithSchool = Prisma.UserGetPayload<{ include: { school: true } }>;
 export type UserWithSchoolAndRegistration = Prisma.UserGetPayload<{
   include: { school: true; registration: { include: { event: true } } };
+}>;
+export type EventOrderWithCompetitors = Prisma.EventOrderGetPayload<{
+  include: { competitor_orders: { include: { competitor: true } } };
+}>;
+// Order with each ring's join rows resolved down to the EventOrder (and its
+// competitors). Mirrors the nested representation of the Django OrderSerializer.
+type RingInclude = {
+  include: { eventorder: { include: { competitor_orders: { include: { competitor: true } } } } };
+};
+export type OrderWithRings = Prisma.OrderGetPayload<{
+  include: { ring1: RingInclude; ring2: RingInclude; ring3: RingInclude };
 }>;
 
 // ---------- response helpers ----------
@@ -247,6 +283,36 @@ export function shapeOrganizerRegistration(user: UserWithSchoolAndRegistration):
     is_competing: user.is_competing,
     has_paid: user.has_paid,
     proof_of_reg: user.proof_of_reg,
+  };
+}
+
+// EventOrderSerializer.to_representation: competitor_list rendered as
+// {id, name, order} rows sorted by order.
+export function shapeEventOrder(eo: EventOrderWithCompetitors): EventOrderDTO {
+  return {
+    id: eo.id,
+    comp_year: eo.comp_year,
+    event_id: eo.event_id,
+    break_length: eo.break_length,
+    name: eo.name,
+    competitor_list: [...eo.competitor_orders]
+      .sort((a, b) => a.order - b.order)
+      .map((co) => ({ id: co.competitor_id, name: memberName(co.competitor), order: co.order })),
+    order: eo.order,
+  };
+}
+
+// OrderSerializer: each ring is a list of nested EventOrder representations.
+export function shapeOrder(o: OrderWithRings): OrderDTO {
+  const ring = (rows: { eventorder: EventOrderWithCompetitors }[]): EventOrderDTO[] =>
+    rows.map((r) => shapeEventOrder(r.eventorder)).sort((a, b) => a.order - b.order);
+  return {
+    comp_year: o.comp_year,
+    ring1: ring(o.ring1),
+    ring2: ring(o.ring2),
+    ring3: ring(o.ring3),
+    public: o.public,
+    updated_at: o.updated_at,
   };
 }
 

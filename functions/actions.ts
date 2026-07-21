@@ -16,10 +16,11 @@ import { loadSettings, regActive } from "@/lib/settings";
 import {
   shapeCompetitor, shapeRegistration, shapeEvent, shapeBlog,
   shapeSettings, shapeGroupset, shapeOrganizerGroupset, shapeOrganizerRegistration,
+  shapeOrder,
 } from "@/lib/api";
 import type {
   CompetitorDTO, RegistrationDTO, EventDTO, BlogDTO, SettingsDTO,
-  GroupsetDTO, OrganizerGroupsetDTO, OrganizerRegistrationDTO,
+  GroupsetDTO, OrganizerGroupsetDTO, OrganizerRegistrationDTO, OrderDTO,
 } from "@/lib/api";
 
 // ---------- result / body types ----------
@@ -109,6 +110,32 @@ interface UpdateOrganizerGroupsetBody {
   school?: string;
   leader?: string;
   members?: string[];
+}
+
+// Event-order write payload (mirrors the Django OrderSerializer / EventOrderSerializer
+// write path). Each ring item is either an event (event_id + competitor_list) or a
+// break (break_length, no event_id). `id` is present when re-saving an existing slot.
+type RingKey = "ring1" | "ring2" | "ring3";
+
+interface EventOrderCompetitorInput {
+  id?: string;
+  order?: number;
+}
+
+interface EventOrderInput {
+  id?: string;
+  order?: number;
+  event_id?: string; // event_code; absent for breaks
+  name?: string;
+  break_length?: number;
+  competitor_list?: EventOrderCompetitorInput[];
+}
+
+interface OrderBody {
+  ring1?: EventOrderInput[];
+  ring2?: EventOrderInput[];
+  ring3?: EventOrderInput[];
+  public?: boolean;
 }
 
 // NOTE: the `school + members.member` include is written inline at each query
@@ -674,4 +701,179 @@ export async function deleteOrganizerGroupset(uuid: string): Promise<Mutation<{ 
   if (error) return { error };
   await prisma.groupset.delete({ where: { groupset_id: uuid } });
   return { data: { detail: "deleted" } };
+}
+
+// ---------- event order ----------
+
+// Resolve an Order down to each ring's EventOrder + its competitors (matches the
+// nested OrderSerializer representation). `satisfies` keeps the literal include
+// type so Prisma infers the related payload instead of widening it away.
+const EVENT_ORDER_INCLUDE = {
+  competitor_orders: { include: { competitor: true } },
+} satisfies Prisma.EventOrderInclude;
+
+const ORDER_INCLUDE = {
+  ring1: { include: { eventorder: { include: EVENT_ORDER_INCLUDE } } },
+  ring2: { include: { eventorder: { include: EVENT_ORDER_INCLUDE } } },
+  ring3: { include: { eventorder: { include: EVENT_ORDER_INCLUDE } } },
+} satisfies Prisma.OrderInclude;
+
+// EventOrderSerializer._sync_competitors: upsert each provided competitor's
+// CompetitorOrder, then drop any that are no longer listed. (CompetitorOrder has
+// no DB unique constraint, matching Django, so this emulates update_or_create.)
+async function syncCompetitors(
+  tx: Prisma.TransactionClient,
+  eventOrderId: string,
+  comps: EventOrderCompetitorInput[],
+): Promise<void> {
+  const keep: string[] = [];
+  for (const item of comps) {
+    if (!item.id) continue;
+    const existing = await tx.competitorOrder.findFirst({
+      where: { event_order_id: eventOrderId, competitor_id: item.id },
+      select: { id: true },
+    });
+    if (existing) {
+      await tx.competitorOrder.update({ where: { id: existing.id }, data: { order: item.order ?? 0 } });
+    } else {
+      await tx.competitorOrder.create({
+        data: { event_order_id: eventOrderId, competitor_id: item.id, order: item.order ?? 0 },
+      });
+    }
+    keep.push(item.id);
+  }
+  await tx.competitorOrder.deleteMany({
+    where: { event_order_id: eventOrderId, competitor_id: { notIn: keep } },
+  });
+}
+
+// EventOrderRelatedField.to_internal_value: an item with an `id` updates that
+// EventOrder in place; an item without one is created fresh (new uuid, comp_year
+// from settings). Returns the persisted EventOrder id either way.
+async function persistEventOrder(
+  tx: Prisma.TransactionClient,
+  item: EventOrderInput,
+  year: number,
+): Promise<string> {
+  const comps = item.competitor_list;
+
+  if (item.id) {
+    const existing = await tx.eventOrder.findUnique({ where: { id: item.id }, select: { id: true } });
+    if (existing) {
+      const data: Prisma.EventOrderUncheckedUpdateInput = {};
+      if (item.event_id !== undefined) data.event_id = item.event_id;
+      if (item.name !== undefined) data.name = item.name;
+      if (item.break_length !== undefined) data.break_length = item.break_length;
+      if (item.order !== undefined) data.order = item.order;
+      if (Object.keys(data).length) await tx.eventOrder.update({ where: { id: item.id }, data });
+      if (comps !== undefined) await syncCompetitors(tx, item.id, comps);
+      return item.id;
+    }
+    // id supplied but the row is gone — recreate it with the same id so the
+    // client-provided reference stays stable.
+    await tx.eventOrder.create({
+      data: {
+        id: item.id,
+        comp_year: year,
+        event_id: item.event_id ?? null,
+        break_length: item.break_length ?? 0,
+        name: item.name ?? null,
+        order: item.order ?? 0,
+      },
+    });
+    if (comps !== undefined) await syncCompetitors(tx, item.id, comps);
+    return item.id;
+  }
+
+  const created = await tx.eventOrder.create({
+    data: {
+      id: crypto.randomUUID(),
+      comp_year: year,
+      event_id: item.event_id ?? null,
+      break_length: item.break_length ?? 0,
+      name: item.name ?? null,
+      order: item.order ?? 0,
+    },
+    select: { id: true },
+  });
+  await syncCompetitors(tx, created.id, comps ?? []);
+  return created.id;
+}
+
+// Replace an Order's ring membership with `ids` (Django M2M `.set()`): clear the
+// join table for this year, then re-link in the given order.
+async function replaceRing(
+  tx: Prisma.TransactionClient,
+  ring: RingKey,
+  year: number,
+  ids: string[],
+): Promise<void> {
+  const data = ids.map((eid) => ({ order_id: year, eventorder_id: eid }));
+  if (ring === "ring1") {
+    await tx.orderRing1.deleteMany({ where: { order_id: year } });
+    if (ids.length) await tx.orderRing1.createMany({ data });
+  } else if (ring === "ring2") {
+    await tx.orderRing2.deleteMany({ where: { order_id: year } });
+    if (ids.length) await tx.orderRing2.createMany({ data });
+  } else {
+    await tx.orderRing3.deleteMany({ where: { order_id: year } });
+    if (ids.length) await tx.orderRing3.createMany({ data });
+  }
+}
+
+// OrganizerOrderView retrieve: the saved order for the current comp_year.
+export async function getOrganizerOrder(): Promise<OrderDTO | null> {
+  const { error } = await requireOrganizer();
+  if (error) return null;
+  const settings = await loadSettings();
+  if (!settings) return null;
+  const order = await prisma.order.findUnique({
+    where: { comp_year: settings.reg_year },
+    include: ORDER_INCLUDE,
+  });
+  return order ? shapeOrder(order) : null;
+}
+
+// OrganizerOrderView create/update: upsert the single Order for the current year
+// (comp_year is its primary key) and rewrite whichever rings were provided.
+export async function saveOrder(body: OrderBody): Promise<Mutation<OrderDTO>> {
+  const { error } = await requireOrganizer();
+  if (error) return { error };
+  const settings = await loadSettings();
+  if (!settings) return { error: { detail: "No settings have been created yet." } };
+  const year = settings.reg_year;
+  const rings: RingKey[] = ["ring1", "ring2", "ring3"];
+
+  await prisma.$transaction(async (tx) => {
+    await tx.order.upsert({
+      where: { comp_year: year },
+      create: { comp_year: year, public: body.public ?? false },
+      update: body.public !== undefined ? { public: body.public } : {},
+    });
+
+    for (const ring of rings) {
+      const items = body[ring];
+      if (items === undefined) continue; // ring omitted → leave it untouched
+      const ids: string[] = [];
+      for (const item of items) ids.push(await persistEventOrder(tx, item, year));
+      await replaceRing(tx, ring, year, ids);
+    }
+  });
+
+  const saved = await prisma.order.findUnique({ where: { comp_year: year }, include: ORDER_INCLUDE });
+  if (!saved) return { error: { detail: "Failed to save order." } };
+  return { data: shapeOrder(saved) };
+}
+
+// CompetitorOrderView: the published (public) order for the current year, if any.
+export async function getPublicOrder(): Promise<OrderDTO | null> {
+  const user = await getCurrentUser();
+  if (!user || !isCompetitor(user)) return null;
+  const settings = await loadSettings();
+  if (!settings) return null;
+  const order = await prisma.order.findFirst({
+    where: { comp_year: settings.reg_year, public: true },
+    include: ORDER_INCLUDE,
+  });
+  return order ? shapeOrder(order) : null;
 }

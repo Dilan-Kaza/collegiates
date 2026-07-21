@@ -12,6 +12,8 @@
     "vercel-build": "prisma migrate deploy && next build"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^7.9.0",
+    "@prisma/adapter-ppg": "^7.9.0",
     "@prisma/client": "^7.9.0",
     "@reduxjs/toolkit": "^2.12.0",
     "@types/react-dom": "^19.2.3",
@@ -37,7 +39,7 @@
     "@types/react": "^19.2.17",
     "eslint": "^9",
     "eslint-config-next": "15.2.4",
-    "prisma": "^6.19.3",
+    "prisma": "^7.9.0",
     "tailwindcss": "^4.0.9"
   }
 }

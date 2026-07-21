@@ -15,7 +15,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model College {
@@ -30,14 +29,15 @@ model College {
 }
 
 model Event {
-  event_code     String   @id @db.VarChar(50)
-  event_name     String?  @unique @db.VarChar(255)
-  event_level    String?  @db.VarChar(1)
-  event_category String?  @db.VarChar(1)
-  gender_category String? @db.VarChar(1)
-  is_nandu       Boolean?
+  event_code      String   @id @db.VarChar(50)
+  event_name      String?  @unique @db.VarChar(255)
+  event_level     String?  @db.VarChar(1)
+  event_category  String?  @db.VarChar(1)
+  gender_category String?  @db.VarChar(1)
+  is_nandu        Boolean?
 
   registrations Registration[]
+  event_orders  EventOrder[]
 
   @@map("events")
 }
@@ -68,8 +68,9 @@ model User {
   has_paid     Boolean   @default(false)
   proof_of_reg Boolean   @default(false)
 
-  registration     Registration[]
-  groupset_member  GroupsetMember[]
+  registration      Registration[]
+  groupset_member   GroupsetMember[]
+  competitor_orders CompetitorOrder[]
 
   @@map("users")
 }
@@ -102,7 +103,7 @@ model Groupset {
 }
 
 model GroupsetMember {
-  id          BigInt   @id @default(autoincrement())
+  id          String   @id @default(uuid()) @db.Uuid
   groupset    Groupset @relation(fields: [groupset_id], references: [groupset_id], onDelete: Cascade)
   groupset_id String   @db.Uuid
   member      User     @relation(fields: [member_id], references: [user_id], onDelete: Cascade)
@@ -126,7 +127,7 @@ model Blog {
 }
 
 model Settings {
-  id                   BigInt    @id @default(autoincrement())
+  id                   String    @id @default(uuid()) @db.Uuid
   reg_year             Int
   early_reg_start      DateTime? @db.Timestamptz(6)
   early_reg_cost_first Int?
@@ -142,4 +143,89 @@ model Settings {
   created_at           DateTime  @default(now()) @db.Timestamptz(6)
 
   @@map("settings")
+}
+
+// A single scheduled slot in a ring: either an event (with an ordered list of
+// competitors, via CompetitorOrder) or a break (event_id null, break_length set).
+// Django field `event_id` is itself a ForeignKey, so its DB column is
+// `event_id_id` (Django appends `_id` to the field name).
+model EventOrder {
+  id           String  @id @db.Uuid
+  comp_year    Int
+  event        Event?  @relation(fields: [event_id], references: [event_code], onDelete: SetNull)
+  event_id     String? @map("event_id_id") @db.VarChar(50)
+  break_length Int
+  name         String?
+  order        Int     @default(0)
+
+  competitor_orders CompetitorOrder[]
+  ring1             OrderRing1[]
+  ring2             OrderRing2[]
+  ring3             OrderRing3[]
+
+  @@map("event_order")
+}
+
+// Through-model for EventOrder.competitor_list (Django ManyToManyField). No
+// db_table on the Django model, so it keeps the default `collegiates_app_competitororder`.
+model CompetitorOrder {
+  id             BigInt     @id @default(autoincrement())
+  order          Int        @default(0)
+  event_order    EventOrder @relation(fields: [event_order_id], references: [id], onDelete: Cascade)
+  event_order_id String     @db.Uuid
+  competitor     User       @relation(fields: [competitor_id], references: [user_id], onDelete: Cascade)
+  competitor_id  String     @db.Uuid
+
+  @@map("collegiates_app_competitororder")
+}
+
+// One saved order per competition year (comp_year is the primary key). The three
+// rings are Django ManyToManyFields to EventOrder, each backed by an implicit
+// join table (`order_ring1/2/3`) modeled explicitly below.
+model Order {
+  comp_year  Int      @id
+  public     Boolean  @default(false)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  ring1 OrderRing1[]
+  ring2 OrderRing2[]
+  ring3 OrderRing3[]
+
+  @@map("order")
+}
+
+// Implicit M2M join tables for Order.ring1/ring2/ring3. Django names the columns
+// after the lowercased model names (`order_id`, `eventorder_id`); `order_id`
+// references Order's PK, which is `comp_year`.
+model OrderRing1 {
+  id            BigInt     @id @default(autoincrement())
+  order         Order      @relation(fields: [order_id], references: [comp_year], onDelete: Cascade)
+  order_id      Int
+  eventorder    EventOrder @relation(fields: [eventorder_id], references: [id], onDelete: Cascade)
+  eventorder_id String     @db.Uuid
+
+  @@unique([order_id, eventorder_id])
+  @@map("order_ring1")
+}
+
+model OrderRing2 {
+  id            BigInt     @id @default(autoincrement())
+  order         Order      @relation(fields: [order_id], references: [comp_year], onDelete: Cascade)
+  order_id      Int
+  eventorder    EventOrder @relation(fields: [eventorder_id], references: [id], onDelete: Cascade)
+  eventorder_id String     @db.Uuid
+
+  @@unique([order_id, eventorder_id])
+  @@map("order_ring2")
+}
+
+model OrderRing3 {
+  id            BigInt     @id @default(autoincrement())
+  order         Order      @relation(fields: [order_id], references: [comp_year], onDelete: Cascade)
+  order_id      Int
+  eventorder    EventOrder @relation(fields: [eventorder_id], references: [id], onDelete: Cascade)
+  eventorder_id String     @db.Uuid
+
+  @@unique([order_id, eventorder_id])
+  @@map("order_ring3")
 }
