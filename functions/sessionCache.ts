@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import superjson from "superjson";
 
 // sessionStorage-backed replacement for the old Redux `sessionCache` slice.
 // Data lives in the browser's per-tab sessionStorage (cleared when the tab
@@ -22,9 +23,12 @@ const listeners = new Map<string, Set<Listener>>();
 // per key and only re-parse when the underlying raw string differs.
 const snapshots = new Map<string, { raw: string | null; value: unknown }>();
 
+// Serialize with superjson (not JSON) so rich types in the cached DTOs survive
+// the sessionStorage round-trip — most importantly the Date fields on Settings,
+// Order, and Blog, which plain JSON would flatten to strings.
 function safeParse<T>(raw: string): T | undefined {
   try {
-    return JSON.parse(raw) as T;
+    return superjson.parse<T>(raw);
   } catch {
     return undefined;
   }
@@ -69,7 +73,7 @@ export function getSessionCache<T>(key: string): T | undefined {
 
 export function setSessionCache<T>(key: string, data: T): void {
   if (typeof window === "undefined") return;
-  window.sessionStorage.setItem(namespaced(key), JSON.stringify(data));
+  window.sessionStorage.setItem(namespaced(key), superjson.stringify(data));
   snapshots.delete(key);
   emit(key);
 }

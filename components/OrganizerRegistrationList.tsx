@@ -1,28 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { fetchOrganizerRegistrations } from "@functions";
-import { useSession } from "@functions/sessionContext";
 import type { OrganizerRegistrationDTO } from "@/lib/api";
 // registrations by athlete
 
-export default function OrganizerRegistrationList() {
+// `registrations` is resolved on the server and passed in (was fetched on mount).
+export default function OrganizerRegistrationList({ registrations = [] }: { registrations?: OrganizerRegistrationDTO[] }) {
 
-    const { status } = useSession();
-    const [registrations, setRegistrations] = useState<OrganizerRegistrationDTO[]>([]);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        if (status !== "authenticated") return;
-        fetchOrganizerRegistrations().then((data) => {
-            setRegistrations(data);
-            setLoading(false);
-        });
-    }, [status]);
-
-    if (loading) {
-        return <div className="text-sm text-gray-400">Loading…</div>;
-    }
     if (registrations.length === 0) {
         return <div className="text-sm text-gray-400">No registrations found.</div>;
     }

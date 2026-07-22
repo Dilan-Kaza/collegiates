@@ -1,29 +1,30 @@
 "use client";
 
 import { MtHeader, EventSelection, RegistrationConfirm } from "@components";
-import { useEffect, useState } from "react";
-import { fetchCurrentUser, useForwardSignIn } from "@functions";
+import { useState } from "react";
 import { useNavigate } from "@/routerCompat";
-import { useSession } from "@functions/sessionContext";
 import { createRegistrations } from "@functions/actions";
 import { clearSessionCache } from "@functions/sessionCache";
-import type { SettingsDTO, CompetitorDTO } from "@/lib/api";
+import type { SettingsDTO, EventDTO } from "@/lib/api";
 import type { RegEventItem } from "@/types";
 // event registration flow
 
-export default function Register({ settings = {} }: { settings?: Partial<SettingsDTO> }) {
+// `catalogEvents` (the events this competitor is eligible for) is resolved on
+// the server and passed in, so the selection/confirm steps render without a
+// client fetch. Auth and the "already registered" redirect are handled by the
+// server page before this renders.
+export default function Register({
+    settings = {},
+    catalogEvents = [],
+}: {
+    settings?: Partial<SettingsDTO>;
+    catalogEvents?: EventDTO[];
+}) {
 
     const nav = useNavigate();
-    const { status } = useSession();
-    const [userinfo, setUserinfo] = useState<Partial<CompetitorDTO>>({});
 
     const [events, setEvents] = useState<RegEventItem[]>([]);
     const [confirming, setConfirming] = useState(false);
-
-    useEffect(() => {
-        if (status !== "authenticated") return;
-        fetchCurrentUser().then(setUserinfo);
-    }, [status]);
 
     const isEarly = !!settings.early_reg_start
         && settings.early_reg_cost_first != null
@@ -42,20 +43,13 @@ export default function Register({ settings = {} }: { settings?: Partial<Setting
         }
     };
 
-    useEffect(()=>{
-        if(Object.keys(userinfo).length !== 0 && (userinfo.registrations?.length ?? 0) !== 0){
-            nav('/dashboard');
-        }
-    },[userinfo]);
-
-    useForwardSignIn();
-
     return (
         <div>
             <div className="hidden sm:block"><MtHeader/></div>
             {confirming ? (
                 <RegistrationConfirm
                     events={events}
+                    catalogEvents={catalogEvents}
                     isEarly={isEarly}
                     firstCost={firstCost}
                     extraCost={extraCost}
@@ -67,6 +61,7 @@ export default function Register({ settings = {} }: { settings?: Partial<Setting
                 <EventSelection
                     events={events}
                     setEvents={setEvents}
+                    catalogEvents={catalogEvents}
                     isEarly={isEarly}
                     firstCost={firstCost}
                     extraCost={extraCost}

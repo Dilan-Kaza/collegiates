@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { getOrganizerOrder } from "@functions/actions";
+import { useMemo } from "react";
 import type { OrderData, OrderItem } from "./types";
 // read-only ring layout
 
@@ -55,11 +54,9 @@ function StaticRing({ label, items }: { label: string; items: StillItem[] }) {
     );
 }
 
-export default function StillView() {
-    // undefined = still loading, null = no saved order for this year.
-    const [order, setOrder] = useState<OrderData | null | undefined>(undefined);
-
-    useEffect(() => { getOrganizerOrder().then((o) => setOrder(o)); }, []);
+// `order` is resolved on the server and passed in (null = no saved order for
+// this year); it was fetched on mount here.
+export default function StillView({ order = null }: { order?: OrderData | null }) {
 
     const rings = useMemo<StillRings | null>(() => {
         if (!order) return null;
@@ -80,9 +77,6 @@ export default function StillView() {
         };
     }, [order]);
 
-    if (order === undefined) {
-        return <div className="text-sm text-gray-400">Loading…</div>;
-    }
     if (!order || !rings) {
         return <div className="text-sm text-gray-400">No saved order found. Use the Build tab to create one.</div>;
     }

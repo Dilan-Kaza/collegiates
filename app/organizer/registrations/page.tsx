@@ -1,50 +1,26 @@
-"use client";
+import Registrations from "./Registrations";
+import { getOrganizerRegistrations, getOrganizerEvents } from "@functions/actions";
+import { requireOrganizer } from "@/lib/auth";
+import CacheSeed from "@functions/CacheSeed";
+import { cacheKeys } from "@functions/cacheKeys";
 
-import { MtHeader, OrganizerRegistrationList, OrganizerRegistrationByEvent, OrganizerRegistrationEdit } from "@components";
-import { useNavigate } from "@/routerCompat";
-import { useForwardIfNotOrganizer } from "@functions";
-import { useState } from "react";
-
-export default function OrganizerRegistrations() {
-
-    useForwardIfNotOrganizer();
-    const nav = useNavigate();
-    const [view, setView] = useState("athlete");
-
-    return (
-        <>
-            <div className="hidden md:block"><MtHeader /></div>
-            <div className="max-w-3xl mx-auto w-full px-4 py-8 flex flex-col gap-6">
-                <div className="flex items-center gap-4">
-                    <button className="btn btn-ghost btn-sm" onClick={() => nav("/organizer")}>← Back</button>
-                    <div className="text-3xl text-secondary font-semibold">Registrations</div>
-                </div>
-                <div className="flex gap-2">
-                    <button
-                        className={`btn btn-sm ${view === "athlete" ? "btn-primary" : "btn-ghost"}`}
-                        onClick={() => setView("athlete")}
-                    >
-                        By Athlete
-                    </button>
-                    <button
-                        className={`btn btn-sm ${view === "event" ? "btn-primary" : "btn-ghost"}`}
-                        onClick={() => setView("event")}
-                    >
-                        By Event
-                    </button>
-                    <button
-                        className={`btn btn-sm ${view === "edit" ? "btn-primary" : "btn-ghost"}`}
-                        onClick={() => setView("edit")}
-                    >
-                        Create / Edit
-                    </button>
-                </div>
-                <div className="cg-card">
-                    {view === "athlete" && <OrganizerRegistrationList />}
-                    {view === "event" && <OrganizerRegistrationByEvent />}
-                    {view === "edit" && <OrganizerRegistrationEdit />}
-                </div>
-            </div>
-        </>
-    );
+export default async function Page() {
+  // Gate to organizers and resolve the registration list + full event catalogue
+  // on the server so they ship with the page.
+  await requireOrganizer();
+  const [registrations, allEvents] = await Promise.all([
+    getOrganizerRegistrations(),
+    getOrganizerEvents(),
+  ]);
+  return (
+    <>
+      <CacheSeed
+        entries={{
+          [cacheKeys.organizerRegistrations]: registrations,
+          [cacheKeys.organizerEvents]: allEvents,
+        }}
+      />
+      <Registrations registrations={registrations} allEvents={allEvents} />
+    </>
+  );
 }

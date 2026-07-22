@@ -138,6 +138,9 @@ model Settings {
   reg_cost_extra       Int
   comp_date            DateTime? @db.Date
   contact_email        String    @db.VarChar(254)
+  // Whether the current year's event order is published (visible to competitors).
+  // Lives on Settings rather than Order so publicity is part of event config.
+  order_public         Boolean   @default(false)
   host                 College   @relation(fields: [school_id], references: [college_id], onDelete: Cascade)
   school_id            String    @db.Uuid
   created_at           DateTime  @default(now()) @db.Timestamptz(6)
@@ -184,7 +187,6 @@ model CompetitorOrder {
 // join table (`order_ring1/2/3`) modeled explicitly below.
 model Order {
   comp_year  Int      @id
-  public     Boolean  @default(false)
   updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(6)
 
   ring1 OrderRing1[]

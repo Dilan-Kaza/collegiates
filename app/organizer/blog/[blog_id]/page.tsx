@@ -1,9 +1,10 @@
 "use client";
 
 import { MtHeader } from "@components";
-import { useForwardIfNotOrganizer } from "@functions";
+import { useForwardIfNotOrganizer, fetchBlogPostById, cacheKeys } from "@functions";
+import { clearSessionCache } from "@functions/sessionCache";
 import { setErrorMsg } from "@slices";
-import { getBlogPostById, updateBlogPost } from "@functions/actions";
+import { updateBlogPost } from "@functions/actions";
 import { useParams, useNavigate } from "@/routerCompat";
 import { useState, useEffect } from "react";
 import { useDispatch } from "react-redux";
@@ -24,7 +25,7 @@ export default function OrganizerBlogPost() {
 
     useEffect(() => {
         if (!blog_id) return;
-        getBlogPostById(blog_id)
+        fetchBlogPostById(blog_id)
             .then((data) => setPost(data ?? {}))
             .catch((err) => console.warn("Could not fetch blog post", err));
     }, [blog_id]);
@@ -48,6 +49,11 @@ export default function OrganizerBlogPost() {
         } else {
             setPost(data ?? {});
             setEditing(false);
+            // The saved post is now stale in the cache: drop its own entry and the
+            // organizer/public list entries so the next read reflects the edit.
+            clearSessionCache(cacheKeys.blogPost(blog_id));
+            clearSessionCache(cacheKeys.organizerBlogPosts);
+            clearSessionCache(cacheKeys.blogPosts);
         }
         setLoading(false);
     };

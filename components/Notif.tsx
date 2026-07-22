@@ -1,49 +1,31 @@
 "use client"
 
-import { clearSuccessMsg, clearErrorMsg } from "@slices";
+import { clearNotif } from "@slices";
 import { useDispatch } from "react-redux";
-import { useAppSelector } from "@/hooks";
+import { useAppSelector } from "@/store/hooks";
 
-
-
-function SuccessNotif() {
+// Single toast notification. Reads the one `notif` slice; `isError` selects the
+// success vs error styling.
+function Notif() {
 
     const dispatch = useDispatch();
-    const success = useAppSelector(state => state.success.message);
+    const { message, isError } = useAppSelector(state => state.notif);
 
+    if (!message) return null;
+
+    // Full class names must appear as literals so Tailwind/daisyUI don't purge
+    // them — don't build these with string interpolation.
+    const alertClass = isError ? "alert alert-error" : "alert alert-success";
+    const btnClass = isError ? "btn btn-error btn-circle" : "btn btn-success btn-circle";
 
     return (
-        <>
-            {success ?
-                <div className="toast">
-                    <div className="alert alert-success">
-                        <span>{success}</span>
-                        <button className="btn btn-success btn-circle" onClick={()=>dispatch(clearSuccessMsg())}>X</button>
-                    </div>
-                </div>
-            : <></>}
-        </>
+        <div className="toast">
+            <div className={alertClass}>
+                <span>{message}</span>
+                <button className={btnClass} onClick={() => dispatch(clearNotif())}>X</button>
+            </div>
+        </div>
     )
 };
 
-function ErrorNotif() {
-
-    const dispatch = useDispatch();
-    const error = useAppSelector(state => state.error.message);
-
-
-    return (
-        <>
-            {error ?
-                <div className="toast">
-                    <div className="alert alert-error">
-                        <span>{error}</span>
-                        <button className="btn btn-error btn-circle" onClick={()=>dispatch(clearErrorMsg())}>X</button>
-                    </div>
-                </div>
-            : <></>}
-        </>
-    )
-};
-
-export {SuccessNotif, ErrorNotif};
+export { Notif };

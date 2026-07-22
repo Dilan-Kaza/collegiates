@@ -7,4 +7,3 @@ import type { RootState, AppDispatch } from "@/store";
 // `useSelector` so selectors and dispatched thunks are strongly typed.
 export const useAppDispatch = () => useDispatch<AppDispatch>();
 export const useAppSelector: TypedUseSelectorHook<RootState> = useSelector;
-// (typed Redux hooks)

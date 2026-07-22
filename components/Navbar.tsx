@@ -1,24 +1,16 @@
 "use client";
 
 import { Link, useNavigate } from "@/routerCompat";
-import { fetchCurrentUser } from "@functions";
 import { useSession } from "@functions/sessionContext";
-import { useState, useEffect } from "react";
 
 const tabs = ["Tournament", "Rules", "About", "News", "Multimedia"];
 
-function NavBar() {
+// `firstName` is resolved on the server by the root layout and passed in, so the
+// signed-in user's name renders immediately with no client fetch.
+function NavBar({ firstName = "" }: { firstName?: string }) {
 
-  const { data: session, status } = useSession();
-  const [username, setUsername] = useState("");
-
-  useEffect(() => {
-    if (status === "authenticated") {
-      fetchCurrentUser().then((u) => setUsername(u.first_name ?? ""));
-    } else {
-      setUsername("");
-    }
-  }, [status]);
+  const { data: session } = useSession();
+  const username = firstName;
 
   const nav = useNavigate();
 

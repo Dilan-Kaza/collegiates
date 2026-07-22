@@ -1,14 +1,15 @@
 "use client";
 
 import type { MouseEventHandler } from "react";
-import { useState, useEffect } from "react";
-import { fetchEvents } from "@functions";
-import { useSession } from "@functions/sessionContext";
+import { useState } from "react";
 import type { RegEventItem } from "@/types";
 import type { EventDTO } from "@/lib/api";
 
 interface RegistrationConfirmProps {
   events: RegEventItem[];
+  // The event catalogue, resolved on the server and passed in (was fetched on
+  // mount here).
+  catalogEvents?: EventDTO[];
   isEarly?: boolean;
   firstCost?: number | null;
   extraCost?: number | null;
@@ -17,9 +18,8 @@ interface RegistrationConfirmProps {
   onConfirm?: () => void | Promise<void>;
 }
 
-export default function RegistrationConfirm({ events, isEarly, firstCost, extraCost, totalCost, onBack, onConfirm }: RegistrationConfirmProps) {
-    const { status } = useSession();
-    const [eventsFromApi, setEventsFromApi] = useState<EventDTO[]>([]);
+export default function RegistrationConfirm({ events, catalogEvents = [], isEarly, firstCost, extraCost, totalCost, onBack, onConfirm }: RegistrationConfirmProps) {
+    const eventsFromApi = catalogEvents;
     const [submitting, setSubmitting] = useState(false);
 
     const handleConfirm = async () => {
@@ -31,11 +31,6 @@ export default function RegistrationConfirm({ events, isEarly, firstCost, extraC
             setSubmitting(false);
         }
     };
-
-    useEffect(() => {
-        if (status !== "authenticated") return;
-        fetchEvents().then(setEventsFromApi);
-    }, [status]);
 
     const getEventName = (eventCode: string) => eventsFromApi.find(e => e.event_code === eventCode)?.event_name;
 

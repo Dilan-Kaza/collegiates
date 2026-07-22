@@ -18,15 +18,6 @@ function useForwardDashboard() {
   }, [status]);
 }
 
-function useForwardSignIn() {
-  const { status } = useSession();
-  const nav = useNavigate();
-
-  useEffect(() => {
-    if (status === "unauthenticated") nav("/signin");
-  }, [status]);
-}
-
 function useForwardIfNotOrganizer() {
   const { data } = useSession();
   const nav = useNavigate();
@@ -38,4 +29,4 @@ function useForwardIfNotOrganizer() {
   }, [data]);
 }
 
-export { useForwardDashboard, useForwardSignIn, useForwardIfNotOrganizer };
+export { useForwardDashboard, useForwardIfNotOrganizer };

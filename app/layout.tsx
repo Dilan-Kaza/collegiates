@@ -5,7 +5,8 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Providers from "./providers";
 import { auth } from "@/auth";
-import { NavBar, NavDock, BackgroundShapes, SuccessNotif, ErrorNotif } from "@components";
+import { getCurrentUser } from "@/lib/auth";
+import { NavBar, NavDock, BackgroundShapes, Notif, LoadingOverlay } from "@components";
 
 export const metadata: Metadata = {
   title: "Collegiate Wushu",
@@ -14,6 +15,10 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const session = await auth();
+  // Resolve the signed-in user's first name on the server so the nav shows it
+  // immediately, with no client fetch or auth-status flash.
+  const currentUser = session ? await getCurrentUser() : null;
+  const firstName = currentUser?.first_name ?? "";
   return (
     <Providers session={session}>
       <html lang="en">
@@ -29,7 +34,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           <BackgroundShapes />
 
           <div className="hidden md:block">
-            <NavBar />
+            <NavBar firstName={firstName} />
           </div>
 
           <div className="antialiased text-dark font-grotesk lg:w-[80%] lg:translate-x-[12.5%] my-2">
@@ -37,16 +42,15 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           </div>
 
           <div className="fixed top-0 left-0 right-0 z-[9999] flex flex-col items-center sm:hidden">
-            <SuccessNotif />
-            <ErrorNotif />
+            <Notif />
           </div>
           <div className="hidden sm:block">
-            <SuccessNotif />
-            <ErrorNotif />
+            <Notif />
           </div>
           <div className="md:hidden pt-14">
-            <NavDock />
+            <NavDock firstName={firstName} />
           </div>
+          <LoadingOverlay />
         </body>
       </html>
     </Providers>

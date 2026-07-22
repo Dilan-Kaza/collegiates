@@ -1,12 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useDispatch } from "react-redux";
 import { setErrorMsg, setSuccessMsg } from "@slices";
-import { fetchOrganizerEvents } from "@functions";
 import { clearSessionCache } from "@functions/sessionCache";
-import { useSession } from "@functions/sessionContext";
 import { findUserByEmail, updateOrganizerRegistration } from "@functions/actions";
 import type { RegEventItem } from "@/types";
 import type { EventDTO, OrganizerRegistrationDTO } from "@/lib/api";
@@ -14,25 +12,19 @@ import type { EventDTO, OrganizerRegistrationDTO } from "@/lib/api";
 // Organizer tool for building or amending a competitor's registration. The
 // organizer searches for the athlete by email, then adds/removes any event from
 // the full catalogue (competitor gender/level gates don't apply here) and edits
-// nandu codes before saving via updateOrganizerRegistration.
-export default function OrganizerRegistrationEdit() {
+// nandu codes before saving via updateOrganizerRegistration. `allEvents` (the
+// full catalogue) is resolved on the server and passed in (was fetched on mount).
+export default function OrganizerRegistrationEdit({ allEvents = [] }: { allEvents?: EventDTO[] }) {
 
     const dispatch = useDispatch();
-    const { status } = useSession();
 
     const [email, setEmail] = useState("");
     const [searching, setSearching] = useState(false);
     const [athlete, setAthlete] = useState<OrganizerRegistrationDTO | null>(null);
 
-    const [allEvents, setAllEvents] = useState<EventDTO[]>([]);
     const [events, setEvents] = useState<RegEventItem[]>([]);
     const [selectedEvent, setSelectedEvent] = useState("");
     const [saving, setSaving] = useState(false);
-
-    useEffect(() => {
-        if (status !== "authenticated") return;
-        fetchOrganizerEvents().then(setAllEvents);
-    }, [status]);
 
     const getEvent = (code: string) => allEvents.find((e) => e.event_code === code);
     const selectedCodes = new Set(events.map((e) => e.event_code));

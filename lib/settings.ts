@@ -1,13 +1,19 @@
+import { cache } from "react";
 import prisma from "./prisma";
 import type { SettingsWithHost } from "./api";
 
 // Mirrors Settings.load() — the most-recently created settings row.
-export function loadSettings(): Promise<SettingsWithHost | null> {
-  return prisma.settings.findFirst({
+//
+// Wrapped in React `cache()`: a single render/action asks for settings from
+// several places (auth-gated data fetch, mutation validation, the group-set
+// year filter). cache() collapses those to one query for the current request
+// only; nothing persists across requests.
+export const loadSettings = cache((): Promise<SettingsWithHost | null> =>
+  prisma.settings.findFirst({
     orderBy: { created_at: "desc" },
     include: { host: true },
-  });
-}
+  })
+);
 
 // Mirrors Settings.reg_active
 export function regActive(s: SettingsWithHost | null | undefined): boolean {

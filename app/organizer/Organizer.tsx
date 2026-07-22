@@ -2,15 +2,28 @@
 
 import { MtHeader, GroupsetList, OrganizerBlogList, OrganizerRegistrationList } from "@components";
 import { StillView } from "@components/event-builder";
-import { useForwardIfNotOrganizer } from "@functions";
 import { Link } from "@/routerCompat";
 import { useState } from "react";
-import type { SettingsDTO } from "@/lib/api";
+import type { SettingsDTO, OrganizerRegistrationDTO, OrganizerGroupsetDTO, OrderDTO, BlogDTO } from "@/lib/api";
 // organizer dashboard
 
-export default function Organizer({ settings = {} }: { settings?: Partial<SettingsDTO> }) {
+// Every panel's data is resolved on the server (the page gates to organizers and
+// redirects otherwise) and passed in, so this renders fully populated with no
+// client fetch.
+export default function Organizer({
+    settings = {},
+    registrations = [],
+    groupsets = [],
+    order = null,
+    blogPosts = [],
+}: {
+    settings?: Partial<SettingsDTO>;
+    registrations?: OrganizerRegistrationDTO[];
+    groupsets?: OrganizerGroupsetDTO[];
+    order?: OrderDTO | null;
+    blogPosts?: BlogDTO[];
+}) {
 
-    useForwardIfNotOrganizer();
     const [registrationsOpen, setRegistrationsOpen] = useState(true);
     const [groupsetsOpen, setGroupsetsOpen] = useState(true);
     const [blogOpen, setBlogOpen] = useState(true);
@@ -72,7 +85,7 @@ export default function Organizer({ settings = {} }: { settings?: Partial<Settin
                         <Link to="/organizer/registrations" className="hover:underline" onClick={e => e.stopPropagation()}>Registrations</Link>
                         <span className="text-sm text-gray-400">{registrationsOpen ? "▲" : "▼"}</span>
                     </button>
-                    {registrationsOpen && <OrganizerRegistrationList />}
+                    {registrationsOpen && <OrganizerRegistrationList registrations={registrations} />}
                 </div>
 
                 <div className="cg-card">
@@ -83,7 +96,7 @@ export default function Organizer({ settings = {} }: { settings?: Partial<Settin
                         <Link to="/organizer/groupset" className="hover:underline" onClick={e => e.stopPropagation()}>Group Sets</Link>
                         <span className="text-sm text-gray-400">{groupsetsOpen ? "▲" : "▼"}</span>
                     </button>
-                    {groupsetsOpen && <GroupsetList />}
+                    {groupsetsOpen && <GroupsetList groupsets={groupsets} />}
                 </div>
 
                 <div className="cg-card">
@@ -94,7 +107,7 @@ export default function Organizer({ settings = {} }: { settings?: Partial<Settin
                         <Link to="/organizer/eventbuilder" className="hover:underline" onClick={e => e.stopPropagation()}>Event Order</Link>
                         <span className="text-sm text-gray-400">{orderOpen ? "▲" : "▼"}</span>
                     </button>
-                    {orderOpen && <StillView />}
+                    {orderOpen && <StillView order={order} />}
                 </div>
 
                 <div className="cg-card">
@@ -105,7 +118,7 @@ export default function Organizer({ settings = {} }: { settings?: Partial<Settin
                         <Link to="/organizer/blog" className="hover:underline" onClick={e => e.stopPropagation()}>Blog Posts</Link>
                         <span className="text-sm text-gray-400">{blogOpen ? "▲" : "▼"}</span>
                     </button>
-                    {blogOpen && <OrganizerBlogList />}
+                    {blogOpen && <OrganizerBlogList posts={blogPosts} />}
                 </div>
             </div>
         </>

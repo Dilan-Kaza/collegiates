@@ -44,6 +44,7 @@ export interface SettingsDTO {
   comp_date: Date | null;
   contact_email: string;
   host: string | null;
+  order_public: boolean;
   created_at: Date;
 }
 
@@ -118,7 +119,6 @@ export interface OrderDTO {
   ring1: EventOrderDTO[];
   ring2: EventOrderDTO[];
   ring3: EventOrderDTO[];
-  public: boolean;
   updated_at: Date;
 }
 
@@ -232,6 +232,7 @@ export function shapeSettings(s: SettingsWithHost | null): SettingsDTO | null {
       comp_date: s.comp_date,
       contact_email: s.contact_email,
       host: s.host?.college_name ?? null,
+      order_public: s.order_public,
       created_at: s.created_at,
     }
   );
@@ -327,7 +328,6 @@ export function shapeOrder(o: OrderWithRings): OrderDTO {
     ring1: ring(o.ring1),
     ring2: ring(o.ring2),
     ring3: ring(o.ring3),
-    public: o.public,
     updated_at: o.updated_at,
   };
 }

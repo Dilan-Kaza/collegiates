@@ -18,8 +18,8 @@
       "@/*": ["./*"],
       "@components": ["./components"],
       "@components/*": ["./components/*"],
-      "@slices": ["./slices"],
-      "@slices/*": ["./slices/*"],
+      "@slices": ["./store/slices"],
+      "@slices/*": ["./store/slices/*"],
       "@functions": ["./functions"],
       "@functions/*": ["./functions/*"]
     }

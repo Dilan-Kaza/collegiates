@@ -1,14 +1,12 @@
 "use client"
 
-import { fetchCurrentUser, useForwardSignIn, fetchEventOrder } from "@functions";
+import { useEffect, useState } from "react";
 import { MtHeader, LogoutButton } from "@components";
 import { useNavigate } from "@/routerCompat";
-import { useSession } from "@functions/sessionContext";
-import { useState, useEffect } from "react";
 import type { SettingsDTO, RegistrationDTO, GroupsetDTO, CompetitorDTO } from "@/lib/api";
 // competitor dashboard
 
-function isEarlyRegistration(dateCreated: Date | string, settings: SettingsDTO): boolean {
+async function isEarlyRegistration(dateCreated: Date | string, settings: SettingsDTO): Promise<boolean> {
     return !!settings.early_reg_start
         && settings.early_reg_cost_first != null
         && new Date(dateCreated).getTime() < new Date(settings.reg_start).getTime();
@@ -21,11 +19,11 @@ interface CostSummary {
     hasGroupset: boolean;
 }
 
-function computeTotalOwed(
+async function computeTotalOwed(
     registrations: RegistrationDTO[] | undefined,
     settings: SettingsDTO,
     groupset: GroupsetDTO | undefined,
-): CostSummary | null {
+): Promise<CostSummary | null> {
     if (!registrations?.length || settings.reg_cost_first == null) return null;
 
     // Each registration's own create date decides which pricing tier (early vs standard) it falls under;
@@ -34,17 +32,17 @@ function computeTotalOwed(
 
     let total = 0;
     let earlyCount = 0;
-    sorted.forEach((r, i) => {
-        const early = isEarlyRegistration(r.date_created, settings);
+    for (let i = 0; i < sorted.length; i++) {
+        const early = await isEarlyRegistration(sorted[i].date_created, settings);
         if (early) earlyCount += 1;
         total += i === 0
             ? (early ? (settings.early_reg_cost_first ?? 0) : settings.reg_cost_first)
             : (early ? (settings.early_reg_cost_extra ?? 0) : settings.reg_cost_extra);
-    });
+    }
 
     // A group set is billed as an extra event, priced by the tier its own create date falls under.
     if (groupset?.date_created) {
-        const early = isEarlyRegistration(groupset.date_created, settings);
+        const early = await isEarlyRegistration(groupset.date_created, settings);
         if (early) earlyCount += 1;
         total += early ? (settings.early_reg_cost_extra ?? 0) : settings.reg_cost_extra;
     }
@@ -52,31 +50,38 @@ function computeTotalOwed(
     return { total, count: sorted.length, earlyCount, hasGroupset: !!groupset };
 }
 
-export default function Dashboard ({ settings = {} }: { settings?: Partial<SettingsDTO> }){
+// First-load data (settings and the current user) is resolved on the server and
+// passed in as props, so the dashboard renders fully populated with no client
+// fetch or loading overlay. Whether the event order is published is read off
+// settings (order_public) rather than passed separately.
+export default function Dashboard ({
+    settings = {},
+    userinfo = {},
+}: {
+    settings?: Partial<SettingsDTO>;
+    userinfo?: Partial<CompetitorDTO>;
+}){
 
-
-    const { status } = useSession();
     const nav = useNavigate();
-
-    const [userinfo, setUserinfo] = useState<Partial<CompetitorDTO>>({});
-    const [hasPublicOrder, setHasPublicOrder] = useState(false);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        if (status !== "authenticated") return;
-        setLoading(true);
-        fetchCurrentUser()
-            .then(setUserinfo)
-            .finally(() => setLoading(false));
-        // getPublicOrder already filters to public: true, so a non-null result means a public order exists.
-        fetchEventOrder().then((order) => setHasPublicOrder(!!order));
-    }, [status]);
 
     // The group set now loads bundled with the current user (like registrations).
     const myTeam = userinfo.groupset ?? undefined;
-    const cost = computeTotalOwed(userinfo.registrations, settings as SettingsDTO, myTeam);
 
-    useForwardSignIn();
+    // The total-owed figure is derived by an async computation. `undefined` marks
+    // it as still computing so the section can show a loading placeholder; once it
+    // resolves, `null` means "nothing owed" and a CostSummary means show the total.
+    const [cost, setCost] = useState<CostSummary | null | undefined>(undefined);
+    useEffect(() => {
+        let cancelled = false;
+        setCost(undefined);
+        computeTotalOwed(userinfo.registrations, settings as SettingsDTO, myTeam)
+            .then((result) => { if (!cancelled) setCost(result); });
+        return () => { cancelled = true; };
+    }, [userinfo.registrations, settings, myTeam]);
+
+    // Whether the event order is published lives on settings (order_public); the
+    // dashboard only uses it to enable the "Event Order" link.
+    const hasPublicOrder = settings.order_public ?? false;
 
     return (
         <>
@@ -85,11 +90,6 @@ export default function Dashboard ({ settings = {} }: { settings?: Partial<Setti
                 id="bg-component"
                 className="bg-gradient-to-b from-tertiary via-secondary via-100% to-primary h-[60vh] w-[80%] absolute top-20 left-[10%] -z-20 [clip-path:polygon(0%_0%,100%_0%,100%_100%,50%_88%,0%_100%)]"
             />
-            {loading ? (
-            <div className="bg-off-white rounded-lg px-[5%] py-8 max-w-3xl mx-auto w-full flex items-center justify-center min-h-[200px]">
-                <span className="loading loading-spinner loading-lg text-primary" aria-label="Loading" />
-            </div>
-            ) : (
             <div className="bg-off-white grid grid-cols-[1fr_2fr] rounded-lg px-[5%] py-8 max-w-3xl mx-auto w-full">
                 <div className="grid-row p-1">
                     <div className="flex flex-col gap-2">
@@ -132,7 +132,15 @@ export default function Dashboard ({ settings = {} }: { settings?: Partial<Setti
                         <button className="btn btn-secondary mt-2" onClick={() => nav('/groupset')}>Group Set</button>
                     )}
                 </div>
-                {cost && (
+                {cost === undefined ? (
+                    <div className="col-span-2 cg-list-row mt-4 text-sm flex items-center justify-between animate-pulse">
+                        <div>
+                            <div className="font-semibold text-gray-300">Total Owed</div>
+                            <div className="text-gray-300 text-xs">calculating…</div>
+                        </div>
+                        <div className="text-xl font-bold text-gray-300">$—</div>
+                    </div>
+                ) : cost ? (
                     <div className="col-span-2 cg-list-row mt-4 text-sm flex items-center justify-between">
                         <div>
                             <div className="font-semibold">Total Owed</div>
@@ -144,14 +152,15 @@ export default function Dashboard ({ settings = {} }: { settings?: Partial<Setti
                         </div>
                         <div className="text-xl font-bold text-primary">${cost.total}</div>
                     </div>
-                )}
-                {hasPublicOrder && (
-                    <div className="col-span-2 flex justify-center pt-4">
+                ) : null}
+                <div className="col-span-2 flex justify-center pt-4">
+                    {hasPublicOrder ? (
                         <button className="btn btn-secondary" onClick={() => nav('/event-order')}>Event Order</button>
-                    </div>
-                )}
+                    ) : (
+                        <button className="btn btn-secondary" disabled>Event Order Coming Soon</button>
+                    )}
+                </div>
             </div>
-            )}
         </>
     )
 }

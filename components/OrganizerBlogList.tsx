@@ -1,22 +1,14 @@
 "use client";
 
 import { Link } from "@/routerCompat";
-import { getOrganizerBlogPosts } from "@functions/actions";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import type { BlogDTO } from "@/lib/api";
 
-export default function OrganizerBlogList() {
+// `posts` is resolved on the server and passed in (was fetched on mount). The
+// parent server page re-fetches (via router.refresh) after a create.
+export default function OrganizerBlogList({ posts = [] }: { posts?: BlogDTO[] }) {
 
-    // Manage view: fetch fresh on mount (the parent remounts via `key` after a
-    // create) rather than reading cached public data.
-    const [posts, setPosts] = useState<BlogDTO[]>([]);
     const [visible, setVisible] = useState(3);
-
-    useEffect(() => {
-        getOrganizerBlogPosts()
-            .then((data) => setPosts(data))
-            .catch((err) => console.warn("Could not fetch blog posts", err));
-    }, []);
 
     if (posts.length === 0) return (
         <div className="text-sm text-gray-400">No blog posts found.</div>

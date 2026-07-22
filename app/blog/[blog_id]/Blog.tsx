@@ -2,10 +2,6 @@
 
 import { MtHeader, BlogList } from "@components";
 import { Link, useParams } from "@/routerCompat";
-import { useDispatch } from "react-redux";
-import { useAppSelector } from "@/hooks";
-import { setBlogCategory } from "@slices";
-import { useEffect } from "react";
 import type { BlogDTO } from "@/lib/api";
 // public blog post view
 
@@ -22,10 +18,7 @@ function renderContent(content: string) {
 export default function Blog({ post = {}, posts = [] }: { post?: Partial<BlogDTO>; posts?: BlogDTO[] }) {
 
     const blog_id = useParams().blog_id as string | undefined;
-    const dispatch = useDispatch();
-    // mirror the old hook: reflect this post's category into the sidebar state
-    useEffect(() => { if (post?.category) dispatch(setBlogCategory(post.category)); }, [post?.category, dispatch]);
-    const category = useAppSelector((state) => state.blogCategory.category);
+    const category = post?.category ?? null;
     const categoryPath = category === "Multimedia" ? "/multimedia" : "/news";
 
     return (

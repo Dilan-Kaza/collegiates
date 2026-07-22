@@ -1,21 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { Link } from "@/routerCompat";
-import { fetchOrganizerGroupsets } from "@functions";
-import { useSession } from "@functions/sessionContext";
 import type { OrganizerGroupsetDTO } from "@/lib/api";
 // organizer groupset list
 
-export default function GroupsetList() {
-
-    const { status } = useSession();
-    const [groupsets, setGroupsets] = useState<OrganizerGroupsetDTO[]>([]);
-
-    useEffect(() => {
-        if (status !== "authenticated") return;
-        fetchOrganizerGroupsets().then(setGroupsets);
-    }, [status]);
+// `groupsets` is resolved on the server and passed in (was fetched on mount).
+export default function GroupsetList({ groupsets = [] }: { groupsets?: OrganizerGroupsetDTO[] }) {
 
     return (
         <>

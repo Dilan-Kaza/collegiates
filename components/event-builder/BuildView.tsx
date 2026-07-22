@@ -1,9 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { fetchOrganizerRegistrations } from "@functions";
-import { getOrganizerOrder, saveOrder } from "@functions/actions";
-import { useSession } from "@functions/sessionContext";
+import { saveOrder, setOrderPublic } from "@functions/actions";
 import type { OrganizerRegistrationDTO } from "@/lib/api";
 import { ReactSortable } from "react-sortablejs";
 import SortableRing from "./SortableRing";
@@ -16,14 +14,18 @@ const BREAK_PRESETS: BreakItem[] = [
     { id: "preset_judges", type: "break", name: "Judges Break", duration: 15 },
 ];
 
-export default function BuildView() {
-    const { status } = useSession();
-    const [rawRegistrations, setRawRegistrations] = useState<OrganizerRegistrationDTO[]>([]);
-
-    useEffect(() => {
-        if (status !== "authenticated") return;
-        fetchOrganizerRegistrations().then(setRawRegistrations);
-    }, [status]);
+// `rawRegistrations` and `initialOrder` are resolved on the server and passed
+// in (both were fetched on mount here). `initialOrder` is null when no order has
+// been saved for the current year yet.
+export default function BuildView({
+    rawRegistrations = [],
+    initialOrder = null,
+    orderPublic = false,
+}: {
+    rawRegistrations?: OrganizerRegistrationDTO[];
+    initialOrder?: OrderData | null;
+    orderPublic?: boolean;
+}) {
 
     const allEvents = useMemo<EventItem[]>(() => {
         const eventMap = new Map<string, EventItem>();
@@ -73,7 +75,8 @@ export default function BuildView() {
     const [rings, setRings] = useState<Rings>({ ring1: [], ring2: [], ring3: [] });
     const [initialized, setInitialized] = useState(false);
     const [thirdRing, setThirdRing] = useState(false);
-    const [existingOrder, setExistingOrder] = useState<OrderData | null | undefined>(undefined); // undefined = not fetched yet, null = none found
+    const [existingOrder, setExistingOrder] = useState<OrderData | null>(initialOrder); // null = none saved yet
+    const [isPublic, setIsPublic] = useState(orderPublic); // publicity now lives on Settings
     const [saving, setSaving] = useState(false);
     const [publishing, setPublishing] = useState(false);
     const [stagedBreaks, setStagedBreaks] = useState<BreakItem[]>([]);
@@ -87,14 +90,8 @@ export default function BuildView() {
         setBreakDuration(60);
     };
 
-    // Load the organizer's saved order for the current year (null when none exists yet).
     useEffect(() => {
-        if (status !== "authenticated") return;
-        getOrganizerOrder().then((o) => setExistingOrder(o));
-    }, [status]);
-
-    useEffect(() => {
-        if (allEvents.length === 0 || initialized || existingOrder === undefined) return;
+        if (allEvents.length === 0 || initialized) return;
 
         if (existingOrder) {
             const { ring1, ring2, ring3 } = reconstructRings(existingOrder);
@@ -144,13 +141,13 @@ export default function BuildView() {
         setSaving(false);
     };
 
-    // Toggle the saved order's public flag. Rings are omitted from the payload so
-    // they are left untouched — this only flips visibility for competitors.
+    // Toggle publishing of the event order. Publicity lives on Settings
+    // (order_public) now, so this flips that flag rather than touching the order.
     const handleTogglePublic = async () => {
         if (!existingOrder || publishing) return;
         setPublishing(true);
-        const res = await saveOrder({ public: !existingOrder.public });
-        if (res.data) setExistingOrder(res.data);
+        const res = await setOrderPublic(!isPublic);
+        if (res.data) setIsPublic(res.data.order_public);
         setPublishing(false);
     };
 
@@ -279,7 +276,7 @@ export default function BuildView() {
                     <button className="btn btn-ghost btn-sm" onClick={toggleThirdRing}>
                         {thirdRing ? "− Ring 3" : "+ Ring 3"}
                     </button>
-                    <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving || existingOrder === undefined}>
+                    <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving}>
                         {saving ? "Saving..." : existingOrder ? "Save Changes" : "Save Order"}
                     </button>
                     <button
@@ -288,7 +285,7 @@ export default function BuildView() {
                         disabled={!existingOrder || publishing}
                         title={!existingOrder ? "Save the order before publishing" : undefined}
                     >
-                        {publishing ? "..." : existingOrder?.public ? "Unpublish" : "Publish"}
+                        {publishing ? "..." : isPublic ? "Unpublish" : "Publish"}
                     </button>
                 </div>
 

@@ -2,14 +2,15 @@
 
 import { useState, useEffect } from "react";
 import type { ChangeEvent, Dispatch, MouseEventHandler, SetStateAction } from "react";
-import { fetchEvents } from "@functions";
-import { useSession } from "@functions/sessionContext";
 import type { RegEventItem } from "@/types";
 import type { EventDTO } from "@/lib/api";
 
 interface EventSelectionProps {
   events: RegEventItem[];
   setEvents: Dispatch<SetStateAction<RegEventItem[]>>;
+  // The event catalogue, resolved on the server and passed in (was fetched on
+  // mount here).
+  catalogEvents?: EventDTO[];
   registeredEvents?: string[];
   isEarly?: boolean;
   firstCost?: number | null;
@@ -17,19 +18,13 @@ interface EventSelectionProps {
   onSubmit?: MouseEventHandler<HTMLButtonElement>;
 }
 
-export default function EventSelection({ events, setEvents, registeredEvents, isEarly, firstCost, extraCost, onSubmit }: EventSelectionProps) {
+export default function EventSelection({ events, setEvents, catalogEvents = [], registeredEvents, isEarly, firstCost, extraCost, onSubmit }: EventSelectionProps) {
 
     const [eventOrder, setEventOrder] = useState<string[]>([]);
     const [remainingEvents, setRemainingEvents] = useState<string[]>(["Northern Barehand Nandu", "Southern Barehand Nandu", "Northern Barehand", "Southern Barehand", "Northern Staff", "Southern Staff"]);
     const [selectedEvent, setSelectedEvent] = useState("");
 
-    const { status } = useSession();
-    const [eventsFromApi, setEventsFromApi] = useState<EventDTO[]>([]);
-
-    useEffect(() => {
-        if (status !== "authenticated") return;
-        fetchEvents().then(setEventsFromApi);
-    }, [status]);
+    const eventsFromApi = catalogEvents;
 
     const handleChange = (e: ChangeEvent<HTMLSelectElement>) =>{
         const { value } = e.target;

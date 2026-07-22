@@ -57,7 +57,6 @@ export interface OrderData {
   ring1: OrderItem[];
   ring2: OrderItem[];
   ring3: OrderItem[];
-  public?: boolean;
 }
 
 export const isEventItem = (ev: RingEvent): ev is EventItem => ev.type !== "break";

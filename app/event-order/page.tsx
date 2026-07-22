@@ -1,26 +1,12 @@
-"use client"
-
 import { MtHeader } from "@components";
-import { useForwardSignIn, fetchEventOrder } from "@functions";
-import { useState, useEffect } from "react";
+import { getPublicOrder } from "@functions/actions";
+import { getCurrentUser } from "@/lib/auth";
+import type { EventOrderDTO } from "@/lib/api";
+import { redirect } from "next/navigation";
+import CacheSeed from "@functions/CacheSeed";
+import { cacheKeys } from "@functions/cacheKeys";
 
-interface OrderCompetitor { id: string; name: string; order: number }
-interface EventOrderItem {
-    id?: string;
-    order: number;
-    event_id?: string;
-    name?: string;
-    break_length?: number;
-    competitor_list?: OrderCompetitor[];
-}
-
-interface EventOrderData {
-    ring1: EventOrderItem[];
-    ring2: EventOrderItem[];
-    ring3: EventOrderItem[];
-}
-
-function StaticRing({ label, items }: { label: string; items: EventOrderItem[] }) {
+function StaticRing({ label, items }: { label: string; items: EventOrderDTO[] }) {
     return (
         <div className="bg-off-white rounded-lg border border-gray-200 flex flex-col">
             <div className="px-4 py-2 border-b border-gray-200 flex items-center justify-between">
@@ -52,20 +38,17 @@ function StaticRing({ label, items }: { label: string; items: EventOrderItem[] }
     );
 }
 
-export default function EventOrder() {
-    // fetchEventOrder() resolves the server-cached published order, or null when
-    // none is public yet; undefined = still loading.
-    const [order, setOrder] = useState<EventOrderData | null | undefined>(undefined);
+export default async function EventOrder() {
+    // Resolve auth on the server so the data ships with the page — no client
+    // fetch and no loading flash. Unauthenticated users are redirected before
+    // any markup renders, mirroring the old useForwardSignIn behaviour.
+    const user = await getCurrentUser();
+    if (!user) redirect("/signin");
 
-    useEffect(() => {
-        fetchEventOrder().then((o) => setOrder(o as EventOrderData | null));
-    }, []);
-
-    useForwardSignIn();
-
-    if (order === undefined) {
-        return <div className="text-sm text-gray-400">Loading...</div>;
-    }
+    // getPublicOrder self-authorizes: returns the published order for the
+    // current year, or null when none is public yet (or the viewer isn't a
+    // competitor).
+    const order = await getPublicOrder();
 
     if (!order) {
         return <div className="text-sm text-gray-400">The event order has not been published yet.</div>;
@@ -75,6 +58,7 @@ export default function EventOrder() {
 
     return (
         <>
+            <CacheSeed entries={{ [cacheKeys.publicOrder]: order }} />
             <div className="hidden md:block"><MtHeader/></div>
             <div className="max-w-5xl mx-auto w-full px-[5%] py-8">
                 <div className="text-2xl font-semibold text-primary mb-4">Event Order</div>

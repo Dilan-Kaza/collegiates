@@ -1,31 +1,30 @@
-"use client";
+import EventBuilder from "./EventBuilder";
+import { getOrganizerRegistrations, getOrganizerOrder } from "@functions/actions";
+import { getSettings } from "@functions/data";
+import { requireOrganizer } from "@/lib/auth";
+import CacheSeed from "@functions/CacheSeed";
+import { cacheKeys } from "@functions/cacheKeys";
 
-import { MtHeader } from "@components";
-import { useForwardIfNotOrganizer } from "@functions";
-import { useState } from "react";
-import { BuildView, SheetView, StillView } from "@components/event-builder";
-// organizer event builder tabs
-
-export default function EventBuilder() {
-    useForwardIfNotOrganizer();
-    const [tab, setTab] = useState("build");
-
-    return (
-        <>
-            <div className="hidden md:block"><MtHeader /></div>
-            <div className="max-w-5xl mx-auto w-full px-4 py-8 flex flex-col gap-6">
-                <div className="flex items-center gap-4">
-                    <div className="text-3xl text-secondary font-semibold">Event Builder</div>
-                    <div className="flex gap-2 ml-auto">
-                        <button className={`btn btn-sm ${tab === "view" ? "btn-primary" : "btn-ghost"}`} onClick={() => setTab("view")}>View</button>
-                        <button className={`btn btn-sm ${tab === "build" ? "btn-primary" : "btn-ghost"}`} onClick={() => setTab("build")}>Build</button>
-                        <button className={`btn btn-sm ${tab === "sheet" ? "btn-primary" : "btn-ghost"}`} onClick={() => setTab("sheet")}>Sheet</button>
-                    </div>
-                </div>
-                {tab === "view" && <StillView />}
-                {tab === "build" && <BuildView />}
-                {tab === "sheet" && <SheetView />}
-            </div>
-        </>
-    );
+export default async function Page() {
+  // Gate to organizers and resolve the registration list, saved order, and
+  // settings on the server so the builder ships populated. Publicity of the
+  // order now lives on Settings (order_public), so it's read from there.
+  await requireOrganizer();
+  const [registrations, order, settings] = await Promise.all([
+    getOrganizerRegistrations(),
+    getOrganizerOrder(),
+    getSettings(),
+  ]);
+  return (
+    <>
+      <CacheSeed
+        entries={{
+          [cacheKeys.organizerRegistrations]: registrations,
+          [cacheKeys.organizerOrder]: order,
+          [cacheKeys.settings]: settings,
+        }}
+      />
+      <EventBuilder registrations={registrations} order={order} orderPublic={settings?.order_public ?? false} />
+    </>
+  );
 }

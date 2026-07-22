@@ -1,23 +1,13 @@
 "use client";
 
 import { useNavigate } from "@/routerCompat";
-import { fetchCurrentUser } from "@functions";
-import { useSession } from "@functions/sessionContext";
-import { useState, useEffect } from "react";
 
-export default function NavDock(){
+// `firstName` is resolved on the server by the root layout and passed in, so the
+// dock's account label renders immediately with no client fetch.
+export default function NavDock({ firstName = "" }: { firstName?: string }){
 
     const nav = useNavigate();
-    const { status } = useSession();
-    const [username, setUsername] = useState("");
-
-    useEffect(() => {
-        if (status === "authenticated") {
-            fetchCurrentUser().then((u) => setUsername(u.first_name ?? ""));
-        } else {
-            setUsername("");
-        }
-    }, [status]);
+    const username = firstName;
 
     return (
         <div className="dock z-10">
