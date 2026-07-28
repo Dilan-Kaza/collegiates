@@ -101,9 +101,13 @@ export default function Dashboard ({
                         <div>gender: {userinfo.gender}</div>
                         <div>school: {userinfo.school_name}</div>
                         <div>student type: {userinfo.student_type}</div>
-                        <div>first comp: {userinfo.first_comp}</div>
                         <div>skill level: {userinfo.skill_level}</div>
                     </div>
+                    {/* The profile is only editable while there are no registrations
+                        (gender/skill drive event eligibility), matching the server guard. */}
+                    {(userinfo.registrations?.length ?? 0) === 0 && (
+                        <button className="btn btn-secondary btn-sm mt-1" onClick={() => nav('/profile/setup')}>Edit Profile</button>
+                    )}
                 </div>
                 <div className="p-1 content-center flex flex-col items-center gap-2 w-full">
                     {(userinfo.registrations?.length ?? 0) > 0 ? (

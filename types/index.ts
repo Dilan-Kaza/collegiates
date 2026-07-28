@@ -11,16 +11,13 @@ export interface RegEventItem {
 
 type FormControl = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 
-// Props shared by the desktop and mobile sign-up form layouts.
+// Props shared by the desktop and mobile sign-up form layouts. Sign-up collects
+// account fields only; competitor profile fields live in the /profile/setup step.
 export interface SignUpFormProps {
   formData: Record<string, string>;
   errors: Record<string, string>;
   error?: string | null;
   loading?: boolean;
-  colleges: Record<string, string>;
-  skillLevels: Record<string, string>;
-  genderChoices: Record<string, string>;
-  studentTypes: Record<string, string>;
   handleChange: ChangeEventHandler<FormControl>;
   handleBlur: FocusEventHandler<FormControl>;
   handleEmailBlur: FocusEventHandler<FormControl>;

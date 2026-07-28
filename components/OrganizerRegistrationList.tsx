@@ -4,7 +4,15 @@ import type { OrganizerRegistrationDTO } from "@/lib/api";
 // registrations by athlete
 
 // `registrations` is resolved on the server and passed in (was fetched on mount).
-export default function OrganizerRegistrationList({ registrations = [] }: { registrations?: OrganizerRegistrationDTO[] }) {
+// `onEdit` (when provided) surfaces a per-row Edit action that hands the athlete
+// straight to the Create / Edit view pre-loaded, skipping the email search.
+export default function OrganizerRegistrationList({
+    registrations = [],
+    onEdit,
+}: {
+    registrations?: OrganizerRegistrationDTO[];
+    onEdit?: (athlete: OrganizerRegistrationDTO) => void;
+}) {
 
     if (registrations.length === 0) {
         return <div className="text-sm text-gray-400">No registrations found.</div>;
@@ -19,10 +27,13 @@ export default function OrganizerRegistrationList({ registrations = [] }: { regi
                             <div className="font-medium text-dark">{user.name}</div>
                             <div className="text-xs text-gray-400">{user.school} · {user.skill_level}</div>
                         </div>
-                        <div className="flex gap-1.5 flex-wrap justify-end">
+                        <div className="flex items-center gap-1.5 flex-wrap justify-end">
                             <StatusBadge active={user.is_competing} label="Competing" />
                             <StatusBadge active={user.has_paid} label="Paid" />
                             <StatusBadge active={user.proof_of_reg} label="Proof" />
+                            {onEdit && (
+                                <button className="btn btn-ghost btn-xs" onClick={() => onEdit(user)}>Edit</button>
+                            )}
                         </div>
                     </div>
                     <div className="flex flex-col gap-1">

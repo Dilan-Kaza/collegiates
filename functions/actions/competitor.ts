@@ -23,7 +23,7 @@ export async function getCompetitorEvents(): Promise<EventDTO[]> {
   // moves the user to a different key, so no per-user invalidation is needed;
   // the "events" tag covers changes to the catalogue itself.
   const level = user.skill_level ?? "";
-  const gender = user.gender ?? "";
+  const gender = user.competitor_profile?.gender ?? "";
   return unstable_cache(
     async (): Promise<EventDTO[]> => {
       const events = await prisma.event.findMany({
@@ -73,7 +73,7 @@ export async function createRegistrations(items: RegistrationItem[]): Promise<Mu
   for (const item of items) {
     const event = await prisma.event.findUnique({ where: { event_code: item.event_code } });
     if (!event) return { error: { event: `Event with id ${item.event_code} does not exist.` } };
-    if (event.gender_category !== user.gender) return { error: { event: "Competitor signed up for wrong gender category" } };
+    if (event.gender_category !== user.competitor_profile?.gender) return { error: { event: "Competitor signed up for wrong gender category" } };
     if (event.event_level !== user.skill_level) return { error: { event: "Competitor signed up for wrong level" } };
     const dupe = await prisma.registration.findFirst({
       where: { competitor_id: user.user_id, event_code: event.event_code, comp_year: year },
@@ -85,7 +85,10 @@ export async function createRegistrations(items: RegistrationItem[]): Promise<Mu
 
   await prisma.$transaction([
     prisma.registration.createMany({ data: toCreate }),
-    prisma.user.update({ where: { user_id: user.user_id }, data: { is_competing: true } }),
+    prisma.user.update({
+      where: { user_id: user.user_id },
+      data: { competitor_profile: { upsert: { create: { is_competing: true }, update: { is_competing: true } } } },
+    }),
   ]);
   revalidateUserData(user.user_id);
   revalidateTag(TAG_REGISTRATIONS); // organizer registration lists include this competitor now
@@ -133,12 +136,13 @@ export async function createGroupset(body: { team_name: string }): Promise<Mutat
 
   const nameTaken = await prisma.groupset.findFirst({ where: { team_name: body.team_name, comp_year: year }, select: { groupset_id: true } });
   if (nameTaken) return { error: { groupset: "A groupset with this name already exists" } };
-  if (!user.school_id) return { error: { groupset: "You must belong to a school to create a groupset" } };
+  const schoolId = user.competitor_profile?.school_id;
+  if (!schoolId) return { error: { groupset: "You must belong to a school to create a groupset" } };
 
   const groupset = await prisma.groupset.create({
     data: {
       team_name: body.team_name,
-      school_id: user.school_id,
+      school_id: schoolId,
       comp_year: year,
       members: { create: [{ member_id: user.user_id, leader: true }] },
     },
@@ -155,8 +159,8 @@ export async function getJoinableGroupsets(): Promise<GroupsetDTO[]> {
   if (!user || !isCompetitor(user)) return [];
   const settings = await loadSettings();
   if (!settings) return [];
-  if (!user.school_id) return [];
-  const schoolId = user.school_id;
+  const schoolId = user.competitor_profile?.school_id;
+  if (!schoolId) return [];
   const year = settings.reg_year;
   const groupsets = await unstable_cache(
     async (): Promise<GroupsetDTO[]> => {
@@ -183,7 +187,7 @@ export async function joinGroupset(body: { groupset: string }): Promise<Mutation
   const groupset = await prisma.groupset.findUnique({ where: { groupset_id: body.groupset }, include: { members: true } });
   if (!groupset) return { error: { groupset: "Groupset does not exist" } };
   if (groupset.comp_year !== year) return { error: { groupset: "Groupset is not in current registration year" } };
-  if (groupset.school_id !== user.school_id) return { error: { groupset: "You must sign up for a groupset from your school" } };
+  if (groupset.school_id !== user.competitor_profile?.school_id) return { error: { groupset: "You must sign up for a groupset from your school" } };
   if (groupset.members.some((m) => m.member_id === user.user_id)) return { error: { groupset: "You are already registered with this groupset" } };
   const alreadyIn = await prisma.groupsetMember.findFirst({ where: { member_id: user.user_id, groupset: { comp_year: year } }, select: { id: true } });
   if (alreadyIn) return { error: { groupset: "You are already in a groupset" } };

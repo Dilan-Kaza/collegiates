@@ -18,18 +18,23 @@ import type {
 export type FieldErrors = Record<string, string>;
 export type Mutation<T> = { data: T; error?: undefined } | { data?: undefined; error: FieldErrors };
 
+// Sign-up now only creates the account. The competitor profile (gender,
+// school, student_type, skill_level) is filled in
+// afterward via createCompetitorProfile — see CompetitorProfileBody.
 export interface RegisterBody {
   email?: string;
   password?: string;
   re_password?: string;
   first_name?: string;
   last_name?: string;
+}
+
+// Fields collected in the separate profile-setup step after sign-up.
+export interface CompetitorProfileBody {
   gender?: string;
   school?: string;
   student_type?: string;
-  first_comp?: string | number;
   skill_level?: string;
-  grad_date?: string;
 }
 
 export interface UpdateMeBody {
@@ -38,9 +43,7 @@ export interface UpdateMeBody {
   gender?: string;
   student_type?: string;
   skill_level?: string;
-  first_comp?: string | number;
   school?: string | null;
-  grad_date?: string | null;
 }
 
 export interface RegistrationItem {
@@ -87,6 +90,13 @@ export interface UpdateOrganizerRegBody {
   has_paid?: boolean;
   proof_of_reg?: boolean;
   is_competing?: boolean;
+  // Competitor profile edits the organizer may make from the registrations view.
+  // Unlike the competitor-facing flow these are not gated on existing
+  // registrations — an organizer can correct a profile at any time.
+  gender?: string;
+  school?: string;
+  student_type?: string;
+  skill_level?: string;
 }
 
 export interface CreateOrganizerGroupsetBody {
@@ -174,7 +184,6 @@ export const groupsetTag = (uuid: string) => `groupset-${uuid}`;
 export function rehydrateCompetitor(c: CompetitorDTO): CompetitorDTO {
   return {
     ...c,
-    grad_date: c.grad_date ? new Date(c.grad_date) : null,
     registrations: c.registrations.map((r) => ({ ...r, date_created: new Date(r.date_created) })),
     groupset: c.groupset ? { ...c.groupset, date_created: new Date(c.groupset.date_created) } : null,
   };
@@ -186,7 +195,6 @@ export const reGroupset = (g: GroupsetDTO): GroupsetDTO => ({ ...g, date_created
 export const reOrganizerGroupset = (g: OrganizerGroupsetDTO): OrganizerGroupsetDTO => ({ ...g, date_created: new Date(g.date_created) });
 export const reOrganizerRegistration = (u: OrganizerRegistrationDTO): OrganizerRegistrationDTO => ({
   ...u,
-  grad_date: u.grad_date ? new Date(u.grad_date) : null,
   registration: u.registration.map(reRegistration),
 });
 

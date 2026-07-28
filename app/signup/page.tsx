@@ -1,14 +1,8 @@
 import SignUp from "./SignUp";
-import { getColleges } from "@functions/data";
-import CacheSeed from "@functions/CacheSeed";
-import { cacheKeys } from "@functions/cacheKeys";
 
+// Sign-up only creates the account, so it needs no server data (the college
+// list moved to the /profile/setup step). Kept as a server component for
+// routing consistency.
 export default async function Page() {
-  const colleges = await getColleges();
-  return (
-    <>
-      <CacheSeed entries={{ [cacheKeys.colleges]: colleges }} />
-      <SignUp colleges={colleges} />
-    </>
-  );
+  return <SignUp />;
 }

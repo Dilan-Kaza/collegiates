@@ -21,9 +21,9 @@ model College {
   college_id   String @id @default(uuid()) @db.Uuid
   college_name String @unique @db.VarChar(255)
 
-  users     User[]
-  groupsets Groupset[]
-  settings  Settings[]
+  competitor_profiles CompetitorProfile[]
+  groupsets           Groupset[]
+  settings            Settings[]
 
   @@map("colleges")
 }
@@ -57,22 +57,38 @@ model User {
   user_id      String    @id @default(uuid()) @db.Uuid
   email        String    @unique @db.VarChar(254)
   user_type    String    @default("C") @db.VarChar(1)
-  gender       String?   @db.VarChar(1)
-  school       College?  @relation(fields: [school_id], references: [college_id], onDelete: SetNull)
-  school_id    String?   @db.Uuid
-  student_type String?   @db.VarChar(1)
-  first_comp   Int?
   skill_level  String?   @db.VarChar(1)
-  grad_date    DateTime? @db.Date
-  is_competing Boolean   @default(false)
-  has_paid     Boolean   @default(false)
-  proof_of_reg Boolean   @default(false)
+
+  // Competitor-specific attributes live on a one-to-one CompetitorProfile keyed
+  // by this user's uuid (see CompetitorProfile). Organizers have no profile row.
+  competitor_profile CompetitorProfile?
 
   registration      Registration[]
   groupset_member   GroupsetMember[]
   competitor_orders CompetitorOrder[]
 
   @@map("users")
+}
+
+// Competitor-specific attributes split out of `users` into a one-to-one table
+// keyed by the user's uuid (the profile's PK *is* the user_id). A user has at
+// most one profile; organizers typically have none.
+model CompetitorProfile {
+  user         User     @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  user_id      String   @id @db.Uuid
+  gender       String?  @db.VarChar(1)
+  school       College? @relation(fields: [school_id], references: [college_id], onDelete: SetNull)
+  school_id    String?  @db.Uuid
+  student_type String?  @db.VarChar(1)
+  is_competing Boolean  @default(false)
+  has_paid     Boolean  @default(false)
+  proof_of_reg Boolean  @default(false)
+  // The reg_year (from Settings) the competitor last confirmed their profile
+  // under. Not surfaced to the client; used server-side to force a returning
+  // competitor back through /profile/setup when a new competition year starts.
+  last_reg_year Int?
+
+  @@map("competitor_profile")
 }
 
 model Registration {

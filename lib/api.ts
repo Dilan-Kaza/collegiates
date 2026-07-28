@@ -89,9 +89,10 @@ export interface OrganizerRegistrationDTO {
   gender: string | null;
   skill_level: string | null;
   school: string | null;
+  // The school's id (the `school` field above is its display name). Exposed so
+  // the organizer edit form can preselect and change the competitor's college.
+  school_id: string | null;
   student_type: string | null;
-  grad_date: Date | null;
-  first_comp: number | null;
   registration: RegistrationDTO[];
   is_competing: boolean;
   has_paid: boolean;
@@ -131,9 +132,7 @@ export interface CompetitorDTO {
   school: string | null;
   school_name: string | null;
   student_type: string | null;
-  first_comp: number | null;
   skill_level: string | null;
-  grad_date: Date | null;
   registrations: RegistrationDTO[];
   groupset: GroupsetDTO | null;
   user_type: string;
@@ -146,9 +145,17 @@ export type RegistrationWithEvent = Prisma.RegistrationGetPayload<{ include: { e
 export type GroupsetWithMembers = Prisma.GroupsetGetPayload<{
   include: { school: true; members: { include: { member: true } } };
 }>;
-export type UserWithSchool = Prisma.UserGetPayload<{ include: { school: true } }>;
-export type UserWithSchoolAndRegistration = Prisma.UserGetPayload<{
-  include: { school: true; registration: { include: { event: true } } };
+// Competitor-specific fields (gender, school, student_type, is_competing,
+// has_paid, proof_of_reg) now live on the one-to-one CompetitorProfile, so the
+// shapers take the user with its profile (and the profile's school) included.
+export type UserWithProfile = Prisma.UserGetPayload<{
+  include: { competitor_profile: { include: { school: true } } };
+}>;
+export type UserWithProfileAndRegistration = Prisma.UserGetPayload<{
+  include: {
+    competitor_profile: { include: { school: true } };
+    registration: { include: { event: true } };
+  };
 }>;
 export type EventOrderWithCompetitors = Prisma.EventOrderGetPayload<{
   include: { competitor_orders: { include: { competitor: true } } };
@@ -285,21 +292,21 @@ export function shapeOrganizerGroupset(gs: GroupsetWithMembers): OrganizerGroups
 
 // OrganizerRegistrationSerializer representation. `user.registration` should be
 // pre-filtered to the current comp_year and include the related event.
-export function shapeOrganizerRegistration(user: UserWithSchoolAndRegistration): OrganizerRegistrationDTO {
+export function shapeOrganizerRegistration(user: UserWithProfileAndRegistration): OrganizerRegistrationDTO {
+  const profile = user.competitor_profile;
   return {
     user_id: user.user_id,
     name: memberName(user),
     email: user.email,
-    gender: user.gender,
+    gender: profile?.gender ?? null,
     skill_level: user.skill_level,
-    school: user.school?.college_name ?? null,
-    student_type: user.student_type,
-    grad_date: user.grad_date,
-    first_comp: user.first_comp,
+    school: profile?.school?.college_name ?? null,
+    school_id: profile?.school_id ?? null,
+    student_type: profile?.student_type ?? null,
     registration: (user.registration ?? []).map(shapeRegistration),
-    is_competing: user.is_competing,
-    has_paid: user.has_paid,
-    proof_of_reg: user.proof_of_reg,
+    is_competing: profile?.is_competing ?? false,
+    has_paid: profile?.has_paid ?? false,
+    proof_of_reg: profile?.proof_of_reg ?? false,
   };
 }
 
@@ -333,22 +340,21 @@ export function shapeOrder(o: OrderWithRings): OrderDTO {
 }
 
 export function shapeCompetitor(
-  user: UserWithSchool,
+  user: UserWithProfile,
   registrations: RegistrationWithEvent[] = [],
   groupset: GroupsetWithMembers | null = null,
 ): CompetitorDTO {
+  const profile = user.competitor_profile;
   return {
     user_id: user.user_id,
     first_name: user.first_name,
     last_name: user.last_name,
     email: user.email,
-    gender: user.gender,
-    school: user.school_id,
-    school_name: user.school?.college_name ?? null,
-    student_type: user.student_type,
-    first_comp: user.first_comp,
+    gender: profile?.gender ?? null,
+    school: profile?.school_id ?? null,
+    school_name: profile?.school?.college_name ?? null,
+    student_type: profile?.student_type ?? null,
     skill_level: user.skill_level,
-    grad_date: user.grad_date,
     registrations: registrations.map(shapeRegistration),
     groupset: groupset ? shapeGroupset(groupset) : null,
     user_type: user.user_type,

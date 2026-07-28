@@ -1,6 +1,6 @@
 "use client";
 
-import { MtHeader, GroupsetList, OrganizerBlogList, OrganizerRegistrationList } from "@components";
+import { MtHeader, GroupsetList, OrganizerBlogList, OrganizerRegistrationList, LogoutButton } from "@components";
 import { StillView } from "@components/event-builder";
 import { Link } from "@/routerCompat";
 import { useState } from "react";
@@ -60,7 +60,10 @@ export default function Organizer({
         <>
             <div className="hidden md:block"><MtHeader /></div>
             <div className="max-w-3xl mx-auto w-full px-4 py-8 flex flex-col gap-6">
-                <div className="text-3xl text-secondary font-semibold">Organizer</div>
+                <div className="flex justify-between items-center">
+                    <div className="text-3xl text-secondary font-semibold">Organizer</div>
+                    <LogoutButton />
+                </div>
 
                 <div className="cg-card">
                     <div className="flex justify-between items-center border-b border-gray-200 pb-2">

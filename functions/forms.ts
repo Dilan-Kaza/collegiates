@@ -31,13 +31,6 @@ const validate = (name: string, value: string, formData: { password?: string } =
       case "last_name":
         if (!value) return "Required";
         return "";
-      case "first_comp":
-        if (!value) return "Please provide year of first competition";
-        if (Number(value) < 1900 || Number(value) > 9999) return "Invalid year";
-        return "";
-      case "grad_date":
-        if (!value) return "Please provide a graduation date";
-        return "";
       case "school":
         if (!value) return "Please select a college";
         return "";

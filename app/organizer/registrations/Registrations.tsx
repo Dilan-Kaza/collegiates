@@ -10,13 +10,23 @@ import type { OrganizerRegistrationDTO, EventDTO } from "@/lib/api";
 export default function Registrations({
     registrations = [],
     allEvents = [],
+    colleges = {},
 }: {
     registrations?: OrganizerRegistrationDTO[];
     allEvents?: EventDTO[];
+    colleges?: Record<string, string>;
 }) {
 
     const nav = useNavigate();
     const [view, setView] = useState("athlete");
+    // Athlete handed off from the By Athlete list so the edit view opens
+    // pre-loaded; null when the organizer opens Create / Edit fresh.
+    const [editAthlete, setEditAthlete] = useState<OrganizerRegistrationDTO | null>(null);
+
+    const openEdit = (athlete: OrganizerRegistrationDTO) => {
+        setEditAthlete(athlete);
+        setView("edit");
+    };
 
     return (
         <>
@@ -41,15 +51,22 @@ export default function Registrations({
                     </button>
                     <button
                         className={`btn btn-sm ${view === "edit" ? "btn-primary" : "btn-ghost"}`}
-                        onClick={() => setView("edit")}
+                        onClick={() => { setEditAthlete(null); setView("edit"); }}
                     >
                         Create / Edit
                     </button>
                 </div>
                 <div className="cg-card">
-                    {view === "athlete" && <OrganizerRegistrationList registrations={registrations} />}
+                    {view === "athlete" && <OrganizerRegistrationList registrations={registrations} onEdit={openEdit} />}
                     {view === "event" && <OrganizerRegistrationByEvent registrations={registrations} />}
-                    {view === "edit" && <OrganizerRegistrationEdit allEvents={allEvents} />}
+                    {view === "edit" && (
+                        <OrganizerRegistrationEdit
+                            key={editAthlete?.user_id ?? "new"}
+                            allEvents={allEvents}
+                            colleges={colleges}
+                            initialAthlete={editAthlete}
+                        />
+                    )}
                 </div>
             </div>
         </>

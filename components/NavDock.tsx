@@ -1,13 +1,18 @@
 "use client";
 
 import { useNavigate } from "@/routerCompat";
+import { useSession } from "@functions/sessionContext";
 
 // `firstName` is resolved on the server by the root layout and passed in, so the
 // dock's account label renders immediately with no client fetch.
 export default function NavDock({ firstName = "" }: { firstName?: string }){
 
+    const { data: session } = useSession();
     const nav = useNavigate();
     const username = firstName;
+    const accountHref = username
+        ? (session?.user?.user_type === "O" ? "/organizer" : "/dashboard")
+        : "/signin";
 
     return (
         <div className="dock z-10">
@@ -26,7 +31,7 @@ export default function NavDock({ firstName = "" }: { firstName?: string }){
                 <span className="dock-label">Tournament</span>
             </button>
 
-            <button onClick={()=>nav(username ? "/dashboard" : "/signin")}>
+            <button onClick={()=>nav(accountHref)}>
                 <i className="bi bi-person-circle"></i>
                 <span className="dock-label">{username || "Login"}</span>
             </button>

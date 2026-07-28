@@ -68,8 +68,8 @@ export async function createOrganizerGroupset(body: CreateOrganizerGroupsetBody)
   for (const memberId of members) {
     const inGroupset = await prisma.groupsetMember.findFirst({ where: { member_id: memberId, groupset: { comp_year: year } }, select: { id: true } });
     if (inGroupset) return { error: { groupset: "Member is already in a groupset" } };
-    const member = await prisma.user.findUnique({ where: { user_id: memberId }, select: { school_id: true } });
-    if (!member || member.school_id !== body.school) return { error: { groupset: "Members must be from same school as groupset" } };
+    const member = await prisma.user.findUnique({ where: { user_id: memberId }, select: { competitor_profile: { select: { school_id: true } } } });
+    if (!member || member.competitor_profile?.school_id !== body.school) return { error: { groupset: "Members must be from same school as groupset" } };
     const registered = await prisma.registration.findFirst({ where: { competitor_id: memberId, event_code: GROUPSET_EVENT, comp_year: year }, select: { id: true } });
     if (!registered) return { error: { groupset: "Member did not register for groupset" } };
   }

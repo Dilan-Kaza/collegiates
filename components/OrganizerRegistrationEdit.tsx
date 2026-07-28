@@ -6,36 +6,87 @@ import { useDispatch } from "react-redux";
 import { setErrorMsg, setSuccessMsg } from "@slices";
 import { clearSessionCache } from "@functions/sessionCache";
 import { findUserByEmail, updateOrganizerRegistration } from "@functions/actions";
+import { Dropdown } from "@components";
 import type { RegEventItem } from "@/types";
 import type { EventDTO, OrganizerRegistrationDTO } from "@/lib/api";
 
+// choices mirror the enums defined in models.py (same as the sign-up flow)
+const GENDER_CHOICES = { Male: "M", Female: "F" };
+const SKILL_LEVELS = { Beginner: "B", Intermediate: "I", Advanced: "A" };
+const STUDENT_TYPES = {
+    "Full/Part-Time Undergraduate Student": "1",
+    "Full-Time Graduate/Professional School Student": "2",
+    "Early Graduate Of Current Year": "3",
+    "Non-Enrolled Student": "4",
+    "One Year Alumni": "5",
+    "Part-Time Graduate Student": "6",
+    "International Student": "7",
+};
+
+// The editable profile fields pulled off an athlete DTO into form strings.
+interface ProfileForm {
+    gender: string;
+    skill_level: string;
+    student_type: string;
+    school: string;
+}
+
+const profileFrom = (a: OrganizerRegistrationDTO | null): ProfileForm => ({
+    gender: a?.gender ?? "",
+    skill_level: a?.skill_level ?? "",
+    student_type: a?.student_type ?? "",
+    school: a?.school_id ?? "",
+});
+
 // Organizer tool for building or amending a competitor's registration. The
-// organizer searches for the athlete by email, then adds/removes any event from
-// the full catalogue (competitor gender/level gates don't apply here) and edits
-// nandu codes before saving via updateOrganizerRegistration. `allEvents` (the
-// full catalogue) is resolved on the server and passed in (was fetched on mount).
-export default function OrganizerRegistrationEdit({ allEvents = [] }: { allEvents?: EventDTO[] }) {
+// organizer either arrives with an athlete already selected (edited straight
+// from the By Athlete list via `initialAthlete`) or searches for one by email,
+// then adds/removes any event from the full catalogue (competitor gender/level
+// gates don't apply here) and edits nandu codes before saving via
+// updateOrganizerRegistration. `allEvents` (the full catalogue) is resolved on
+// the server and passed in (was fetched on mount).
+export default function OrganizerRegistrationEdit({
+    allEvents = [],
+    colleges = {},
+    initialAthlete = null,
+}: {
+    allEvents?: EventDTO[];
+    colleges?: Record<string, string>;
+    initialAthlete?: OrganizerRegistrationDTO | null;
+}) {
 
     const dispatch = useDispatch();
 
     const [email, setEmail] = useState("");
     const [searching, setSearching] = useState(false);
-    const [athlete, setAthlete] = useState<OrganizerRegistrationDTO | null>(null);
+    const [athlete, setAthlete] = useState<OrganizerRegistrationDTO | null>(initialAthlete);
+    // Editable competitor profile (organizer may correct it regardless of the
+    // competitor's registration lock).
+    const [profile, setProfile] = useState<ProfileForm>(() => profileFrom(initialAthlete));
+    const onProfileChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value } = e.target;
+        setProfile((p) => ({ ...p, [name]: value }));
+    };
 
-    const [events, setEvents] = useState<RegEventItem[]>([]);
+    const [events, setEvents] = useState<RegEventItem[]>(
+        initialAthlete
+            ? initialAthlete.registration.map((r) => ({ event_code: r.event_code, nandu_str: r.nandu_str ?? "" }))
+            : []
+    );
     const [selectedEvent, setSelectedEvent] = useState("");
     const [saving, setSaving] = useState(false);
 
     const getEvent = (code: string) => allEvents.find((e) => e.event_code === code);
     const selectedCodes = new Set(events.map((e) => e.event_code));
-    // Only offer events that match the athlete's gender category and skill level
-    // (the same gates the competitor-facing flow applies), and aren't already
-    // selected. Already-registered events still render regardless of match.
+    // Only offer events that match the (in-progress) profile gender/skill level
+    // — the same gates the competitor-facing flow applies — and aren't already
+    // selected. Following the live profile form lets the organizer set
+    // gender/level first and immediately see the matching events.
     const remainingEvents = allEvents.filter(
         (e) =>
             !selectedCodes.has(e.event_code) &&
-            (athlete?.gender == null || e.gender_category === athlete.gender) &&
-            (athlete?.skill_level == null || e.event_level === athlete.skill_level)
+            (profile.gender === "" || e.gender_category === profile.gender) &&
+            (profile.skill_level === "" || e.event_level === profile.skill_level)
     );
 
     const handleSearch = async (e: FormEvent<HTMLFormElement>) => {
@@ -44,6 +95,7 @@ export default function OrganizerRegistrationEdit({ allEvents = [] }: { allEvent
         const user = await findUserByEmail(email);
         if (user) {
             setAthlete(user);
+            setProfile(profileFrom(user));
             setEvents(user.registration.map((r) => ({ event_code: r.event_code, nandu_str: r.nandu_str ?? "" })));
         } else {
             dispatch(setErrorMsg("User not found"));
@@ -68,6 +120,7 @@ export default function OrganizerRegistrationEdit({ allEvents = [] }: { allEvent
 
     const clearSelection = () => {
         setAthlete(null);
+        setProfile(profileFrom(null));
         setEvents([]);
         setSelectedEvent("");
         setEmail("");
@@ -78,6 +131,10 @@ export default function OrganizerRegistrationEdit({ allEvents = [] }: { allEvent
         setSaving(true);
         const result = await updateOrganizerRegistration(athlete.user_id, {
             registration_input: events.map((e) => ({ event: e.event_code, nandu_str: e.nandu_str ?? "" })),
+            gender: profile.gender,
+            skill_level: profile.skill_level,
+            student_type: profile.student_type,
+            school: profile.school,
         });
         setSaving(false);
         if (result.error) {
@@ -89,6 +146,7 @@ export default function OrganizerRegistrationEdit({ allEvents = [] }: { allEvent
         clearSessionCache("organizerRegistrations");
         dispatch(setSuccessMsg(`Registration saved for ${athlete.name}`));
         setAthlete(result.data);
+        setProfile(profileFrom(result.data));
         setEvents(result.data.registration.map((r) => ({ event_code: r.event_code, nandu_str: r.nandu_str ?? "" })));
     };
 
@@ -121,6 +179,16 @@ export default function OrganizerRegistrationEdit({ allEvents = [] }: { allEvent
                     <div className="text-xs text-gray-400">{athlete.email}{athlete.school && ` · ${athlete.school}`}</div>
                 </div>
                 <button className="btn btn-ghost btn-sm" onClick={clearSelection}>Change athlete</button>
+            </div>
+
+            <div className="flex flex-col gap-3 border border-gray-200 rounded-lg p-3">
+                <div className="text-sm font-medium text-dark">Profile</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Dropdown name="gender" label="Gender" options={GENDER_CHOICES} value={profile.gender} onChange={onProfileChange} />
+                    <Dropdown name="skill_level" label="Experience Level" options={SKILL_LEVELS} value={profile.skill_level} onChange={onProfileChange} />
+                    <Dropdown name="school" label="College" options={colleges} value={profile.school} onChange={onProfileChange} />
+                    <Dropdown name="student_type" label="Student Type" options={STUDENT_TYPES} value={profile.student_type} onChange={onProfileChange} />
+                </div>
             </div>
 
             <div className="flex flex-col gap-2">
@@ -167,7 +235,7 @@ export default function OrganizerRegistrationEdit({ allEvents = [] }: { allEvent
 
             <div className="flex justify-end">
                 <button className="btn btn-primary btn-sm" onClick={onSave} disabled={saving}>
-                    {saving ? "Saving…" : "Save registration"}
+                    {saving ? "Saving…" : "Save changes"}
                 </button>
             </div>
         </div>

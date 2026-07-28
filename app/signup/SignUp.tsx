@@ -13,20 +13,7 @@ import { validate, handleFormBlur, handleFormChange } from "@functions/forms";
 
 type FormControl = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 
-export default function SignUp({ colleges = {} }: { colleges?: Record<string, string> }) {
-  // choices mirror the enums defined in models.py
-  const skillLevels = { Beginner: "B", Intermediate: "I", Advanced: "A" };
-  const genderChoices = { Male: "M", Female: "F" };
-  const studentTypes = {
-    "Full/Part-Time Undergraduate Student": "1",
-    "Full-Time Graduate/Professional School Student": "2",
-    "Early Graduate Of Current Year": "3",
-    "Non-Enrolled Student": "4",
-    "One Year Alumni": "5",
-    "Part-Time Graduate Student": "6",
-    "International Student": "7",
-  };
-
+export default function SignUp() {
   const nav = useNavigate();
 
   const [formData, setFormData] = useState<Record<string, string>>({});
@@ -66,7 +53,9 @@ export default function SignUp({ colleges = {} }: { colleges?: Record<string, st
   const handleSubmit = async (e: SyntheticEvent) => {
     e.preventDefault();
 
-    const requiredFields = ["email", "password", "re_password", "first_name", "last_name", "first_comp", "grad_date", "skill_level", "school", "gender", "student_type"];
+    // Sign-up collects account fields only; the competitor profile is created
+    // in the separate /profile/setup step after the user first signs in.
+    const requiredFields = ["email", "password", "re_password", "first_name", "last_name"];
 
     const allErrors: Record<string, string> = {};
     requiredFields.forEach((name) => {
@@ -81,9 +70,12 @@ export default function SignUp({ colleges = {} }: { colleges?: Record<string, st
 
     setLoading(true);
 
-    // Prepare JSON payload
     const payload = {
-      ...formData
+      email: formData.email,
+      password: formData.password,
+      re_password: formData.re_password,
+      first_name: formData.first_name,
+      last_name: formData.last_name,
     };
 
     const { error: fieldErrors } = await registerUser(payload);
@@ -113,14 +105,12 @@ export default function SignUp({ colleges = {} }: { colleges?: Record<string, st
       <div className="sm:hidden mx-4">
         <SignUpMobile
           formData={formData} errors={errors} error={error} loading={loading}
-          colleges={colleges} skillLevels={skillLevels} genderChoices={genderChoices} studentTypes={studentTypes}
           handleChange={handleChange} handleBlur={handleBlur} handleEmailBlur={handleEmailBlur} handleSubmit={handleSubmit}
         />
       </div>
       <div className="hidden sm:block">
         <SignUpDesktop
           formData={formData} errors={errors} error={error} loading={loading}
-          colleges={colleges} skillLevels={skillLevels} genderChoices={genderChoices} studentTypes={studentTypes}
           handleChange={handleChange} handleBlur={handleBlur} handleEmailBlur={handleEmailBlur} handleSubmit={handleSubmit}
         />
       </div>

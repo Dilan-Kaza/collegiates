@@ -11,6 +11,8 @@ function NavBar({ firstName = "" }: { firstName?: string }) {
 
   const { data: session } = useSession();
   const username = firstName;
+  const isOrganizer = session?.user?.user_type === "O";
+  const accountHref = isOrganizer ? "/organizer" : "/dashboard";
 
   const nav = useNavigate();
 
@@ -31,12 +33,9 @@ function NavBar({ firstName = "" }: { firstName?: string }) {
               {tab}
             </Link>
           ))}
-          {session?.user?.user_type === "O" && (
-            <Link to="/organizer">Organizer</Link>
-          )}
         </div>
         {username ?
-          <button className="btn btn-outline [--btn-color:var(--color-off-white)]" onClick={()=>nav('/dashboard')}>{username}</button> :
+          <button className="btn btn-outline [--btn-color:var(--color-off-white)]" onClick={()=>nav(accountHref)}>{username}</button> :
           <button className="btn btn-outline [--btn-color:var(--color-off-white)]" onClick={()=>nav('/signin')}>Sign In</button>
         }
       </div>

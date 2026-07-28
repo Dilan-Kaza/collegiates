@@ -8,7 +8,7 @@
 // (a field->message object) on failure.
 
 export { loginAction, logoutAction } from "./auth";
-export { checkEmail, registerUser, getMe, updateMe, deleteMe, activate } from "./account";
+export { checkEmail, registerUser, saveCompetitorProfile, getMe, updateMe, deleteMe, activate } from "./account";
 export {
   getCompetitorEvents, getRegistrations, createRegistrations,
   getMyGroupset, createGroupset, getJoinableGroupsets, joinGroupset,
