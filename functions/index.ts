@@ -16,4 +16,4 @@ export {
 } from "./cachedFetchers";
 export { default as CacheSeed } from "./CacheSeed";
 export { cacheKeys } from "./cacheKeys";
-export { useForwardDashboard, useForwardIfNotOrganizer } from "./forwardHooks";
+export { useForwardIfNotOrganizer } from "./forwardHooks";

@@ -11,9 +11,12 @@ import { getCurrentUser } from "@/lib/auth";
 import { loadSettings } from "@/lib/settings";
 import { shapeCompetitor } from "@/lib/api";
 import type { CompetitorDTO } from "@/lib/api";
+import { sendEmail } from "@/lib/email";
+import { activationEmail } from "@/lib/email-templates";
+import { issueToken, consumeToken } from "@/lib/tokens";
 import {
   USER_DATA_TTL, userDataTag, TAG_REGISTRATIONS, TAG_GROUPSETS,
-  revalidateUserData, rehydrateCompetitor,
+  revalidateUserData, rehydrateCompetitor, appUrl,
 } from "./shared";
 import type { Mutation, RegisterBody, CompetitorProfileBody, UpdateMeBody } from "./shared";
 
@@ -28,9 +31,11 @@ export async function checkEmail(email: string): Promise<{ exists: boolean }> {
 export async function registerUser(body: RegisterBody): Promise<Mutation<CompetitorDTO>> {
   const { email, password, re_password } = body ?? {};
   if (!email || !password) return { error: { detail: "Email and password are required." } };
+  if (password.length < 8) return { error: { password: "Password must be at least 8 characters" } };
   if (password !== re_password) return { error: { re_password: "Passwords do not match" } };
 
-  const existing = await prisma.user.findUnique({ where: { email }, select: { user_id: true } });
+  const normalizedEmail = email.trim().toLowerCase();
+  const existing = await prisma.user.findUnique({ where: { email: normalizedEmail }, select: { user_id: true } });
   if (existing) return { error: { email: "A user with this email already exists." } };
 
   // Sign-up creates the account only. The competitor profile (and the
@@ -38,15 +43,20 @@ export async function registerUser(body: RegisterBody): Promise<Mutation<Competi
   // via createCompetitorProfile, so a fresh user has competitor_profile == null.
   const user = await prisma.user.create({
     data: {
-      email,
+      email: normalizedEmail,
       password: hashPassword(password),
       user_type: "C",
-      is_active: true,
+      is_active: false,
       first_name: body.first_name ?? "",
       last_name: body.last_name ?? "",
     },
     include: { competitor_profile: { include: { school: true } } },
   });
+
+  const token = await issueToken(user.user_id, "A");
+  const link = `${appUrl()}/activate/${user.user_id}/${token}`;
+  await sendEmail(user.email, activationEmail(link));
+
   return { data: shapeCompetitor(user, []) };
 }
 
@@ -94,17 +104,12 @@ export async function saveCompetitorProfile(
     gender: body.gender || null,
     school_id: body.school || null,
     student_type: body.student_type || null,
+    skill_level: body.skill_level || null,
   };
 
   await prisma.user.update({
     where: { user_id: current.user_id },
     data: {
-      // Competitor-owned fields on `users` are frozen while locked.
-      ...(locked
-        ? {}
-        : {
-            skill_level: body.skill_level || null,
-          }),
       competitor_profile: {
         upsert: {
           // A brand-new profile is never locked (registering requires a
@@ -119,6 +124,19 @@ export async function saveCompetitorProfile(
   const user = await loadFullUser(current.user_id);
   if (!user) return { error: { detail: "User not found." } };
   return { data: shapeCompetitor(user, user.registration, user.groupset_member[0]?.groupset ?? null) };
+}
+
+// Re-sends the activation email for an inactive account. Always returns the
+// same generic response regardless of whether the email matched an account,
+// so this can't be used to enumerate registered addresses.
+export async function resendActivation({ email }: { email: string }): Promise<Mutation<{ detail: string }>> {
+  const user = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() }, select: { user_id: true, email: true, is_active: true } });
+  if (user && !user.is_active) {
+    const token = await issueToken(user.user_id, "A");
+    const link = `${appUrl()}/activate/${user.user_id}/${token}`;
+    await sendEmail(user.email, activationEmail(link));
+  }
+  return { data: { detail: "If an account with that email exists, an activation link was sent." } };
 }
 
 async function loadFullUser(userId: string) {
@@ -173,15 +191,14 @@ export async function updateMe(body: UpdateMeBody): Promise<Mutation<CompetitorD
   if (body.last_name !== undefined) data.last_name = body.last_name;
 
   if (!locked) {
-    if (body.skill_level !== undefined) data.skill_level = body.skill_level;
-
     // Competitor attributes live on the one-to-one profile. Build the patch
     // separately and apply it via upsert so users without a profile still get
     // one created on first edit.
-    const profile: { gender?: string | null; student_type?: string | null; school_id?: string | null } = {};
+    const profile: { gender?: string | null; student_type?: string | null; school_id?: string | null; skill_level?: string | null } = {};
     if (body.gender !== undefined) profile.gender = body.gender;
     if (body.student_type !== undefined) profile.student_type = body.student_type;
     if (body.school !== undefined) profile.school_id = body.school;
+    if (body.skill_level !== undefined) profile.skill_level = body.skill_level;
     if (Object.keys(profile).length) {
       data.competitor_profile = { upsert: { create: profile, update: profile } };
     }
@@ -206,10 +223,11 @@ export async function deleteMe(): Promise<Mutation<{ detail: string }>> {
   return { data: { detail: "deleted" } };
 }
 
-export async function activate({ uid }: { uid?: string; token?: string }): Promise<Mutation<{ detail: string }>> {
-  if (uid) {
-    const u = await prisma.user.findUnique({ where: { user_id: uid }, select: { user_id: true } });
-    if (!u) return { error: { detail: "Invalid activation link." } };
-  }
+export async function activate({ uid, token }: { uid?: string; token?: string }): Promise<Mutation<{ detail: string }>> {
+  if (!uid || !token) return { error: { detail: "Invalid activation link." } };
+  const ok = await consumeToken(uid, token, "A");
+  if (!ok) return { error: { detail: "This activation link is invalid or has expired." } };
+
+  await prisma.user.update({ where: { user_id: uid }, data: { is_active: true } });
   return { data: { detail: "Account active." } };
 }

@@ -10,6 +10,8 @@ import { getCurrentUser, isCompetitor } from "@/lib/auth";
 import { loadSettings, regActive } from "@/lib/settings";
 import { shapeEvent, shapeRegistration, shapeGroupset } from "@/lib/api";
 import type { EventDTO, RegistrationDTO, GroupsetDTO } from "@/lib/api";
+import { sendEmail } from "@/lib/email";
+import { registrationConfirmedEmail } from "@/lib/email-templates";
 import {
   READ_CACHE_TTL, TAG_EVENTS, TAG_REGISTRATIONS, TAG_GROUPSETS,
   userDataTag, groupsetTag, revalidateUserData, reRegistration, reGroupset,
@@ -22,7 +24,7 @@ export async function getCompetitorEvents(): Promise<EventDTO[]> {
   // Keyed by (level, gender): the only inputs to the query. A profile change
   // moves the user to a different key, so no per-user invalidation is needed;
   // the "events" tag covers changes to the catalogue itself.
-  const level = user.skill_level ?? "";
+  const level = user.competitor_profile?.skill_level ?? "";
   const gender = user.competitor_profile?.gender ?? "";
   return unstable_cache(
     async (): Promise<EventDTO[]> => {
@@ -74,7 +76,7 @@ export async function createRegistrations(items: RegistrationItem[]): Promise<Mu
     const event = await prisma.event.findUnique({ where: { event_code: item.event_code } });
     if (!event) return { error: { event: `Event with id ${item.event_code} does not exist.` } };
     if (event.gender_category !== user.competitor_profile?.gender) return { error: { event: "Competitor signed up for wrong gender category" } };
-    if (event.event_level !== user.skill_level) return { error: { event: "Competitor signed up for wrong level" } };
+    if (event.event_level !== user.competitor_profile?.skill_level) return { error: { event: "Competitor signed up for wrong level" } };
     const dupe = await prisma.registration.findFirst({
       where: { competitor_id: user.user_id, event_code: event.event_code, comp_year: year },
       select: { id: true },
@@ -97,6 +99,16 @@ export async function createRegistrations(items: RegistrationItem[]): Promise<Mu
     where: { competitor_id: user.user_id, comp_year: year, event_code: { in: codes } },
     include: { event: true },
   });
+
+  // Best-effort: a delivery failure shouldn't fail a registration that already
+  // succeeded in the database.
+  try {
+    const eventNames = regs.map((r) => r.event.event_name ?? r.event.event_code);
+    await sendEmail(user.email, registrationConfirmedEmail(eventNames));
+  } catch (err) {
+    console.error("Failed to send registration confirmation email", err);
+  }
+
   return { data: regs.map(shapeRegistration) };
 }
 

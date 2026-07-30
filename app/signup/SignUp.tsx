@@ -4,7 +4,6 @@ import { MtHeader, SignUpMobile, SignUpDesktop } from "@components";
 import { useState } from "react";
 import type { FocusEvent, SyntheticEvent } from "react";
 import { checkEmail, registerUser } from "@functions/actions";
-import { useForwardDashboard } from "@functions";
 import { useNavigate } from "@/routerCompat";
 import { useDispatch } from "react-redux";
 import { setSuccessMsg } from "@slices";
@@ -47,9 +46,6 @@ export default function SignUp() {
     if (name === "email") checkEmailExists(value);
   };
 
-  useForwardDashboard();
-
-
   const handleSubmit = async (e: SyntheticEvent) => {
     e.preventDefault();
 
@@ -89,7 +85,7 @@ export default function SignUp() {
     } else {
       setError("");
       dispatch(setSuccessMsg("Account created successfully"));
-      nav('/signin');
+      nav(`/awaiting-activation?email=${encodeURIComponent(formData.email)}`);
     }
     setLoading(false);
   };

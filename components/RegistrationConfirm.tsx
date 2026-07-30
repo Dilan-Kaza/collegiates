@@ -16,9 +16,10 @@ interface RegistrationConfirmProps {
   totalCost?: number | null;
   onBack?: MouseEventHandler<HTMLButtonElement>;
   onConfirm?: () => void | Promise<void>;
+  error?: string;
 }
 
-export default function RegistrationConfirm({ events, catalogEvents = [], isEarly, firstCost, extraCost, totalCost, onBack, onConfirm }: RegistrationConfirmProps) {
+export default function RegistrationConfirm({ events, catalogEvents = [], isEarly, firstCost, extraCost, totalCost, onBack, onConfirm, error }: RegistrationConfirmProps) {
     const eventsFromApi = catalogEvents;
     const [submitting, setSubmitting] = useState(false);
 
@@ -59,11 +60,12 @@ export default function RegistrationConfirm({ events, catalogEvents = [], isEarl
                     <div className="text-2xl font-bold text-primary">${totalCost}</div>
                 </div>
             )}
+            {error && <div className="text-red-300 mb-4">{error}</div>}
             <div className="flex justify-between">
                 <button className="btn btn-ghost text-off-white" onClick={onBack} disabled={submitting}>Back</button>
                 <button className="btn btn-secondary" onClick={handleConfirm} disabled={submitting}>
                     {submitting && <span className="loading loading-spinner loading-sm" />}
-                    Confirm
+                    Submit
                 </button>
             </div>
         </div>

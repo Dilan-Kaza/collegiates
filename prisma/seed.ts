@@ -1,21 +1,21 @@
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
-import { PrismaPostgresAdapter } from "@prisma/adapter-ppg";
+import { PrismaPg } from "@prisma/adapter-pg";
 
 // Seed script — mirrors the reference data from
 // collegiates_backend/sql_files/metadata_queries.sql (colleges + events).
 // Run with: npm run seed  (see prisma.config.ts -> migrations.seed).
 //
-// Self-contained on purpose: it builds its own PrismaClient with the Prisma
-// Postgres driver adapter rather than importing @/lib/prisma, so it can run
-// under `node prisma/seed.ts` without tsconfig path-alias resolution.
+// Self-contained on purpose: it builds its own PrismaClient with the pg
+// driver adapter rather than importing @/lib/prisma, so it can run under
+// `node prisma/seed.ts` without tsconfig path-alias resolution.
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
   throw new Error("DATABASE_URL is not set.");
 }
 
-const adapter = new PrismaPostgresAdapter({ connectionString });
+const adapter = new PrismaPg({ connectionString });
 const prisma = new PrismaClient({ adapter });
 
 const colleges: string[] = [

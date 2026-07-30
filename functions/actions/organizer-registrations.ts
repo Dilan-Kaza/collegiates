@@ -129,11 +129,11 @@ export async function updateOrganizerRegistration(
   // Competitor profile edits. Organizers may correct these at any time (no
   // registration lock, unlike the competitor-facing saveCompetitorProfile).
   const userData: Prisma.UserUpdateInput = {};
-  if (body.skill_level !== undefined) userData.skill_level = body.skill_level || null;
-  const profilePatch: { gender?: string | null; school_id?: string | null; student_type?: string | null } = {};
+  const profilePatch: { gender?: string | null; school_id?: string | null; student_type?: string | null; skill_level?: string | null } = {};
   if (body.gender !== undefined) profilePatch.gender = body.gender || null;
   if (body.school !== undefined) profilePatch.school_id = body.school || null;
   if (body.student_type !== undefined) profilePatch.student_type = body.student_type || null;
+  if (body.skill_level !== undefined) profilePatch.skill_level = body.skill_level || null;
   if (Object.keys(profilePatch).length) {
     userData.competitor_profile = { upsert: { create: profilePatch, update: profilePatch } };
   }

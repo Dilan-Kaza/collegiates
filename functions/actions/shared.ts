@@ -202,6 +202,16 @@ export const reOrganizerRegistration = (u: OrganizerRegistrationDTO): OrganizerR
 
 export type OrganizerGate = { user: User; error?: undefined } | { user?: undefined; error: FieldErrors };
 
+// ---------- email links ----------
+
+// Base URL for links embedded in transactional email (activation, password
+// reset). Must be set to the deployed origin, e.g. https://collegiates.example.com.
+export function appUrl(): string {
+  const url = process.env.NEXT_PUBLIC_APP_URL;
+  if (!url) throw new Error("NEXT_PUBLIC_APP_URL is not set.");
+  return url.replace(/\/$/, "");
+}
+
 export async function requireOrganizer(): Promise<OrganizerGate> {
   const user = await getCurrentUser();
   if (!user) return { error: { detail: "Not authenticated." } };

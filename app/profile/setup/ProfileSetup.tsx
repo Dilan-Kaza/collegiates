@@ -105,10 +105,10 @@ export default function ProfileSetup({
               <Field {...fieldProps} as={Dropdown} name="skill_level" label="Experience Level*" options={skillLevels} required />
               <Field {...fieldProps} as={Dropdown} name="school" label="College*" options={colleges} required />
               <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex flex-col flex-1">
+                <div className="flex flex-col flex-1 min-w-0">
                   <Field {...fieldProps} as={Dropdown} name="gender" label="Gender*" options={genderChoices} errorClass="mt-1" required />
                 </div>
-                <div className="flex flex-col flex-1">
+                <div className="flex flex-col flex-1 min-w-0">
                   <Field {...fieldProps} as={Dropdown} name="student_type" label="Student Type*" options={studentTypes} errorClass="mt-1" required />
                 </div>
               </div>

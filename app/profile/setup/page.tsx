@@ -33,7 +33,7 @@ export default async function Page() {
     gender: profile?.gender ?? "",
     school: profile?.school_id ?? "",
     student_type: profile?.student_type ?? "",
-    skill_level: user.skill_level ?? "",
+    skill_level: profile?.skill_level ?? "",
   };
 
   return (

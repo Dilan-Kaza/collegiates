@@ -34,10 +34,10 @@ function Dropdown({ label, options, ...props }: DropdownProps) {
 
   return (
     <>
-      <label className="min-w-[11rem] flex flex-col gap-2">
+      <label className="w-full min-w-0 flex flex-col gap-2">
         <span className="capitalize text-sm">{label}</span>
-        <div className="cg-field">
-          <select {...props}>
+        <div className="cg-field min-w-0">
+          <select {...props} className="w-full truncate">
             <option value="" disabled hidden></option>
             {optionsList.map((optionPair, index) => (
               <option value={optionPair[1]} key={index}>

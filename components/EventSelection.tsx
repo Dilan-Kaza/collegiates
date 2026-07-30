@@ -145,7 +145,7 @@ export default function EventSelection({ events, setEvents, catalogEvents = [], 
                     </div>
                     <div className="flex flex-1"/>
                     <div className="flex">
-                        <button className="btn btn-primary my-4" onClick={onSubmit}>Submit</button>
+                        <button className="btn btn-primary my-4" onClick={onSubmit}>Confirm</button>
                     </div>
                 </div>
             </div>

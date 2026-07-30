@@ -44,6 +44,16 @@ export async function requireOrganizer(): Promise<CurrentUser> {
   return user;
 }
 
+// Inverse of requireUser(): forwards an already-authenticated visitor away
+// from guest-only pages (sign in / sign up) before anything renders, the same
+// way requireUser()/requireOrganizer() gate the other direction. Always
+// forwards to /dashboard regardless of user type — /dashboard's own
+// isOrganizer check re-routes organizers to /organizer from there.
+export async function requireGuest(): Promise<void> {
+  const user = await getCurrentUser();
+  if (user) redirect("/dashboard");
+}
+
 type UserTypeHolder = { user_type: string } | null | undefined;
 
 export const isOrganizer = (user: UserTypeHolder): boolean => user?.user_type === "O";

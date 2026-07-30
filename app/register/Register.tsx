@@ -25,6 +25,7 @@ export default function Register({
 
     const [events, setEvents] = useState<RegEventItem[]>([]);
     const [confirming, setConfirming] = useState(false);
+    const [confirmError, setConfirmError] = useState("");
 
     const isEarly = !!settings.early_reg_start
         && settings.early_reg_cost_first != null
@@ -36,10 +37,18 @@ export default function Register({
         : null;
 
     const onConfirm = async () => {
-        const { error } = await createRegistrations(events);
-        if (!error) {
+        setConfirmError("");
+        try {
+            const { error } = await createRegistrations(events);
+            if (error) {
+                setConfirmError(Object.values(error)[0] ?? "Registration failed. Please try again.");
+                return;
+            }
             clearSessionCache("currentUser");
             nav('/dashboard');
+        } catch (err) {
+            console.error("Failed to create registrations", err);
+            setConfirmError("Something went wrong. Please try again.");
         }
     };
 
@@ -56,6 +65,7 @@ export default function Register({
                     totalCost={totalCost}
                     onBack={() => setConfirming(false)}
                     onConfirm={onConfirm}
+                    error={confirmError}
                 />
             ) : (
                 <EventSelection
