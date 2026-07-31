@@ -8,7 +8,7 @@ import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { getCurrentUser, isCompetitor } from "@/lib/auth";
 import { loadSettings, regActive } from "@/lib/settings";
-import { shapeEvent, shapeRegistration, shapeGroupset } from "@/lib/api";
+import { shapeEvent, shapeRegistration, shapeGroupset, fromGender, fromSkillLevel } from "@/lib/api";
 import type { EventDTO, RegistrationDTO, GroupsetDTO } from "@/lib/api";
 import {
   READ_CACHE_TTL, TAG_EVENTS, TAG_REGISTRATIONS, TAG_GROUPSETS,
@@ -22,16 +22,21 @@ export async function getCompetitorEvents(): Promise<EventDTO[]> {
   // Keyed by (level, gender): the only inputs to the query. A profile change
   // moves the user to a different key, so no per-user invalidation is needed;
   // the "events" tag covers changes to the catalogue itself.
-  const level = user.skill_level ?? "";
-  const gender = user.competitor_profile?.gender ?? "";
+  // Prisma speaks enum member names, so query the columns with the profile's
+  // enum members directly (null when unset). The cache key stays keyed by the
+  // legacy "M"/"F" and "B"/"I"/"A" codes for stability.
+  const skillLevel = user.competitor_profile?.skill_level ?? null;
+  const gender = user.competitor_profile?.gender ?? null;
+  const levelCode = fromSkillLevel(skillLevel) ?? "";
+  const genderCode = fromGender(gender) ?? "";
   return unstable_cache(
     async (): Promise<EventDTO[]> => {
       const events = await prisma.event.findMany({
-        where: { event_level: level, gender_category: gender },
+        where: { event_level: skillLevel, gender_category: gender },
       });
       return events.map(shapeEvent);
     },
-    ["competitor-events", level, gender],
+    ["competitor-events", levelCode, genderCode],
     { tags: [TAG_EVENTS], revalidate: READ_CACHE_TTL },
   )();
 }
@@ -73,8 +78,8 @@ export async function createRegistrations(items: RegistrationItem[]): Promise<Mu
   for (const item of items) {
     const event = await prisma.event.findUnique({ where: { event_code: item.event_code } });
     if (!event) return { error: { event: `Event with id ${item.event_code} does not exist.` } };
-    if (event.gender_category !== user.competitor_profile?.gender) return { error: { event: "Competitor signed up for wrong gender category" } };
-    if (event.event_level !== user.skill_level) return { error: { event: "Competitor signed up for wrong level" } };
+    if (event.gender_category !== (user.competitor_profile?.gender ?? null)) return { error: { event: "Competitor signed up for wrong gender category" } };
+    if (event.event_level !== (user.competitor_profile?.skill_level ?? null)) return { error: { event: "Competitor signed up for wrong level" } };
     const dupe = await prisma.registration.findFirst({
       where: { competitor_id: user.user_id, event_code: event.event_code, comp_year: year },
       select: { id: true },
@@ -111,7 +116,7 @@ export async function getMyGroupset(): Promise<GroupsetDTO[]> {
     async (): Promise<GroupsetDTO[]> => {
       const rows = await prisma.groupset.findMany({
         where: { comp_year: year, members: { some: { member_id: userId } } },
-        include: { school: true, members: { include: { member: true } } },
+        include: { school: true, members: { include: { member: { include: { user: true } } } } },
       });
       return rows.map(shapeGroupset);
     },
@@ -146,7 +151,7 @@ export async function createGroupset(body: { team_name: string }): Promise<Mutat
       comp_year: year,
       members: { create: [{ member_id: user.user_id, leader: true }] },
     },
-    include: { school: true, members: { include: { member: true } } },
+    include: { school: true, members: { include: { member: { include: { user: true } } } } },
   });
   // The group set is bundled into the creator's getMe payload, so refresh it.
   revalidateUserData(user.user_id);
@@ -166,7 +171,7 @@ export async function getJoinableGroupsets(): Promise<GroupsetDTO[]> {
     async (): Promise<GroupsetDTO[]> => {
       const rows = await prisma.groupset.findMany({
         where: { school_id: schoolId, comp_year: year },
-        include: { school: true, members: { include: { member: true } } },
+        include: { school: true, members: { include: { member: { include: { user: true } } } } },
       });
       return rows.map(shapeGroupset);
     },
@@ -200,7 +205,7 @@ export async function joinGroupset(body: { groupset: string }): Promise<Mutation
   for (const m of groupset.members) revalidateUserData(m.member_id);
   revalidateTag(TAG_GROUPSETS); // roster change shows in joinable/organizer lists
   revalidateTag(groupsetTag(groupset.groupset_id));
-  const full = await prisma.groupset.findUnique({ where: { groupset_id: groupset.groupset_id }, include: { school: true, members: { include: { member: true } } } });
+  const full = await prisma.groupset.findUnique({ where: { groupset_id: groupset.groupset_id }, include: { school: true, members: { include: { member: { include: { user: true } } } } } });
   if (!full) return { error: { groupset: "Groupset does not exist" } };
   return { data: shapeGroupset(full) };
 }

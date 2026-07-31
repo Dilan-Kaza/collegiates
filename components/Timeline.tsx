@@ -39,6 +39,7 @@ function Timeline({ settings = {} }: { settings?: Partial<SettingsDTO> }) {
     "Registration Opens": dateToStr(compinfo.early_reg_start),
     "Early Registration Deadline": dateToStr(compinfo.reg_start),
     "Registration Deadline": dateToStr(compinfo.reg_end),
+    "Payment & Proof of Enrollment Due": dateToStr(compinfo.due_date),
     "Competition Day": dateToStr(compinfo.comp_date),
   };
 

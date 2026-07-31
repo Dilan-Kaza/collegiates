@@ -7,7 +7,7 @@
 // unauthenticated/forbidden); mutations return { data } on success or { error }
 // (a field->message object) on failure.
 
-export { loginAction, logoutAction } from "./auth";
+export { loginAction, logoutAction, verifySession } from "./auth";
 export { checkEmail, registerUser, saveCompetitorProfile, getMe, updateMe, deleteMe, activate } from "./account";
 export {
   getCompetitorEvents, getRegistrations, createRegistrations,
@@ -26,5 +26,6 @@ export {
   updateOrganizerGroupset, deleteOrganizerGroupset,
 } from "./organizer-groupsets";
 export { getOrganizerOrder, saveOrder, setOrderPublic, getPublicOrder } from "./order";
+export { createSettings, createSchoolAccount } from "./admin";
 
 export type { Mutation, FieldErrors } from "./shared";

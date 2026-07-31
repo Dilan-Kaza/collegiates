@@ -22,7 +22,5 @@ export { NavBar } from "./Navbar";
 export { Notif } from "./Notif";
 export { LoadingOverlay, default as LoadingScreen } from "./LoadingScreen";
 export { Timeline } from "./Timeline";
-export { default as SignUpMobile } from "./SignUpMobile";
-export { default as SignUpDesktop } from "./SignUpDesktop";
-export { Field, SignUpError, SignUpSubmit } from "./SignUpComponents";
+export { Field, FormError, SubmitButton } from "./FormField";
 export { default as BlogCategory } from "./BlogCategory";

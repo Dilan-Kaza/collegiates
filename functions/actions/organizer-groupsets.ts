@@ -28,7 +28,7 @@ export async function getOrganizerGroupsets(): Promise<OrganizerGroupsetDTO[]> {
   const year = settings.reg_year;
   const groupsets = await unstable_cache(
     async (): Promise<OrganizerGroupsetDTO[]> => {
-      const rows = await prisma.groupset.findMany({ where: { comp_year: year }, include: { school: true, members: { include: { member: true } } } });
+      const rows = await prisma.groupset.findMany({ where: { comp_year: year }, include: { school: true, members: { include: { member: { include: { user: true } } } } } });
       return rows.map(shapeOrganizerGroupset);
     },
     ["organizer-groupsets", String(year)],
@@ -42,7 +42,7 @@ export async function getOrganizerGroupset(uuid: string): Promise<OrganizerGroup
   if (error) return null;
   const gs = await unstable_cache(
     async (): Promise<OrganizerGroupsetDTO | null> => {
-      const g = await prisma.groupset.findUnique({ where: { groupset_id: uuid }, include: { school: true, members: { include: { member: true } } } });
+      const g = await prisma.groupset.findUnique({ where: { groupset_id: uuid }, include: { school: true, members: { include: { member: { include: { user: true } } } } } });
       return g ? shapeOrganizerGroupset(g) : null;
     },
     ["organizer-groupset", uuid],
@@ -81,7 +81,7 @@ export async function createOrganizerGroupset(body: CreateOrganizerGroupsetBody)
       comp_year: year,
       members: { create: members.map((id) => ({ member_id: id, leader: id === body.leader })) },
     },
-    include: { school: true, members: { include: { member: true } } },
+    include: { school: true, members: { include: { member: { include: { user: true } } } } },
   });
   // Each assigned member now has a group set bundled into their getMe payload.
   for (const id of members) revalidateUserData(id);
@@ -135,7 +135,7 @@ export async function updateOrganizerGroupset(
   revalidateTag(TAG_GROUPSETS);
   revalidateTag(groupsetTag(uuid));
 
-  const updated = await prisma.groupset.findUnique({ where: { groupset_id: uuid }, include: { school: true, members: { include: { member: true } } } });
+  const updated = await prisma.groupset.findUnique({ where: { groupset_id: uuid }, include: { school: true, members: { include: { member: { include: { user: true } } } } } });
   if (!updated) return { error: { detail: "Not found." } };
   return { data: shapeOrganizerGroupset(updated) };
 }

@@ -21,6 +21,29 @@ export const getColleges = unstable_cache(
   { tags: ["colleges"], revalidate: 3600 }
 );
 
+// { [label]: email } for every School account, so the admin console can offer
+// them as host options. The value is the email because createSettings resolves
+// the host by email; the label prefixes the linked college (when set) for
+// readability and appends the email to keep keys unique.
+export const getSchoolAccounts = unstable_cache(
+  async (): Promise<Record<string, string>> => {
+    const rows = await prisma.user.findMany({
+      where: { user_type: "School" },
+      select: { email: true, college_profile: { select: { college: { select: { college_name: true } } } } },
+      orderBy: { email: "asc" },
+    });
+    return Object.fromEntries(
+      rows.map((u) => {
+        const college = u.college_profile?.college?.college_name;
+        const label = college ? `${college} · ${u.email}` : u.email;
+        return [label, u.email] as const;
+      })
+    );
+  },
+  ["school-accounts"],
+  { tags: ["school-accounts"], revalidate: 3600 }
+);
+
 const _getSettings = unstable_cache(
   async (): Promise<SettingsDTO | null> => {
     const s = await loadSettings();
@@ -40,6 +63,7 @@ export async function getSettings(): Promise<SettingsDTO | null> {
     early_reg_start: s.early_reg_start ? new Date(s.early_reg_start) : null,
     reg_start: new Date(s.reg_start),
     reg_end: new Date(s.reg_end),
+    due_date: s.due_date ? new Date(s.due_date) : null,
     comp_date: s.comp_date ? new Date(s.comp_date) : null,
   };
 }

@@ -2,9 +2,11 @@
 //
 // Table names (@@map) and column names (@map) match Django's db_table /
 // db_column so this schema maps onto a copy of the existing Postgres database.
-// Choice fields (gender, skill_level, user_type, etc.) are plain varchar(1) in
-// Django (CharField with choices), so they are modeled as String here — not
-// Prisma enums — to match the real column types.
+// These choice fields are plain varchar(1) in Django (CharField with choices)
+// and are modeled as proper Prisma enums whose members @map to the original DB
+// codes so existing rows migrate over unchanged: gender / gender_category ->
+// Gender, event_level -> SkillLevel, event_category -> EventCategory,
+// skill_level -> SkillLevel, student_type -> StudentType, user_type -> UserType.
 //
 // Django framework tables (auth_*, django_*, token_blacklist_*) are intentionally
 // omitted; only the application tables are modeled.
@@ -17,24 +19,91 @@ datasource db {
   provider = "postgresql"
 }
 
+// ---------------------------------------------------------------------------
+// Enums. Each mirrors a Django CharField(choices) stored as a varchar code;
+// every member @maps to the exact code persisted in the database, so existing
+// rows migrate over unchanged. Prisma Client reads/writes the member NAMES, so
+// the server boundary (lib/api.ts) translates member <-> code so the DTOs and
+// forms keep speaking the original codes.
+// ---------------------------------------------------------------------------
+
+enum Gender {
+  Male   @map("M")
+  Female @map("F")
+
+  @@map("gender")
+}
+
+enum SkillLevel {
+  Beginner     @map("B")
+  Intermediate @map("I")
+  Advanced     @map("A")
+
+  @@map("skill_level")
+}
+
+// Style classification for an event. Members @map to single-char codes to
+// match the varchar(1) style of the other Event choice columns.
+enum EventCategory {
+  External @map("E")
+  Internal @map("I")
+
+  @@map("event_category")
+}
+
+enum StudentType {
+  Undergraduate    @map("1") // Full/Part-Time Undergraduate Student
+  FullTimeGraduate @map("2") // Full-Time Graduate/Professional School Student
+  EarlyGraduate    @map("3") // Early Graduate Of Current Year
+  NonEnrolled      @map("4") // Non-Enrolled Student
+  OneYearAlumni    @map("5") // One Year Alumni
+  PartTimeGraduate @map("6") // Part-Time Graduate Student
+  International    @map("7") // International Student
+
+  @@map("student_type")
+}
+
+// Account role. "C"/"O" are the legacy Django codes; "A" (Admin) is a new role
+// with no legacy data.
+enum UserType {
+  Competitor @map("C")
+  School     @map("O")
+  Admin      @map("A")
+
+  @@map("user_type")
+}
+
+// Weapon classification for an event. New field with no legacy data; members
+// @map to single-char codes to match the varchar(1) style of the other Event
+// choice columns.
+enum WeaponType {
+  Barehand @map("B")
+  Short    @map("S")
+  Long     @map("L")
+  Other    @map("O")
+
+  @@map("weapon_type")
+}
+
 model College {
   college_id   String @id @default(uuid()) @db.Uuid
   college_name String @unique @db.VarChar(255)
 
   competitor_profiles CompetitorProfile[]
+  college_profiles    CollegeProfile[]
   groupsets           Groupset[]
-  settings            Settings[]
 
   @@map("colleges")
 }
 
 model Event {
-  event_code      String   @id @db.VarChar(50)
-  event_name      String?  @unique @db.VarChar(255)
-  event_level     String?  @db.VarChar(1)
-  event_category  String?  @db.VarChar(1)
-  gender_category String?  @db.VarChar(1)
+  event_code      String         @id @db.VarChar(50)
+  event_name      String?        @unique @db.VarChar(255)
+  event_level     SkillLevel?
+  event_category  EventCategory?
+  gender_category Gender?
   is_nandu        Boolean?
+  weapon_type     WeaponType?
 
   registrations Registration[]
   event_orders  EventOrder[]
@@ -54,18 +123,17 @@ model User {
   date_joined  DateTime  @default(now()) @db.Timestamptz(6)
 
   // Custom fields
-  user_id      String    @id @default(uuid()) @db.Uuid
-  email        String    @unique @db.VarChar(254)
-  user_type    String    @default("C") @db.VarChar(1)
-  skill_level  String?   @db.VarChar(1)
+  user_id   String   @id @default(uuid()) @db.Uuid
+  email     String   @unique @db.VarChar(254)
+  user_type UserType @default(Competitor)
 
   // Competitor-specific attributes live on a one-to-one CompetitorProfile keyed
-  // by this user's uuid (see CompetitorProfile). Organizers have no profile row.
+  // by this user's uuid (see CompetitorProfile). Competitors have no college
+  // profile row, and organizers have no competitor one.
   competitor_profile CompetitorProfile?
-
-  registration      Registration[]
-  groupset_member   GroupsetMember[]
-  competitor_orders CompetitorOrder[]
+  college_profile    CollegeProfile?
+  // Competition settings this user hosts (see Settings.host).
+  hosted_settings    Settings[]
 
   @@map("users")
 }
@@ -74,32 +142,52 @@ model User {
 // keyed by the user's uuid (the profile's PK *is* the user_id). A user has at
 // most one profile; organizers typically have none.
 model CompetitorProfile {
-  user         User     @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
-  user_id      String   @id @db.Uuid
-  gender       String?  @db.VarChar(1)
-  school       College? @relation(fields: [school_id], references: [college_id], onDelete: SetNull)
-  school_id    String?  @db.Uuid
-  student_type String?  @db.VarChar(1)
-  is_competing Boolean  @default(false)
-  has_paid     Boolean  @default(false)
-  proof_of_reg Boolean  @default(false)
+  user          User         @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  user_id       String       @id @db.Uuid
+  gender        Gender?
+  skill_level   SkillLevel?
+  school        College?     @relation(fields: [school_id], references: [college_id], onDelete: SetNull)
+  school_id     String?      @db.Uuid
+  student_type  StudentType?
+  is_competing  Boolean      @default(false)
+  has_paid      Boolean      @default(false)
+  proof_of_reg  Boolean      @default(false)
   // The reg_year (from Settings) the competitor last confirmed their profile
   // under. Not surfaced to the client; used server-side to force a returning
   // competitor back through /profile/setup when a new competition year starts.
   last_reg_year Int?
 
+  registration      Registration[]
+  groupset_member   GroupsetMember[]
+  competitor_orders CompetitorOrder[]
+
   @@map("competitor_profile")
 }
 
+// Organizer-specific attributes split out of `users` into a one-to-one table
+// keyed by the user's uuid (the profile's PK *is* the user_id), mirroring
+// CompetitorProfile. A user has at most one college profile.
+model CollegeProfile {
+  user       User     @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  user_id    String   @id @db.Uuid
+  college    College? @relation(fields: [college_id], references: [college_id], onDelete: SetNull)
+  college_id String?  @db.Uuid
+  // Competition years this organizer has hosted, as a set of ints (Postgres
+  // integer[]). Empty by default.
+  host_years Int[]    @default([])
+
+  @@map("college_profile")
+}
+
 model Registration {
-  id           BigInt   @id @default(autoincrement())
-  competitor   User     @relation(fields: [competitor_id], references: [user_id], onDelete: Cascade)
-  competitor_id String  @db.Uuid
-  event        Event    @relation(fields: [event_code], references: [event_code], onDelete: Cascade)
-  event_code   String   @db.VarChar(50)
-  comp_year    Int
-  date_created DateTime @default(now()) @db.Timestamptz(6)
-  nandu_str    String?
+  id            BigInt            @id @default(autoincrement())
+  competitor    CompetitorProfile @relation(fields: [competitor_id], references: [user_id], onDelete: Cascade)
+  competitor_id String            @db.Uuid
+  event         Event             @relation(fields: [event_code], references: [event_code], onDelete: Cascade)
+  event_code    String            @db.VarChar(50)
+  comp_year     Int
+  date_created  DateTime          @default(now()) @db.Timestamptz(6)
+  nandu_str     String?
 
   @@unique([competitor_id, comp_year, event_code])
   @@map("registration")
@@ -119,12 +207,12 @@ model Groupset {
 }
 
 model GroupsetMember {
-  id          String   @id @default(uuid()) @db.Uuid
-  groupset    Groupset @relation(fields: [groupset_id], references: [groupset_id], onDelete: Cascade)
-  groupset_id String   @db.Uuid
-  member      User     @relation(fields: [member_id], references: [user_id], onDelete: Cascade)
-  member_id   String   @map("member") @db.Uuid
-  date_joined DateTime @default(now()) @db.Timestamptz(6)
+  id          String            @id @default(uuid()) @db.Uuid
+  groupset    Groupset          @relation(fields: [groupset_id], references: [groupset_id], onDelete: Cascade)
+  groupset_id String            @db.Uuid
+  member      CompetitorProfile @relation(fields: [member_id], references: [user_id], onDelete: Cascade)
+  member_id   String            @map("member") @db.Uuid
+  date_joined DateTime          @default(now()) @db.Timestamptz(6)
   leader      Boolean
 
   @@unique([groupset_id, member_id])
@@ -152,13 +240,17 @@ model Settings {
   reg_end              DateTime  @db.Timestamptz(6)
   reg_cost_first       Int
   reg_cost_extra       Int
+  // Deadline for competitors to settle both outstanding requirements — payment
+  // and proof of enrollment. Distinct from reg_end: registration can close
+  // before the paperwork is due.
+  due_date             DateTime? @db.Date
   comp_date            DateTime? @db.Date
   contact_email        String    @db.VarChar(254)
   // Whether the current year's event order is published (visible to competitors).
   // Lives on Settings rather than Order so publicity is part of event config.
   order_public         Boolean   @default(false)
-  host                 College   @relation(fields: [school_id], references: [college_id], onDelete: Cascade)
-  school_id            String    @db.Uuid
+  host                 User      @relation(fields: [host_id], references: [user_id], onDelete: Cascade)
+  host_id              String    @db.Uuid
   created_at           DateTime  @default(now()) @db.Timestamptz(6)
 
   @@map("settings")
@@ -168,6 +260,10 @@ model Settings {
 // competitors, via CompetitorOrder) or a break (event_id null, break_length set).
 // Django field `event_id` is itself a ForeignKey, so its DB column is
 // `event_id_id` (Django appends `_id` to the field name).
+//
+// A slot belongs directly to one Ring (`ring_id`) and holds its position within
+// that ring in `order`. `ring_id` is nullable only so a slot can exist before it
+// is assigned; every persisted slot is written with one.
 model EventOrder {
   id           String  @id @db.Uuid
   comp_year    Int
@@ -176,74 +272,51 @@ model EventOrder {
   break_length Int
   name         String?
   order        Int     @default(0)
+  ring         Ring?   @relation(fields: [ring_id], references: [id], onDelete: Cascade)
+  ring_id      String? @db.Uuid
 
   competitor_orders CompetitorOrder[]
-  ring1             OrderRing1[]
-  ring2             OrderRing2[]
-  ring3             OrderRing3[]
 
+  @@index([ring_id])
   @@map("event_order")
 }
 
 // Through-model for EventOrder.competitor_list (Django ManyToManyField). No
 // db_table on the Django model, so it keeps the default `collegiates_app_competitororder`.
 model CompetitorOrder {
-  id             BigInt     @id @default(autoincrement())
-  order          Int        @default(0)
-  event_order    EventOrder @relation(fields: [event_order_id], references: [id], onDelete: Cascade)
-  event_order_id String     @db.Uuid
-  competitor     User       @relation(fields: [competitor_id], references: [user_id], onDelete: Cascade)
-  competitor_id  String     @db.Uuid
+  id             BigInt            @id @default(autoincrement())
+  order          Int               @default(0)
+  event_order    EventOrder        @relation(fields: [event_order_id], references: [id], onDelete: Cascade)
+  event_order_id String            @db.Uuid
+  competitor     CompetitorProfile @relation(fields: [competitor_id], references: [user_id], onDelete: Cascade)
+  competitor_id  String            @db.Uuid
 
   @@map("collegiates_app_competitororder")
 }
 
-// One saved order per competition year (comp_year is the primary key). The three
-// rings are Django ManyToManyFields to EventOrder, each backed by an implicit
-// join table (`order_ring1/2/3`) modeled explicitly below.
+// One saved order per competition year (comp_year is the primary key). Its rings
+// are Ring rows — one per ring, so an Order has at most three.
 model Order {
   comp_year  Int      @id
   updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(6)
 
-  ring1 OrderRing1[]
-  ring2 OrderRing2[]
-  ring3 OrderRing3[]
+  rings Ring[]
 
   @@map("order")
 }
 
-// Implicit M2M join tables for Order.ring1/ring2/ring3. Django names the columns
-// after the lowercased model names (`order_id`, `eventorder_id`); `order_id`
-// references Order's PK, which is `comp_year`.
-model OrderRing1 {
-  id            BigInt     @id @default(autoincrement())
-  order         Order      @relation(fields: [order_id], references: [comp_year], onDelete: Cascade)
-  order_id      Int
-  eventorder    EventOrder @relation(fields: [eventorder_id], references: [id], onDelete: Cascade)
-  eventorder_id String     @db.Uuid
+// One row per ring of an Order (ring_number 1/2/3), owning that ring's scheduled
+// slots directly through EventOrder.ring_id. Replaces the former join table:
+// there is exactly one Ring per (order, ring_number), and its EventOrders are
+// sequenced by their own `order` field.
+model Ring {
+  id          String @id @default(uuid()) @db.Uuid
+  ring_number Int
+  order       Order  @relation(fields: [order_id], references: [comp_year], onDelete: Cascade)
+  order_id    Int
 
-  @@unique([order_id, eventorder_id])
-  @@map("order_ring1")
-}
+  event_orders EventOrder[]
 
-model OrderRing2 {
-  id            BigInt     @id @default(autoincrement())
-  order         Order      @relation(fields: [order_id], references: [comp_year], onDelete: Cascade)
-  order_id      Int
-  eventorder    EventOrder @relation(fields: [eventorder_id], references: [id], onDelete: Cascade)
-  eventorder_id String     @db.Uuid
-
-  @@unique([order_id, eventorder_id])
-  @@map("order_ring2")
-}
-
-model OrderRing3 {
-  id            BigInt     @id @default(autoincrement())
-  order         Order      @relation(fields: [order_id], references: [comp_year], onDelete: Cascade)
-  order_id      Int
-  eventorder    EventOrder @relation(fields: [eventorder_id], references: [id], onDelete: Cascade)
-  eventorder_id String     @db.Uuid
-
-  @@unique([order_id, eventorder_id])
-  @@map("order_ring3")
+  @@unique([order_id, ring_number])
+  @@map("ring")
 }

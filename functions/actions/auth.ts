@@ -25,6 +25,17 @@ export async function loginAction({
   }
 }
 
+// Reports whether the caller's Auth.js session cookie is still valid on the
+// server. The client caches its signed-in state per tab (sessionStorage), which
+// can outlive a silently-expired JWT; the SessionGuard calls this to reconcile
+// that belief and drop the stale cache when the server no longer recognizes the
+// session. Cheap: getCurrentUser is React-cache()-wrapped (JWT decode + one
+// indexed Prisma lookup).
+export async function verifySession(): Promise<{ authenticated: boolean }> {
+  const current = await getCurrentUser();
+  return { authenticated: !!current };
+}
+
 export async function logoutAction(): Promise<{ ok: true }> {
   // Capture the user before the session is cleared so we can drop their cached
   // payload — the cache must not outlive the session.

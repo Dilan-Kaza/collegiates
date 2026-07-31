@@ -117,6 +117,58 @@ interface EventSeed {
   is_nandu: boolean;
 }
 
+// The Event choice columns are Prisma enums whose members @map to the legacy
+// single-char DB codes. The seed rows below carry those codes, so translate
+// code -> enum member (null for blank) at insert time. Kept local rather than
+// imported from @/lib/api so this script stays self-contained (see top of file).
+type SkillLevelMember = "Beginner" | "Intermediate" | "Advanced";
+type GenderMember = "Male" | "Female";
+type EventCategoryMember = "External" | "Internal";
+
+const skillLevelByCode: Record<string, SkillLevelMember> = { B: "Beginner", I: "Intermediate", A: "Advanced" };
+const genderByCode: Record<string, GenderMember> = { M: "Male", F: "Female" };
+
+// event_category is the External("E")/Internal("I") split: taiji/internal forms
+// are Internal, everything else (longfist, southern, weapons) is External.
+function eventCategoryFor(e: EventSeed): EventCategoryMember | null {
+  if (e.event_category === "I") return "Internal";
+  if (e.event_category === "E") return "External";
+  return null;
+}
+
+// Weapon type per 3-digit discipline suffix of the event_code. The prefix
+// encodes level/gender; the trailing 3 digits identify the discipline, which
+// determines the weapon: Barehand (fist / taiji forms / open barehand),
+// Short (swords), Long (spear / staff), Other (soft / taiji / open weapons).
+type WeaponType = "Barehand" | "Short" | "Long" | "Other";
+const weaponTypeBySuffix: Record<string, WeaponType> = {
+  "101": "Barehand", // Longfist
+  "102": "Barehand", // Southern Fist
+  "111": "Barehand", // Nandu Longfist
+  "112": "Barehand", // Nandu Southern Fist
+  "121": "Short",    // Straightsword
+  "122": "Short",    // Broadsword
+  "123": "Short",    // Southern Broadsword
+  "141": "Long",     // Spear
+  "142": "Long",     // Staff
+  "143": "Long",     // Southern Staff
+  "181": "Other",    // Other Weapon
+  "201": "Barehand", // Traditional Open Barehand
+  "221": "Short",    // Traditional Short Weapon
+  "241": "Long",     // Traditional Long Weapon
+  "281": "Other",    // Traditional Soft Weapon
+  "301": "Barehand", // 42 Fist
+  "302": "Short",    // 42 Sword
+  "311": "Barehand", // Nandu Taiji Barehand
+  "321": "Barehand", // Taiji 24
+  "322": "Barehand", // Yang
+  "323": "Barehand", // Chen
+  "341": "Other",    // Taiji Weapon
+  "361": "Barehand", // Internal Open Barehand
+  "381": "Other",    // Internal Open Weapon
+  "901": "Other",    // Groupset
+};
+
 const events: EventSeed[] = [
   { event_code: "NFN111", event_category: "E", event_name: "Advanced Female Nandu Longfist", event_level: "A", gender_category: "F", is_nandu: true },
   { event_code: "NMN111", event_category: "E", event_name: "Advanced Male Nandu Longfist", event_level: "A", gender_category: "M", is_nandu: true },
@@ -261,7 +313,15 @@ async function main() {
   console.log(`Colleges: ${collegeResult.count} inserted (${colleges.length} total).`);
 
   const eventResult = await prisma.event.createMany({
-    data: events,
+    data: events.map((e) => ({
+      event_code: e.event_code,
+      event_name: e.event_name,
+      is_nandu: e.is_nandu,
+      event_level: skillLevelByCode[e.event_level] ?? null,
+      gender_category: genderByCode[e.gender_category] ?? null,
+      event_category: eventCategoryFor(e),
+      weapon_type: weaponTypeBySuffix[e.event_code.slice(-3)] ?? null,
+    })),
     skipDuplicates: true,
   });
   console.log(`Events: ${eventResult.count} inserted (${events.length} total).`);

@@ -1,6 +1,6 @@
 "use client";
 
-import { MtHeader, SignUpMobile, SignUpDesktop } from "@components";
+import { MtHeader, AuthPanel, Field, FormError, SubmitButton } from "@components";
 import { useState } from "react";
 import type { FocusEvent, SyntheticEvent } from "react";
 import { checkEmail, registerUser } from "@functions/actions";
@@ -9,7 +9,7 @@ import { useNavigate } from "@/routerCompat";
 import { useDispatch } from "react-redux";
 import { setSuccessMsg } from "@slices";
 import { validate, handleFormBlur, handleFormChange } from "@functions/forms";
-// sign-up page (mobile + desktop layouts)
+// sign-up page — a single responsive AuthPanel form (account fields only)
 
 type FormControl = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 
@@ -95,6 +95,8 @@ export default function SignUp() {
   };
 
 
+  const fieldProps = { formData, errors, handleChange, handleBlur };
+
   return (
     <div className="overflow-x-hidden min-h-screen">
       <div className="hidden sm:block"><MtHeader/></div>
@@ -102,17 +104,27 @@ export default function SignUp() {
         id="bg-component"
         className="bg-primary h-screen w-full skew-y-10 absolute -top-[60svh] left-0 -z-20"
       ></div>
-      <div className="sm:hidden mx-4">
-        <SignUpMobile
-          formData={formData} errors={errors} error={error} loading={loading}
-          handleChange={handleChange} handleBlur={handleBlur} handleEmailBlur={handleEmailBlur} handleSubmit={handleSubmit}
-        />
-      </div>
-      <div className="hidden sm:block">
-        <SignUpDesktop
-          formData={formData} errors={errors} error={error} loading={loading}
-          handleChange={handleChange} handleBlur={handleBlur} handleEmailBlur={handleEmailBlur} handleSubmit={handleSubmit}
-        />
+      <div className="mx-4">
+        <AuthPanel
+          bottomLabel="Already have an account? "
+          bottomLink="Sign In"
+          onSubmit={handleSubmit}
+          title="Create an Account"
+        >
+          <FormError error={error} />
+          <Field {...fieldProps} name="email" type="email" label="Email*" onBlur={handleEmailBlur} required />
+          <Field {...fieldProps} name="password" type="password" label="Password*" minLength={8} required />
+          <Field {...fieldProps} name="re_password" type="password" label="Confirm Password*" minLength={8} required />
+          <div className="flex gap-4">
+            <div className="flex flex-col flex-1">
+              <Field {...fieldProps} name="first_name" type="text" label="First Name*" errorClass="mt-1" required />
+            </div>
+            <div className="flex flex-col flex-1">
+              <Field {...fieldProps} name="last_name" type="text" label="Last Name*" errorClass="mt-1" required />
+            </div>
+          </div>
+          <SubmitButton loading={loading} handleSubmit={handleSubmit} label="Create account" />
+        </AuthPanel>
       </div>
     </div>
   );

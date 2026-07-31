@@ -25,7 +25,7 @@ function useForwardIfNotOrganizer() {
   useEffect(() => {
     // The session is server-seeded, so `data` is already resolved on first
     // render — no "loading" state to wait through before redirecting.
-    if (data?.user?.user_type !== "O") nav("/");
+    if (data?.user?.user_type !== "School") nav("/");
   }, [data]);
 }
 

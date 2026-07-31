@@ -29,7 +29,7 @@ export default function Organizer({
     const [blogOpen, setBlogOpen] = useState(true);
     const [orderOpen, setOrderOpen] = useState(true);
 
-    const dateFields = new Set(["early_reg_start", "reg_start", "reg_end", "comp_date"]);
+    const dateFields = new Set(["early_reg_start", "reg_start", "reg_end", "due_date", "comp_date"]);
     const costFields = new Set(["early_reg_cost_first", "early_reg_cost_extra", "reg_cost_first", "reg_cost_extra"]);
     const labels: Record<string, string> = {
         reg_year: "Year",
@@ -40,6 +40,7 @@ export default function Organizer({
         reg_end: "Reg Deadline",
         reg_cost_first: "Reg Cost (1st Event)",
         reg_cost_extra: "Reg Cost (Extra)",
+        due_date: "Payment & Enrollment Proof Due",
         comp_date: "Competition Date",
         contact_email: "Contact Email",
         host: "Host",

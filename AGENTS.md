@@ -28,4 +28,8 @@ Do not create api endpoints, instead use server actions.
   in source files or commits, and never overwrite an existing
   `DATABASE_URL` in `.env` with a temporary one.
 
+Do not attempt to start your own database or manually build a migration.
+
+Do not change what libraries are used unless explicitly asked to
+
 <!-- END:nextjs-agent-rules -->

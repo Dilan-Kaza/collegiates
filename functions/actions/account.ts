@@ -4,12 +4,12 @@
 // own profile (read/update/delete) plus activation.
 
 import { unstable_cache, revalidateTag } from "next/cache";
-import { Prisma } from "@prisma/client";
+import { Prisma, type StudentType, type Gender, type SkillLevel } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
 import { getCurrentUser } from "@/lib/auth";
 import { loadSettings } from "@/lib/settings";
-import { shapeCompetitor } from "@/lib/api";
+import { shapeCompetitor, toStudentType, toGender, toSkillLevel } from "@/lib/api";
 import type { CompetitorDTO } from "@/lib/api";
 import {
   USER_DATA_TTL, userDataTag, TAG_REGISTRATIONS, TAG_GROUPSETS,
@@ -19,7 +19,7 @@ import type { Mutation, RegisterBody, CompetitorProfileBody, UpdateMeBody } from
 
 export async function checkEmail(email: string): Promise<{ exists: boolean }> {
   const user = await prisma.user.findFirst({
-    where: { email: { equals: email ?? "", mode: "insensitive" }, user_type: "C" },
+    where: { email: { equals: email ?? "", mode: "insensitive" }, user_type: "Competitor" },
     select: { user_id: true },
   });
   return { exists: !!user };
@@ -40,7 +40,7 @@ export async function registerUser(body: RegisterBody): Promise<Mutation<Competi
     data: {
       email,
       password: hashPassword(password),
-      user_type: "C",
+      user_type: "Competitor",
       is_active: true,
       first_name: body.first_name ?? "",
       last_name: body.last_name ?? "",
@@ -91,20 +91,16 @@ export async function saveCompetitorProfile(
   const yearPatch = currentYear != null ? { last_reg_year: currentYear } : {};
 
   const fieldPatch = {
-    gender: body.gender || null,
+    gender: toGender(body.gender),
+    skill_level: toSkillLevel(body.skill_level),
     school_id: body.school || null,
-    student_type: body.student_type || null,
+    student_type: toStudentType(body.student_type),
   };
 
   await prisma.user.update({
     where: { user_id: current.user_id },
     data: {
-      // Competitor-owned fields on `users` are frozen while locked.
-      ...(locked
-        ? {}
-        : {
-            skill_level: body.skill_level || null,
-          }),
+      // Competitor-owned fields on the profile are frozen while locked.
       competitor_profile: {
         upsert: {
           // A brand-new profile is never locked (registering requires a
@@ -118,7 +114,10 @@ export async function saveCompetitorProfile(
   revalidateUserData(current.user_id);
   const user = await loadFullUser(current.user_id);
   if (!user) return { error: { detail: "User not found." } };
-  return { data: shapeCompetitor(user, user.registration, user.groupset_member[0]?.groupset ?? null) };
+  const profile = user.competitor_profile;
+  return {
+    data: shapeCompetitor(user, profile?.registration ?? [], profile?.groupset_member[0]?.groupset ?? null),
+  };
 }
 
 async function loadFullUser(userId: string) {
@@ -126,14 +125,24 @@ async function loadFullUser(userId: string) {
   return prisma.user.findUnique({
     where: { user_id: userId },
     include: {
-      competitor_profile: { include: { school: true } },
-      registration: { include: { event: true } },
-      // The competitor's group set for the current registration cycle, bundled
-      // with the user so it loads the same way registrations do. Mirrors
-      // getMyGroupset's year filter; matches nothing until settings exist.
-      groupset_member: {
-        where: { groupset: { comp_year: settings?.reg_year ?? -1 } },
-        include: { groupset: { include: { school: true, members: { include: { member: true } } } } },
+      // registration and groupset_member now hang off the competitor's profile,
+      // so they're included nested under it rather than at the user level.
+      competitor_profile: {
+        include: {
+          school: true,
+          registration: { include: { event: true } },
+          // The competitor's group set for the current registration cycle,
+          // bundled with the profile so it loads the same way registrations do.
+          // Mirrors getMyGroupset's year filter; matches nothing until settings exist.
+          groupset_member: {
+            where: { groupset: { comp_year: settings?.reg_year ?? -1 } },
+            include: {
+              groupset: {
+                include: { school: true, members: { include: { member: { include: { user: true } } } } },
+              },
+            },
+          },
+        },
       },
     },
   });
@@ -144,7 +153,8 @@ function loadCompetitorCached(userId: string): Promise<CompetitorDTO | null> {
     async (): Promise<CompetitorDTO | null> => {
       const user = await loadFullUser(userId);
       if (!user) return null;
-      return shapeCompetitor(user, user.registration, user.groupset_member[0]?.groupset ?? null);
+      const profile = user.competitor_profile;
+      return shapeCompetitor(user, profile?.registration ?? [], profile?.groupset_member[0]?.groupset ?? null);
     },
     ["competitor-data", userId],
     { tags: [userDataTag(userId)], revalidate: USER_DATA_TTL },
@@ -173,14 +183,18 @@ export async function updateMe(body: UpdateMeBody): Promise<Mutation<CompetitorD
   if (body.last_name !== undefined) data.last_name = body.last_name;
 
   if (!locked) {
-    if (body.skill_level !== undefined) data.skill_level = body.skill_level;
-
     // Competitor attributes live on the one-to-one profile. Build the patch
     // separately and apply it via upsert so users without a profile still get
     // one created on first edit.
-    const profile: { gender?: string | null; student_type?: string | null; school_id?: string | null } = {};
-    if (body.gender !== undefined) profile.gender = body.gender;
-    if (body.student_type !== undefined) profile.student_type = body.student_type;
+    const profile: {
+      gender?: Gender | null;
+      skill_level?: SkillLevel | null;
+      student_type?: StudentType | null;
+      school_id?: string | null;
+    } = {};
+    if (body.skill_level !== undefined) profile.skill_level = toSkillLevel(body.skill_level);
+    if (body.gender !== undefined) profile.gender = toGender(body.gender);
+    if (body.student_type !== undefined) profile.student_type = toStudentType(body.student_type);
     if (body.school !== undefined) profile.school_id = body.school;
     if (Object.keys(profile).length) {
       data.competitor_profile = { upsert: { create: profile, update: profile } };
@@ -191,7 +205,10 @@ export async function updateMe(body: UpdateMeBody): Promise<Mutation<CompetitorD
   revalidateUserData(current.user_id);
   const user = await loadFullUser(current.user_id);
   if (!user) return { error: { detail: "User not found." } };
-  return { data: shapeCompetitor(user, user.registration, user.groupset_member[0]?.groupset ?? null) };
+  const profile = user.competitor_profile;
+  return {
+    data: shapeCompetitor(user, profile?.registration ?? [], profile?.groupset_member[0]?.groupset ?? null),
+  };
 }
 
 export async function deleteMe(): Promise<Mutation<{ detail: string }>> {

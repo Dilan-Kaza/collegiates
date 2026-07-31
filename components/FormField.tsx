@@ -7,7 +7,7 @@ import type {
   MouseEventHandler,
 } from "react";
 import { ShortAnswer } from "./FormComponents";
-// shared sign-up form field wrappers
+// shared form field wrappers used by the sign-up and profile-setup forms
 
 type FormControl = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 
@@ -22,8 +22,8 @@ interface FieldProps {
   [key: string]: unknown;
 }
 
-// Renders a labeled control (ShortAnswer by default) wired to the shared sign-up
-// form state, followed by its validation error. Pass `as={DatePicker}` / `as={Dropdown}`
+// Renders a labeled control (ShortAnswer by default) wired to the shared form
+// state, followed by its validation error. Pass `as={DatePicker}` / `as={Dropdown}`
 // for the other control types. `errorClass` tunes the error spacing per layout.
 export function Field({
   as: Control = ShortAnswer,
@@ -44,17 +44,25 @@ export function Field({
   );
 }
 
-export function SignUpError({ error }: { error?: string | null }) {
+export function FormError({ error }: { error?: string | null }) {
   return error ? <div className="text-red-500 mb-4">{error}</div> : null;
 }
 
-export function SignUpSubmit({ loading, handleSubmit }: { loading?: boolean; handleSubmit?: MouseEventHandler<HTMLButtonElement> }) {
+export function SubmitButton({
+  loading,
+  handleSubmit,
+  label = "Submit",
+}: {
+  loading?: boolean;
+  handleSubmit?: MouseEventHandler<HTMLButtonElement>;
+  label?: string;
+}) {
   return (
     <button
       onClick={handleSubmit} type="submit"
       disabled={loading} className="btn btn-block btn-primary"
     >
-      {loading ? "Signing up..." : "Submit"}
+      {loading ? "Submitting…" : label}
     </button>
   );
 }

@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import prisma from "./prisma";
+import { loadSettings } from "./settings";
 import { auth } from "@/auth";
 
 // The current user always carries its competitor_profile (gender, school,
@@ -40,11 +41,30 @@ export async function requireUser(): Promise<CurrentUser> {
 
 export async function requireOrganizer(): Promise<CurrentUser> {
   const user = await getCurrentUser();
-  if (!user || !isOrganizer(user)) redirect("/");
+  if (!user || !(await canAccessOrganizer(user))) redirect("/");
+  return user;
+}
+
+// Admin-only page gate (the /admin area: create settings + school accounts).
+export async function requireAdmin(): Promise<CurrentUser> {
+  const user = await getCurrentUser();
+  if (!user || !isAdmin(user)) redirect("/");
   return user;
 }
 
 type UserTypeHolder = { user_type: string } | null | undefined;
 
-export const isOrganizer = (user: UserTypeHolder): boolean => user?.user_type === "O";
-export const isCompetitor = (user: UserTypeHolder): boolean => user?.user_type === "C";
+export const isOrganizer = (user: UserTypeHolder): boolean => user?.user_type === "School";
+export const isCompetitor = (user: UserTypeHolder): boolean => user?.user_type === "Competitor";
+export const isAdmin = (user: UserTypeHolder): boolean => user?.user_type === "Admin";
+
+// Who may reach the organizer area. Access is NOT tied to user_type anymore:
+// only the host user named in the current (most-recently created) competition
+// settings, plus admins, are allowed. Reads the current settings to resolve the
+// host, so it must be awaited.
+export async function canAccessOrganizer(user: { user_id: string; user_type: string } | null | undefined): Promise<boolean> {
+  if (!user) return false;
+  if (isAdmin(user)) return true;
+  const settings = await loadSettings();
+  return !!settings && settings.host_id === user.user_id;
+}

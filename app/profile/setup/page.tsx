@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import ProfileSetup from "./ProfileSetup";
 import type { ProfileInitial } from "./ProfileSetup";
 import { getColleges } from "@functions/data";
-import { requireUser, isOrganizer } from "@/lib/auth";
+import { requireUser, canAccessOrganizer } from "@/lib/auth";
+import { fromGender, fromSkillLevel, fromStudentType } from "@/lib/api";
 import { loadSettings } from "@/lib/settings";
 import prisma from "@/lib/prisma";
 import CacheSeed from "@functions/CacheSeed";
@@ -11,7 +12,7 @@ import { cacheKeys } from "@functions/cacheKeys";
 
 export default async function Page() {
   const user = await requireUser();
-  if (isOrganizer(user)) redirect("/organizer");
+  if (await canAccessOrganizer(user)) redirect("/organizer");
 
   const settings = await loadSettings();
   const currentYear = settings?.reg_year ?? null;
@@ -30,10 +31,10 @@ export default async function Page() {
 
   const colleges = await getColleges();
   const initial: ProfileInitial = {
-    gender: profile?.gender ?? "",
+    gender: fromGender(profile?.gender) ?? "",
     school: profile?.school_id ?? "",
-    student_type: profile?.student_type ?? "",
-    skill_level: user.skill_level ?? "",
+    student_type: fromStudentType(profile?.student_type) ?? "",
+    skill_level: fromSkillLevel(profile?.skill_level) ?? "",
   };
 
   return (

@@ -4,10 +4,10 @@
 // edit, and lookup by email.
 
 import { unstable_cache, revalidateTag } from "next/cache";
-import { Prisma } from "@prisma/client";
+import { Prisma, type StudentType, type Gender, type SkillLevel } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { loadSettings } from "@/lib/settings";
-import { shapeOrganizerRegistration } from "@/lib/api";
+import { shapeOrganizerRegistration, toStudentType, toGender, toSkillLevel } from "@/lib/api";
 import type { OrganizerRegistrationDTO } from "@/lib/api";
 import {
   READ_CACHE_TTL, TAG_REGISTRATIONS, userDataTag,
@@ -19,8 +19,9 @@ function loadOrganizerUser(userId: string, year: number) {
   return prisma.user.findUnique({
     where: { user_id: userId },
     include: {
-      competitor_profile: { include: { school: true } },
-      registration: { where: { comp_year: year }, include: { event: true } },
+      competitor_profile: {
+        include: { school: true, registration: { where: { comp_year: year }, include: { event: true } } },
+      },
     },
   });
 }
@@ -37,20 +38,23 @@ export async function getOrganizerRegistrations(filters: OrganizerRegFilters = {
   const filterKey = `${filters.has_paid ?? ""}|${filters.proof_of_reg ?? ""}|${filters.is_competing ?? ""}|${filters.school ?? ""}`;
   const users = await unstable_cache(
     async (): Promise<OrganizerRegistrationDTO[]> => {
-      const where: Prisma.UserWhereInput = { registration: { some: { comp_year: year } } };
-      // The competing/paid/proof/school filters live on the one-to-one profile,
-      // so they filter through the competitor_profile relation.
-      const profileFilter: Prisma.CompetitorProfileWhereInput = {};
+      // Registrations, plus the competing/paid/proof/school filters, all live on
+      // the one-to-one profile now, so the whole predicate goes through the
+      // competitor_profile relation.
+      const profileFilter: Prisma.CompetitorProfileWhereInput = {
+        registration: { some: { comp_year: year } },
+      };
       if (filters.has_paid !== undefined) profileFilter.has_paid = filters.has_paid;
       if (filters.proof_of_reg !== undefined) profileFilter.proof_of_reg = filters.proof_of_reg;
       if (filters.is_competing !== undefined) profileFilter.is_competing = filters.is_competing;
       if (filters.school) profileFilter.school_id = filters.school;
-      if (Object.keys(profileFilter).length) where.competitor_profile = { is: profileFilter };
+      const where: Prisma.UserWhereInput = { competitor_profile: { is: profileFilter } };
       const rows = await prisma.user.findMany({
         where,
         include: {
-          competitor_profile: { include: { school: true } },
-          registration: { where: { comp_year: year }, include: { event: true } },
+          competitor_profile: {
+            include: { school: true, registration: { where: { comp_year: year }, include: { event: true } } },
+          },
         },
       });
       return rows.map(shapeOrganizerRegistration);
@@ -129,11 +133,16 @@ export async function updateOrganizerRegistration(
   // Competitor profile edits. Organizers may correct these at any time (no
   // registration lock, unlike the competitor-facing saveCompetitorProfile).
   const userData: Prisma.UserUpdateInput = {};
-  if (body.skill_level !== undefined) userData.skill_level = body.skill_level || null;
-  const profilePatch: { gender?: string | null; school_id?: string | null; student_type?: string | null } = {};
-  if (body.gender !== undefined) profilePatch.gender = body.gender || null;
+  const profilePatch: {
+    gender?: Gender | null;
+    skill_level?: SkillLevel | null;
+    school_id?: string | null;
+    student_type?: StudentType | null;
+  } = {};
+  if (body.skill_level !== undefined) profilePatch.skill_level = toSkillLevel(body.skill_level);
+  if (body.gender !== undefined) profilePatch.gender = toGender(body.gender);
   if (body.school !== undefined) profilePatch.school_id = body.school || null;
-  if (body.student_type !== undefined) profilePatch.student_type = body.student_type || null;
+  if (body.student_type !== undefined) profilePatch.student_type = toStudentType(body.student_type);
   if (Object.keys(profilePatch).length) {
     userData.competitor_profile = { upsert: { create: profilePatch, update: profilePatch } };
   }
@@ -157,8 +166,13 @@ export async function findUserByEmail(email: string): Promise<OrganizerRegistrat
   const target = await prisma.user.findFirst({
     where: { email: { equals: email ?? "", mode: "insensitive" } },
     include: {
-      competitor_profile: { include: { school: true } },
-      registration: year != null ? { where: { comp_year: year }, include: { event: true } } : { include: { event: true } },
+      competitor_profile: {
+        include: {
+          school: true,
+          registration:
+            year != null ? { where: { comp_year: year }, include: { event: true } } : { include: { event: true } },
+        },
+      },
     },
   });
   return target ? shapeOrganizerRegistration(target) : null;

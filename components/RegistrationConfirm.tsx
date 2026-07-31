@@ -14,16 +14,24 @@ interface RegistrationConfirmProps {
   firstCost?: number | null;
   extraCost?: number | null;
   totalCost?: number | null;
+  // Payment + proof-of-enrollment deadline, shown in the agreement text.
+  dueDate?: Date | null;
   onBack?: MouseEventHandler<HTMLButtonElement>;
   onConfirm?: () => void | Promise<void>;
 }
 
-export default function RegistrationConfirm({ events, catalogEvents = [], isEarly, firstCost, extraCost, totalCost, onBack, onConfirm }: RegistrationConfirmProps) {
+export default function RegistrationConfirm({ events, catalogEvents = [], isEarly, firstCost, extraCost, totalCost, dueDate, onBack, onConfirm }: RegistrationConfirmProps) {
     const eventsFromApi = catalogEvents;
     const [submitting, setSubmitting] = useState(false);
+    const [agreePayment, setAgreePayment] = useState(false);
+    const [agreeEnrollment, setAgreeEnrollment] = useState(false);
+
+    const dueDateStr = dueDate
+        ? dueDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })
+        : "the posted deadline";
 
     const handleConfirm = async () => {
-        if (submitting) return;
+        if (submitting || !agreePayment || !agreeEnrollment) return;
         setSubmitting(true);
         try {
             await onConfirm?.();
@@ -59,9 +67,36 @@ export default function RegistrationConfirm({ events, catalogEvents = [], isEarl
                     <div className="text-2xl font-bold text-primary">${totalCost}</div>
                 </div>
             )}
+            <div className="flex flex-col gap-3 mb-6">
+                <label className="flex items-start gap-3 bg-off-white rounded-lg px-4 py-3 cursor-pointer">
+                    <input
+                        type="checkbox"
+                        className="checkbox checkbox-sm mt-0.5"
+                        checked={agreePayment}
+                        onChange={(e) => setAgreePayment(e.target.checked)}
+                        disabled={submitting}
+                    />
+                    <span className="text-sm text-primary">
+                        I agree to pay {totalCost != null && <span className="font-medium">${totalCost}</span>} in
+                        registration fees by <span className="font-medium">{dueDateStr}</span>.
+                    </span>
+                </label>
+                <label className="flex items-start gap-3 bg-off-white rounded-lg px-4 py-3 cursor-pointer">
+                    <input
+                        type="checkbox"
+                        className="checkbox checkbox-sm mt-0.5"
+                        checked={agreeEnrollment}
+                        onChange={(e) => setAgreeEnrollment(e.target.checked)}
+                        disabled={submitting}
+                    />
+                    <span className="text-sm text-primary">
+                        I agree to submit my proof of enrollment by <span className="font-medium">{dueDateStr}</span>.
+                    </span>
+                </label>
+            </div>
             <div className="flex justify-between">
                 <button className="btn btn-ghost text-off-white" onClick={onBack} disabled={submitting}>Back</button>
-                <button className="btn btn-secondary" onClick={handleConfirm} disabled={submitting}>
+                <button className="btn btn-secondary" onClick={handleConfirm} disabled={submitting || !agreePayment || !agreeEnrollment}>
                     {submitting && <span className="loading loading-spinner loading-sm" />}
                     Confirm
                 </button>

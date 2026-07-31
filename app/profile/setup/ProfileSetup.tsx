@@ -1,6 +1,6 @@
 "use client";
 
-import { MtHeader, Heading, Dropdown, Field, SignUpError, SignUpSubmit } from "@components";
+import { MtHeader, Heading, Dropdown, Field, FormError, SubmitButton } from "@components";
 import { useState } from "react";
 import type { SyntheticEvent } from "react";
 import { saveCompetitorProfile } from "@functions/actions";
@@ -101,7 +101,7 @@ export default function ProfileSetup({
           <div className="flex flex-col items-center gap-4">
             <Heading className="mt-2 sm:mt-6 !text-4xl !p-2 !animate-none">Complete Your Profile</Heading>
             <form className="self-stretch px-4 sm:px-12 pb-10 flex flex-col gap-6" onSubmit={handleSubmit}>
-              <SignUpError error={error} />
+              <FormError error={error} />
               <Field {...fieldProps} as={Dropdown} name="skill_level" label="Experience Level*" options={skillLevels} required />
               <Field {...fieldProps} as={Dropdown} name="school" label="College*" options={colleges} required />
               <div className="flex flex-col sm:flex-row gap-4">
@@ -112,7 +112,7 @@ export default function ProfileSetup({
                   <Field {...fieldProps} as={Dropdown} name="student_type" label="Student Type*" options={studentTypes} errorClass="mt-1" required />
                 </div>
               </div>
-              <SignUpSubmit loading={loading} handleSubmit={handleSubmit} />
+              <SubmitButton loading={loading} handleSubmit={handleSubmit} label="Save profile" />
             </form>
           </div>
         </div>

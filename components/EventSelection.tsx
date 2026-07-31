@@ -22,22 +22,20 @@ export default function EventSelection({ events, setEvents, catalogEvents = [], 
 
     const [eventOrder, setEventOrder] = useState<string[]>([]);
     const [remainingEvents, setRemainingEvents] = useState<string[]>(["Northern Barehand Nandu", "Southern Barehand Nandu", "Northern Barehand", "Southern Barehand", "Northern Staff", "Southern Staff"]);
-    const [selectedEvent, setSelectedEvent] = useState("");
+    // Active event-type filter for the picker ("" = show all types).
+    const [typeFilter, setTypeFilter] = useState("");
 
     const eventsFromApi = catalogEvents;
 
-    const handleChange = (e: ChangeEvent<HTMLSelectElement>) =>{
-        const { value } = e.target;
-        setSelectedEvent(value);
-    }
-
-    const onAdd = () => {
-        if (selectedEvent == ""){
+    // Picking an event in the dropdown adds it straight to the list; the select
+    // stays pinned to the placeholder so it always reads as "add another".
+    const onAdd = (e: ChangeEvent<HTMLSelectElement>) => {
+        const eventCode = e.target.value;
+        if (eventCode == ""){
             return;
         }
-        setEvents([...events, {'event_code': selectedEvent, 'nandu_str': ""}]);
-        setSelectedEvent("");
-        const rest = (remainingEvents: string[]) => remainingEvents.filter(e => e !== selectedEvent);
+        setEvents([...events, {'event_code': eventCode, 'nandu_str': ""}]);
+        const rest = (remainingEvents: string[]) => remainingEvents.filter(e => e !== eventCode);
         setRemainingEvents(rest);
     }
 
@@ -65,6 +63,42 @@ export default function EventSelection({ events, setEvents, catalogEvents = [], 
         const foundEvent = getEventFromCode(eventCode);
         return foundEvent?.event_name;
     }
+
+    // Human-readable labels for the coded attributes used to build the
+    // dropdown sections. Gender and skill level are handled by the filters, so
+    // events are organised by weapon (the section) and type (the suffix).
+    const WEAPON_LABELS: Record<string, string> = { B: "Barehand", S: "Short Weapon", L: "Long Weapon", O: "Other Weapon" };
+    const TYPE_LABELS: Record<string, string> = { E: "External", I: "Internal" };
+
+    // Suffix an option with its type so the categories coexist within a weapon
+    // group.
+    const getOptionLabel = (eventCode: string) => {
+        const event = getEventFromCode(eventCode);
+        const type = event?.event_category ? TYPE_LABELS[event.event_category] : null;
+        return type ? `${getEventName(eventCode)} (${type})` : getEventName(eventCode);
+    }
+
+    // Narrow the pickable events to the active type filter (External/Internal).
+    // An empty filter keeps every type.
+    const filteredRemainingEvents = typeFilter
+        ? remainingEvents.filter(code => getEventFromCode(code)?.event_category === typeFilter)
+        : remainingEvents;
+
+    // Bucket the remaining events into sections keyed by weapon, keeping the
+    // original catalogue order within each section. Events without a weapon
+    // fall into an "Other" section rendered last.
+    const groupedRemainingEvents = (() => {
+        const order = ["B", "S", "L", "O", "other"];
+        const groups: Record<string, string[]> = {};
+        for (const code of filteredRemainingEvents) {
+            const weapon = getEventFromCode(code)?.weapon_type ?? "other";
+            const key = WEAPON_LABELS[weapon] ? weapon : "other";
+            (groups[key] ??= []).push(code);
+        }
+        return order
+            .filter(key => groups[key]?.length)
+            .map(key => ({ label: WEAPON_LABELS[key] ?? "Other", codes: groups[key] }));
+    })();
 
     const onNandu = (e: ChangeEvent<HTMLInputElement>, event: RegEventItem) => {
             const { value } = e.target;
@@ -127,26 +161,34 @@ export default function EventSelection({ events, setEvents, catalogEvents = [], 
                 <div>
                     Add an Event!
                 </div>
+                <div className="flex flex-row flex-wrap gap-2 my-2">
+                    {[{ code: "", label: "All" }, ...Object.entries(TYPE_LABELS).map(([code, label]) => ({ code, label }))].map(({ code, label }) => (
+                        <button
+                            key={code || "all"}
+                            className={`btn btn-sm ${typeFilter === code ? "btn-primary" : "btn-outline btn-primary"}`}
+                            onClick={() => setTypeFilter(code)}>
+                            {label}
+                        </button>
+                    ))}
+                </div>
                 <div className="cg-field">
                     <select
-                        onChange={handleChange}
-                        value={selectedEvent}>
-                        <option value="" disabled hidden></option>
-                            {remainingEvents.map((eventCode, index) => (
-                                <option value={eventCode} key={index}>
-                                    {getEventName(eventCode)}
-                                </option>
+                        onChange={onAdd}
+                        value="">
+                        <option value="" disabled hidden>Select an event to add</option>
+                            {groupedRemainingEvents.map((group) => (
+                                <optgroup label={group.label} key={group.label}>
+                                    {group.codes.map((eventCode) => (
+                                        <option value={eventCode} key={eventCode}>
+                                            {getOptionLabel(eventCode)}
+                                        </option>
+                                    ))}
+                                </optgroup>
                             ))}
                     </select>
                 </div>
-                <div className="flex flex-row">
-                    <div className="felx">
-                        <button className="btn btn-primary my-4" onClick={onAdd}>Add</button>
-                    </div>
-                    <div className="flex flex-1"/>
-                    <div className="flex">
-                        <button className="btn btn-primary my-4" onClick={onSubmit}>Submit</button>
-                    </div>
+                <div className="flex flex-row justify-end">
+                    <button className="btn btn-primary my-4" onClick={onSubmit}>Submit</button>
                 </div>
             </div>
         </div>

@@ -6,8 +6,8 @@
 // actions, so cross-action helpers and types have to live here instead.)
 
 import { revalidateTag } from "next/cache";
-import { getCurrentUser, isOrganizer } from "@/lib/auth";
-import type { User } from "@prisma/client";
+import { getCurrentUser, canAccessOrganizer, isAdmin } from "@/lib/auth";
+import type { User, Prisma } from "@prisma/client";
 import type {
   CompetitorDTO, RegistrationDTO, BlogDTO,
   GroupsetDTO, OrganizerGroupsetDTO, OrganizerRegistrationDTO,
@@ -60,6 +60,7 @@ export interface SettingsBody {
   reg_end?: string;
   reg_cost_first?: number;
   reg_cost_extra?: number;
+  due_date?: string | null;
   comp_date?: string | null;
   contact_email?: string;
   host?: string;
@@ -71,6 +72,16 @@ export interface BlogBody {
   category?: string;
   title?: string;
   blog_content?: string;
+}
+
+// Admin: fields for promoting an existing user to a school account (user_type
+// "School" plus its one-to-one CollegeProfile linking a college). The user is
+// matched by email; first_name/last_name are optional overrides.
+export interface CreateSchoolAccountBody {
+  email?: string;
+  first_name?: string;
+  last_name?: string;
+  college?: string; // college_id (Dropdown value)
 }
 
 export interface OrganizerRegFilters {
@@ -205,6 +216,38 @@ export type OrganizerGate = { user: User; error?: undefined } | { user?: undefin
 export async function requireOrganizer(): Promise<OrganizerGate> {
   const user = await getCurrentUser();
   if (!user) return { error: { detail: "Not authenticated." } };
-  if (!isOrganizer(user)) return { error: { detail: "You do not have permission." } };
+  if (!(await canAccessOrganizer(user))) return { error: { detail: "You do not have permission." } };
   return { user };
+}
+
+// Admin gate for server actions (mirrors requireOrganizer's shape). Admin access
+// is strictly user_type "Admin", independent of the organizer host rule.
+export type AdminGate = { user: User; error?: undefined } | { user?: undefined; error: FieldErrors };
+
+export async function requireAdmin(): Promise<AdminGate> {
+  const user = await getCurrentUser();
+  if (!user) return { error: { detail: "Not authenticated." } };
+  if (!isAdmin(user)) return { error: { detail: "You do not have permission." } };
+  return { user };
+}
+
+// Builds the writable Settings columns from a request body, shared by the
+// organizer save path and the admin create path. Missing optional fields become
+// null; missing required fields are left undefined (the caller validates before
+// a create, and update simply skips them).
+export function settingsWritable(body: SettingsBody): Prisma.SettingsUncheckedUpdateInput {
+  return {
+    reg_year: body.reg_year,
+    early_reg_start: body.early_reg_start ? new Date(body.early_reg_start) : null,
+    early_reg_cost_first: body.early_reg_cost_first ?? null,
+    early_reg_cost_extra: body.early_reg_cost_extra ?? null,
+    reg_start: body.reg_start ? new Date(body.reg_start) : undefined,
+    reg_end: body.reg_end ? new Date(body.reg_end) : undefined,
+    reg_cost_first: body.reg_cost_first,
+    reg_cost_extra: body.reg_cost_extra,
+    due_date: body.due_date ? new Date(body.due_date) : null,
+    comp_date: body.comp_date ? new Date(body.comp_date) : null,
+    contact_email: body.contact_email,
+    order_public: body.order_public,
+  };
 }

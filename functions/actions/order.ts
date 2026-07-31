@@ -48,23 +48,25 @@ async function syncCompetitors(
 
 // EventOrderRelatedField.to_internal_value: an item with an `id` updates that
 // EventOrder in place; an item without one is created fresh (new uuid, comp_year
-// from settings). Returns the persisted EventOrder id either way.
+// from settings). Every slot is written owned by `ringId`, which also moves a
+// slot dragged between rings. Returns the persisted EventOrder id either way.
 async function persistEventOrder(
   tx: Prisma.TransactionClient,
   item: EventOrderInput,
   year: number,
+  ringId: string,
 ): Promise<string> {
   const comps = item.competitor_list;
 
   if (item.id) {
     const existing = await tx.eventOrder.findUnique({ where: { id: item.id }, select: { id: true } });
     if (existing) {
-      const data: Prisma.EventOrderUncheckedUpdateInput = {};
+      const data: Prisma.EventOrderUncheckedUpdateInput = { ring_id: ringId };
       if (item.event_id !== undefined) data.event_id = item.event_id;
       if (item.name !== undefined) data.name = item.name;
       if (item.break_length !== undefined) data.break_length = item.break_length;
       if (item.order !== undefined) data.order = item.order;
-      if (Object.keys(data).length) await tx.eventOrder.update({ where: { id: item.id }, data });
+      await tx.eventOrder.update({ where: { id: item.id }, data });
       if (comps !== undefined) await syncCompetitors(tx, item.id, comps);
       return item.id;
     }
@@ -74,6 +76,7 @@ async function persistEventOrder(
       data: {
         id: item.id,
         comp_year: year,
+        ring_id: ringId,
         event_id: item.event_id ?? null,
         break_length: item.break_length ?? 0,
         name: item.name ?? null,
@@ -88,6 +91,7 @@ async function persistEventOrder(
     data: {
       id: crypto.randomUUID(),
       comp_year: year,
+      ring_id: ringId,
       event_id: item.event_id ?? null,
       break_length: item.break_length ?? 0,
       name: item.name ?? null,
@@ -99,25 +103,35 @@ async function persistEventOrder(
   return created.id;
 }
 
-// Replace an Order's ring membership with `ids` (Django M2M `.set()`): clear the
-// join table for this year, then re-link in the given order.
-async function replaceRing(
+// Each ring is a single Ring row per (order, ring_number); its slots hang off it
+// via EventOrder.ring_id.
+const RING_NUMBER: Record<RingKey, number> = { ring1: 1, ring2: 2, ring3: 3 };
+
+// The Ring row for this year's `ring`, created on first save.
+async function ensureRing(
   tx: Prisma.TransactionClient,
   ring: RingKey,
   year: number,
-  ids: string[],
+): Promise<string> {
+  const ring_number = RING_NUMBER[ring];
+  const row = await tx.ring.upsert({
+    where: { order_id_ring_number: { order_id: year, ring_number } },
+    create: { order_id: year, ring_number },
+    update: {},
+    select: { id: true },
+  });
+  return row.id;
+}
+
+// Drop the slots that used to be in this ring but are no longer listed (Django
+// M2M `.set()`). Cascades clear their CompetitorOrder rows. An empty `keep`
+// clears the ring — Prisma treats `notIn: []` as matching every row.
+async function pruneRing(
+  tx: Prisma.TransactionClient,
+  ringId: string,
+  keep: string[],
 ): Promise<void> {
-  const data = ids.map((eid) => ({ order_id: year, eventorder_id: eid }));
-  if (ring === "ring1") {
-    await tx.orderRing1.deleteMany({ where: { order_id: year } });
-    if (ids.length) await tx.orderRing1.createMany({ data });
-  } else if (ring === "ring2") {
-    await tx.orderRing2.deleteMany({ where: { order_id: year } });
-    if (ids.length) await tx.orderRing2.createMany({ data });
-  } else {
-    await tx.orderRing3.deleteMany({ where: { order_id: year } });
-    if (ids.length) await tx.orderRing3.createMany({ data });
-  }
+  await tx.eventOrder.deleteMany({ where: { ring_id: ringId, id: { notIn: keep } } });
 }
 
 // OrganizerOrderView retrieve: the saved order for the current comp_year, served
@@ -150,9 +164,10 @@ export async function saveOrder(body: OrderBody): Promise<Mutation<OrderDTO>> {
     for (const ring of rings) {
       const items = body[ring];
       if (items === undefined) continue; // ring omitted → leave it untouched
+      const ringId = await ensureRing(tx, ring, year);
       const ids: string[] = [];
-      for (const item of items) ids.push(await persistEventOrder(tx, item, year));
-      await replaceRing(tx, ring, year, ids);
+      for (const item of items) ids.push(await persistEventOrder(tx, item, year, ringId));
+      await pruneRing(tx, ringId, ids);
     }
   });
 

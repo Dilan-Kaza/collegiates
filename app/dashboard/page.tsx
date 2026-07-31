@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Dashboard from "./Dashboard";
 import { getSettings } from "@functions/data";
 import { getMe } from "@functions/actions";
-import { requireUser, isOrganizer } from "@/lib/auth";
+import { requireUser, canAccessOrganizer } from "@/lib/auth";
 import CacheSeed from "@functions/CacheSeed";
 import { cacheKeys } from "@functions/cacheKeys";
 // dashboard page (server component)
@@ -12,7 +12,7 @@ export default async function Page() {
   const user = await requireUser();
   // Organizers have no competitor dashboard — send them straight to the
   // organizer console before any dashboard data is fetched or rendered.
-  if (isOrganizer(user)) redirect("/organizer");
+  if (await canAccessOrganizer(user)) redirect("/organizer");
   const settings = await getSettings();
   // Route the competitor to /profile/setup if they have no profile yet (sign-up
   // creates the account only) or if their profile was last confirmed under an

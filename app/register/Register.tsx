@@ -54,6 +54,7 @@ export default function Register({
                     firstCost={firstCost}
                     extraCost={extraCost}
                     totalCost={totalCost}
+                    dueDate={settings.due_date}
                     onBack={() => setConfirming(false)}
                     onConfirm={onConfirm}
                 />

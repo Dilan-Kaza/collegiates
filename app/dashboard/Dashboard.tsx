@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { MtHeader, LogoutButton } from "@components";
 import { useNavigate } from "@/routerCompat";
 import type { SettingsDTO, RegistrationDTO, GroupsetDTO, CompetitorDTO } from "@/lib/api";
+import { studentTypeLabel } from "@/lib/api";
 // competitor dashboard
 
 async function isEarlyRegistration(dateCreated: Date | string, settings: SettingsDTO): Promise<boolean> {
@@ -100,7 +101,7 @@ export default function Dashboard ({
                         <div>email: {userinfo.email}</div>
                         <div>gender: {userinfo.gender}</div>
                         <div>school: {userinfo.school_name}</div>
-                        <div>student type: {userinfo.student_type}</div>
+                        <div>student type: {studentTypeLabel(userinfo.student_type)}</div>
                         <div>skill level: {userinfo.skill_level}</div>
                     </div>
                     {/* The profile is only editable while there are no registrations
