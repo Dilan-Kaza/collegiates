@@ -5,7 +5,7 @@ import { setErrorMsg } from "@slices";
 import { saveSettings } from "@functions/actions";
 import { useNavigate } from "@/routerCompat";
 import { useState, useEffect } from "react";
-import { useDispatch } from "react-redux";
+import { useAppDispatch } from "@/store/hooks";
 import type { SettingsDTO } from "@/lib/api";
 
 // organizer settings edit page
@@ -16,7 +16,7 @@ export default function OrganizerSettings({ settings = {} }: { settings?: Partia
     // Access is gated server-side by the page (requireOrganizer), so there is no
     // client-side redirect here.
     const nav = useNavigate();
-    const dispatch = useDispatch();
+    const dispatch = useAppDispatch();
 
     const [form, setForm] = useState<SettingsForm>({});
     const [loading, setLoading] = useState(false);

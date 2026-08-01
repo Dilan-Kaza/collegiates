@@ -23,16 +23,17 @@ function NavBar({ firstName = "" }: { firstName?: string }) {
       <div className="justify-between flex w-full">
         <div className="flex gap-10 items-center">
 
-          {/* Rendered at 100x100 on every page, but the source is a 656KB
-              1382x511 PNG that was being shipped whole. next/image serves it at
-              the size it's displayed. */}
-          <Link to="/"><Image
+          {/* width/height are the source PNG's intrinsic 1382x511 so the full
+              logo renders uncropped; CSS pins the height and lets the width
+              follow the aspect ratio. next/image still serves it downscaled
+              rather than shipping the whole 656KB original. */}
+          <Link to="/" className="shrink-0"><Image
                     src="/wushu_logo.png"
                     alt="logo"
-                    width={100}
-                    height={100}
+                    width={1382}
+                    height={511}
                     priority
-                    className="object-cover rounded-[2rem]"
+                    className="h-10 w-auto rounded-lg"
                   /></Link>
           {tabs.map((tab) => (
             <Link to={`/${tab.toLowerCase().replace(/\s/g, "")}`} key={tab}>
@@ -42,7 +43,7 @@ function NavBar({ firstName = "" }: { firstName?: string }) {
         </div>
         {username ?
           <button className="btn btn-outline [--btn-color:var(--color-off-white)]" onClick={()=>nav(accountHref)}>{username}</button> :
-          <button className="btn btn-outline [--btn-color:var(--color-off-white)]" onClick={()=>nav('/signin')}>Sign In</button>
+          <button className="btn btn-outline [--btn-color:var(--color-off-white)]" onClick={()=>nav("/signin")}>Sign In</button>
         }
       </div>
     </div>

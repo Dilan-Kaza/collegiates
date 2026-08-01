@@ -10,7 +10,7 @@ import { shapeOrganizerGroupset } from "@/lib/api";
 import type { OrganizerGroupsetDTO } from "@/lib/api";
 import {
   READ_CACHE_TTL, TAG_GROUPSETS, groupsetTag,
-  requireOrganizer, revalidateUserData, reOrganizerGroupset,
+  organizerGate, revalidateUserData, reOrganizerGroupset,
 } from "./shared";
 import type { Mutation, CreateOrganizerGroupsetBody, UpdateOrganizerGroupsetBody } from "./shared";
 
@@ -19,7 +19,7 @@ import type { Mutation, CreateOrganizerGroupsetBody, UpdateOrganizerGroupsetBody
 const GROUPSET_EVENT = "NAN901";
 
 export async function getOrganizerGroupsets(): Promise<OrganizerGroupsetDTO[]> {
-  const { error } = await requireOrganizer();
+  const { error } = await organizerGate();
   if (error) return [];
   const settings = await loadSettings();
   if (!settings) return [];
@@ -36,7 +36,7 @@ export async function getOrganizerGroupsets(): Promise<OrganizerGroupsetDTO[]> {
 }
 
 export async function getOrganizerGroupset(uuid: string): Promise<OrganizerGroupsetDTO | null> {
-  const { error } = await requireOrganizer();
+  const { error } = await organizerGate();
   if (error) return null;
   const gs = await unstable_cache(
     async (): Promise<OrganizerGroupsetDTO | null> => {
@@ -50,7 +50,7 @@ export async function getOrganizerGroupset(uuid: string): Promise<OrganizerGroup
 }
 
 export async function createOrganizerGroupset(body: CreateOrganizerGroupsetBody): Promise<Mutation<OrganizerGroupsetDTO>> {
-  const { error } = await requireOrganizer();
+  const { error } = await organizerGate();
   if (error) return { error };
   const settings = await loadSettings();
   if (!settings) return { error: { detail: "No settings have been created yet." } };
@@ -111,7 +111,7 @@ export async function updateOrganizerGroupset(
   uuid: string,
   body: UpdateOrganizerGroupsetBody
 ): Promise<Mutation<OrganizerGroupsetDTO>> {
-  const { error } = await requireOrganizer();
+  const { error } = await organizerGate();
   if (error) return { error };
   const gs = await prisma.groupset.findUnique({ where: { groupset_id: uuid }, include: { members: true } });
   if (!gs) return { error: { detail: "Not found." } };
@@ -170,7 +170,7 @@ export async function updateOrganizerGroupset(
 }
 
 export async function deleteOrganizerGroupset(uuid: string): Promise<Mutation<{ detail: string }>> {
-  const { error } = await requireOrganizer();
+  const { error } = await organizerGate();
   if (error) return { error };
   // Capture members before the delete so their bundled payloads can be dropped.
   // Two plain statements — a batch's WebSocket session costs more (see admin.ts).

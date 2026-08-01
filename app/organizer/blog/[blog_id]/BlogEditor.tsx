@@ -7,7 +7,7 @@ import { setErrorMsg } from "@slices";
 import { updateBlogPost } from "@functions/actions";
 import { useNavigate } from "@/routerCompat";
 import { useState } from "react";
-import { useDispatch } from "react-redux";
+import { useAppDispatch } from "@/store/hooks";
 import type { BlogDTO } from "@/lib/api";
 // organizer blog post editor
 
@@ -22,7 +22,7 @@ export default function BlogEditor({
 }) {
 
     const nav = useNavigate();
-    const dispatch = useDispatch();
+    const dispatch = useAppDispatch();
 
     const [post, setPost] = useState<BlogDTO>(initialPost);
     const [editing, setEditing] = useState(false);

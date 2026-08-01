@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useCallback, useEffect, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { useDispatch } from "react-redux";
+import { useAppDispatch } from "@/store/hooks";
 import { setLoading } from "@slices";
 
 interface NavigateOptions {
@@ -17,7 +17,7 @@ const NavigateContext = createContext<NavigateFn | null>(null);
 // the global `loading` flag. Never unmounts, so start and settle always both fire.
 export function NavigationProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const dispatch = useDispatch();
+  const dispatch = useAppDispatch();
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {

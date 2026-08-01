@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import { useEffect, useState } from "react";
 import { MtHeader, LogoutButton } from "@components";
@@ -83,7 +83,7 @@ export default function Dashboard ({
 
     return (
         <>
-            <div className="hidden md:block"><MtHeader/></div>
+            <div className="hidden md:block"><MtHeader /></div>
             <div
                 id="bg-component"
                 className="bg-gradient-to-b from-tertiary via-secondary via-100% to-primary h-[60vh] w-[80%] absolute top-20 left-[10%] -z-20 [clip-path:polygon(0%_0%,100%_0%,100%_100%,50%_88%,0%_100%)]"
@@ -92,7 +92,7 @@ export default function Dashboard ({
                 <div className="grid-row p-1">
                     <div className="flex flex-col gap-2">
                         <span className="text-4xl">{userinfo.first_name} {userinfo.last_name}</span>
-                        <LogoutButton/>
+                        <LogoutButton />
                     </div>
                     <div className="py-2 text-sm space-y-1">
                         <div>email: {userinfo.email}</div>
@@ -104,7 +104,7 @@ export default function Dashboard ({
                     {/* The profile is only editable while there are no registrations
                         (gender/skill drive event eligibility), matching the server guard. */}
                     {(userinfo.registrations?.length ?? 0) === 0 && (
-                        <button className="btn btn-secondary btn-sm mt-1" onClick={() => nav('/profile/setup')}>Edit Profile</button>
+                        <button className="btn btn-secondary btn-sm mt-1" onClick={() => nav("/profile/setup")}>Edit Profile</button>
                     )}
                 </div>
                 <div className="p-1 content-center flex flex-col items-center gap-2 w-full">
@@ -119,7 +119,7 @@ export default function Dashboard ({
                             ))}
                         </div>
                     ) : (
-                        <button className="btn btn-primary" onClick={() => nav('/register')}>Register</button>
+                        <button className="btn btn-primary" onClick={() => nav("/register")}>Register</button>
                     )}
                     {myTeam ? (
                         <div className="border border-gray-200 rounded-lg px-4 py-2 text-sm w-full text-center mt-2">
@@ -131,7 +131,7 @@ export default function Dashboard ({
                             )}
                         </div>
                     ) : (
-                        <button className="btn btn-secondary mt-2" onClick={() => nav('/groupset')}>Group Set</button>
+                        <button className="btn btn-secondary mt-2" onClick={() => nav("/groupset")}>Group Set</button>
                     )}
                 </div>
                 {cost === undefined ? (
@@ -157,7 +157,7 @@ export default function Dashboard ({
                 ) : null}
                 <div className="col-span-2 flex justify-center pt-4">
                     {hasPublicOrder ? (
-                        <button className="btn btn-secondary" onClick={() => nav('/event-order')}>Event Order</button>
+                        <button className="btn btn-secondary" onClick={() => nav("/event-order")}>Event Order</button>
                     ) : (
                         <button className="btn btn-secondary" disabled>Event Order Coming Soon</button>
                     )}

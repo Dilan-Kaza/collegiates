@@ -6,7 +6,7 @@ import { clearSessionCache } from "@functions/sessionCache";
 import { updateOrganizerGroupset } from "@functions/actions";
 import { useNavigate } from "@/routerCompat";
 import { useState, useEffect } from "react";
-import { useDispatch } from "react-redux";
+import { useAppDispatch } from "@/store/hooks";
 import type { OrganizerGroupsetDTO, OrganizerMemberDTO } from "@/lib/api";
 // organizer groupset detail/edit page
 
@@ -21,7 +21,7 @@ export default function GroupsetDetail({
 }) {
 
     const nav = useNavigate();
-    const dispatch = useDispatch();
+    const dispatch = useAppDispatch();
 
     // The displayed group set: the server's copy until a save replaces it.
     const [current, setCurrent] = useState<OrganizerGroupsetDTO>(groupset);

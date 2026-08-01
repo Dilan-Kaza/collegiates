@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import ProfileSetup from "./ProfileSetup";
 import type { ProfileInitial } from "./ProfileSetup";
 import { getColleges } from "@functions/data";
-import { requireUser, canAccessOrganizer } from "@/lib/auth";
+import { requireCompetitor } from "@/lib/auth";
 import { fromGender, fromSkillLevel, fromStudentType } from "@/lib/api";
 import { loadSettings } from "@/lib/settings";
 import prisma from "@/lib/prisma";
@@ -11,8 +11,9 @@ import { cacheKeys } from "@functions/cacheKeys";
 // competitor profile setup page (server component) — onboarding + yearly renewal
 
 export default async function Page() {
-  const user = await requireUser();
-  if (await canAccessOrganizer(user)) redirect("/organizer");
+  // Competitor-only, matching saveCompetitorProfile's own gate: organizers go to
+  // their console, and no other account type has a competitor profile to set up.
+  const user = await requireCompetitor();
 
   // Both are cached reads and neither depends on the other, so they go together.
   const [settings, colleges] = await Promise.all([loadSettings(), getColleges()]);

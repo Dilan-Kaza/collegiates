@@ -4,7 +4,7 @@ import { useState } from "react";
 import { MtHeader, ShortAnswer, DatePicker, Dropdown, LogoutButton } from "@components";
 import { createSettings, createSchoolAccount } from "@functions/actions";
 import { setErrorMsg, setSuccessMsg } from "@slices";
-import { useDispatch } from "react-redux";
+import { useAppDispatch } from "@/store/hooks";
 // admin console: create new competition settings and school accounts.
 // Access is enforced server-side (requireAdmin on the page + both actions).
 
@@ -12,7 +12,7 @@ type Form = Record<string, string>;
 
 // Surfaces a { error: FieldErrors } result: prefer a general `detail`, else the
 // first field message. Returns true when an error was shown.
-function showError(dispatch: ReturnType<typeof useDispatch>, error?: Record<string, string>): boolean {
+function showError(dispatch: ReturnType<typeof useAppDispatch>, error?: Record<string, string>): boolean {
   if (!error) return false;
   const msg = error.detail ?? Object.values(error)[0] ?? "Something went wrong.";
   dispatch(setErrorMsg(msg));
@@ -26,7 +26,7 @@ export default function Admin({
   colleges?: Record<string, string>;
   schools?: Record<string, string>;
 }) {
-  const dispatch = useDispatch();
+  const dispatch = useAppDispatch();
 
   const [school, setSchool] = useState<Form>({});
   const [settings, setSettings] = useState<Form>({});

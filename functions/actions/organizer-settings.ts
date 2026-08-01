@@ -6,14 +6,23 @@ import { unstable_cache, updateTag } from "next/cache";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { loadSettings } from "@/lib/settings";
+import { isAdmin } from "@/lib/auth";
 import { shapeSettings, shapeEvent, SETTINGS_INCLUDE } from "@/lib/api";
 import type { SettingsDTO, EventDTO } from "@/lib/api";
-import { READ_CACHE_TTL, TAG_EVENTS, requireOrganizer, settingsWritable } from "./shared";
+import { READ_CACHE_TTL, TAG_EVENTS, organizerGate, settingsWritable } from "./shared";
 import type { Mutation, SettingsBody } from "./shared";
 
 export async function saveSettings(body: SettingsBody): Promise<Mutation<SettingsDTO | null>> {
-  const { error } = await requireOrganizer();
+  const { user, error } = await organizerGate();
   if (error) return { error };
+
+  // host_id is what organizerGate resolves organizer access from, so writing it
+  // is a permission grant, not a setting: only an admin may. An organizer host
+  // could otherwise hand its own console to any account, or take it from itself.
+  // The organizer settings form never submits `host` — the admin console does.
+  if (body.host !== undefined && !isAdmin(user)) {
+    return { error: { host: "Only an admin can change the settings host." } };
+  }
 
   // The host lookup and the current settings row are independent, so they go out
   // together rather than one after the other.
@@ -49,7 +58,7 @@ export async function saveSettings(body: SettingsBody): Promise<Mutation<Setting
 }
 
 export async function getOrganizerEvents(): Promise<EventDTO[]> {
-  const { error } = await requireOrganizer();
+  const { error } = await organizerGate();
   if (error) return [];
   return unstable_cache(
     async (): Promise<EventDTO[]> => {

@@ -1,12 +1,12 @@
 import "./globals.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
 import type { Metadata } from "next";
-// (root layout + metadata)
 import type { ReactNode } from "react";
 import Providers from "./providers";
 import { auth } from "@/auth";
 import { getCurrentUser } from "@/lib/auth";
 import { NavBar, NavDock, BackgroundShapes, Notif, LoadingOverlay } from "@components";
+// root layout + metadata
 
 export const metadata: Metadata = {
   title: "Collegiate Wushu",

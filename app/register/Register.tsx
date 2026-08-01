@@ -37,13 +37,13 @@ export default function Register({
         const { error } = await createRegistrations(events);
         if (!error) {
             clearSessionCache("currentUser");
-            nav('/dashboard');
+            nav("/dashboard");
         }
     };
 
     return (
         <div>
-            <div className="hidden sm:block"><MtHeader/></div>
+            <div className="hidden sm:block"><MtHeader /></div>
             {confirming ? (
                 <RegistrationConfirm
                     events={events}

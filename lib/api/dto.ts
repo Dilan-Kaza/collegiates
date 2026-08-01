@@ -1,5 +1,6 @@
 // DTO shapes returned to the client, mirroring the Django REST serializers.
-// Date fields survive the wire via superjson (see responses.ts / lib/apiClient.ts).
+// Server actions carry Date across the boundary natively; the session-storage
+// layer round-trips it through superjson (see functions/sessionCache.ts).
 
 export interface CollegeDTO {
   college_id: string;

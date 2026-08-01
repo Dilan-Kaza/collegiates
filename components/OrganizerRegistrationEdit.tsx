@@ -2,26 +2,14 @@
 
 import { useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
-import { useDispatch } from "react-redux";
+import { useAppDispatch } from "@/store/hooks";
 import { setErrorMsg, setSuccessMsg } from "@slices";
 import { clearSessionCache } from "@functions/sessionCache";
 import { findUserByEmail, updateOrganizerRegistration } from "@functions/actions";
 import { Dropdown } from "@components";
 import type { RegEventItem } from "@/types";
+import { GENDER_CHOICES, SKILL_LEVEL_CHOICES, STUDENT_TYPE_CHOICES } from "@/lib/api";
 import type { EventDTO, OrganizerRegistrationDTO } from "@/lib/api";
-
-// choices mirror the enums defined in models.py (same as the sign-up flow)
-const GENDER_CHOICES = { Male: "M", Female: "F" };
-const SKILL_LEVELS = { Beginner: "B", Intermediate: "I", Advanced: "A" };
-const STUDENT_TYPES = {
-    "Full/Part-Time Undergraduate Student": "1",
-    "Full-Time Graduate/Professional School Student": "2",
-    "Early Graduate Of Current Year": "3",
-    "Non-Enrolled Student": "4",
-    "One Year Alumni": "5",
-    "Part-Time Graduate Student": "6",
-    "International Student": "7",
-};
 
 // The editable profile fields pulled off an athlete DTO into form strings.
 interface ProfileForm {
@@ -50,7 +38,7 @@ export default function OrganizerRegistrationEdit({
     initialAthlete?: OrganizerRegistrationDTO | null;
 }) {
 
-    const dispatch = useDispatch();
+    const dispatch = useAppDispatch();
 
     const [email, setEmail] = useState("");
     const [searching, setSearching] = useState(false);
@@ -178,9 +166,9 @@ export default function OrganizerRegistrationEdit({
                 <div className="text-sm font-medium text-dark">Profile</div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Dropdown name="gender" label="Gender" options={GENDER_CHOICES} value={profile.gender} onChange={onProfileChange} />
-                    <Dropdown name="skill_level" label="Experience Level" options={SKILL_LEVELS} value={profile.skill_level} onChange={onProfileChange} />
+                    <Dropdown name="skill_level" label="Experience Level" options={SKILL_LEVEL_CHOICES} value={profile.skill_level} onChange={onProfileChange} />
                     <Dropdown name="school" label="College" options={colleges} value={profile.school} onChange={onProfileChange} />
-                    <Dropdown name="student_type" label="Student Type" options={STUDENT_TYPES} value={profile.student_type} onChange={onProfileChange} />
+                    <Dropdown name="student_type" label="Student Type" options={STUDENT_TYPE_CHOICES} value={profile.student_type} onChange={onProfileChange} />
                 </div>
             </div>
 

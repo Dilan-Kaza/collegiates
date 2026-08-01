@@ -1,11 +1,9 @@
-"use client";
-
 import { CWCReps, ImgHeader } from "@components";
 
-export default function About() {
+export default function Page() {
   return (
     <>
-      <ImgHeader/>
+      <ImgHeader />
       <div className="flex-col bg-primary text-off-white md:py-10">
         <div className="content-center w-full max-w-8/10 translate-x-1/10">
           <div>&nbsp;</div>
@@ -101,7 +99,7 @@ export default function About() {
         </div>
       </div>
       <div className="bg-off-white py-10 px-6">
-        <CWCReps/>
+        <CWCReps />
       </div>
     </>
   );

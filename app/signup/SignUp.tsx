@@ -6,7 +6,7 @@ import type { FocusEvent, SyntheticEvent } from "react";
 import { checkEmail, registerUser } from "@functions/actions";
 import { useForwardDashboard } from "@functions";
 import { useNavigate } from "@/routerCompat";
-import { useDispatch } from "react-redux";
+import { useAppDispatch } from "@/store/hooks";
 import { setSuccessMsg } from "@slices";
 import { validate, handleFormBlur, handleFormChange } from "@functions/forms";
 // sign-up page — a single responsive AuthPanel form (account fields only)
@@ -21,7 +21,7 @@ export default function SignUp() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const dispatch = useDispatch();
+  const dispatch = useAppDispatch();
 
   const checkEmailExists = async (email: string) => {
     if (!email || !/\S+@\S+\.\S+/.test(email)) return;
@@ -35,20 +35,19 @@ export default function SignUp() {
     }
   };
 
-  const handleChange = handleFormChange(setFormData,setErrors);
+  const handleChange = handleFormChange(setFormData, setErrors);
   const handleBlur = handleFormBlur(setErrors, formData);
 
   const handleEmailBlur = (e: FocusEvent<FormControl>) => {
     const { name, value } = e.target;
-            setErrors((prevErrors) => ({
-                ...prevErrors,
-                [name]: validate(name, value),
-            }));
+    setErrors((prevErrors) => ({
+      ...prevErrors,
+      [name]: validate(name, value),
+    }));
     if (name === "email") checkEmailExists(value);
   };
 
   useForwardDashboard();
-
 
   const handleSubmit = async (e: SyntheticEvent) => {
     e.preventDefault();
@@ -89,7 +88,7 @@ export default function SignUp() {
     } else {
       setError("");
       dispatch(setSuccessMsg("Account created successfully"));
-      nav('/signin');
+      nav("/signin");
     }
     setLoading(false);
   };
@@ -99,7 +98,7 @@ export default function SignUp() {
 
   return (
     <div className="overflow-x-hidden min-h-screen">
-      <div className="hidden sm:block"><MtHeader/></div>
+      <div className="hidden sm:block"><MtHeader /></div>
       <div
         id="bg-component"
         className="bg-primary h-screen w-full skew-y-10 absolute -top-[60svh] left-0 -z-20"

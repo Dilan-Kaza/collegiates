@@ -2,14 +2,15 @@ import { redirect } from "next/navigation";
 import Register from "./Register";
 import { getSettings } from "@functions/data";
 import { getMe, getCompetitorEvents } from "@functions/actions";
-import { requireUser } from "@/lib/auth";
+import { requireCompetitor } from "@/lib/auth";
 import CacheSeed from "@functions/CacheSeed";
 import { cacheKeys } from "@functions/cacheKeys";
 
 export default async function Page() {
-  // Resolve auth and first-load data (the current user + the event catalogue
-  // they're eligible for) on the server so it ships with the page.
-  await requireUser();
+  // Registering is competitor-only (createRegistrations enforces the same), so
+  // gate on that before resolving the current user + the event catalogue they're
+  // eligible for on the server.
+  await requireCompetitor();
   const [settings, userinfo, catalogEvents] = await Promise.all([
     getSettings(),
     getMe(),

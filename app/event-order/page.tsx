@@ -1,8 +1,7 @@
 import { MtHeader } from "@components";
 import { getPublicOrder } from "@functions/actions";
-import { getCurrentUser } from "@/lib/auth";
+import { requireCompetitor } from "@/lib/auth";
 import type { EventOrderDTO } from "@/lib/api";
-import { redirect } from "next/navigation";
 import CacheSeed from "@functions/CacheSeed";
 import { cacheKeys } from "@functions/cacheKeys";
 
@@ -38,14 +37,14 @@ function StaticRing({ label, items }: { label: string; items: EventOrderDTO[] })
     );
 }
 
-export default async function EventOrder() {
+export default async function Page() {
     // Auth on the server so data ships with the page; unauthenticated visitors
-    // are redirected before any markup renders.
-    const user = await getCurrentUser();
-    if (!user) redirect("/signin");
+    // are redirected before any markup renders. Competitor-only, matching
+    // getPublicOrder's own gate — organizers read the order from their builder.
+    await requireCompetitor();
 
-    // getPublicOrder self-authorizes: this year's published order, or null when
-    // none is public yet (or the viewer isn't a competitor).
+    // getPublicOrder self-authorizes too: this year's published order, or null
+    // when none is public yet.
     const order = await getPublicOrder();
 
     if (!order) {
@@ -57,7 +56,7 @@ export default async function EventOrder() {
     return (
         <>
             <CacheSeed entries={{ [cacheKeys.publicOrder]: order }} />
-            <div className="hidden md:block"><MtHeader/></div>
+            <div className="hidden md:block"><MtHeader /></div>
             <div className="max-w-5xl mx-auto w-full px-[5%] py-8">
                 <div className="text-2xl font-semibold text-primary mb-4">Event Order</div>
                 <div className={`grid gap-4 ${hasThirdRing ? "grid-cols-3" : "grid-cols-2"}`}>

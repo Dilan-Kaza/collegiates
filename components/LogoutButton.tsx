@@ -5,13 +5,13 @@ import { useRouter } from "next/navigation";
 import { logoutAction } from "@functions/actions";
 import { setSuccessMsg } from "@slices";
 import { clearAllSessionCache } from "@functions/sessionCache";
-import { useDispatch } from "react-redux";
+import { useAppDispatch } from "@/store/hooks";
 import LoadingScreen from "./LoadingScreen";
 // logout button
 
 
 export default function LogoutButton() {
-    const dispatch = useDispatch();
+    const dispatch = useAppDispatch();
     const router = useRouter();
     const [loggingOut, setLoggingOut] = useState(false);
 

@@ -60,7 +60,7 @@ export default function Groupset({
 
     return(
         <>
-            <div className="hidden sm:block"><MtHeader/></div>
+            <div className="hidden sm:block"><MtHeader /></div>
             <div className="relative overflow-hidden bg-primary rounded-3xl mx-6 mt-2 sm:mt-6 px-6 pb-6 sm:pb-12 flex justify-center">
                 <div className="absolute -top-32 -left-32 w-[28rem] h-[28rem] rounded-full bg-secondary/25 blur-3xl pointer-events-none" />
                 <div className="absolute top-1/2 -right-24 w-80 h-80 rounded-full bg-secondary/20 blur-3xl pointer-events-none" />

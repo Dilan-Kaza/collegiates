@@ -1,6 +1,6 @@
 "use client";
 
-import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
+import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
 // One notification at a time; `isError` picks the <Notif /> variant.
 // setSuccessMsg/setErrorMsg keep their old names so call sites are unchanged.
@@ -15,10 +15,10 @@ const initialState: NotifState = {
 };
 
 export const notifSlice = createSlice({
-  name: 'notif',
+  name: "notif",
   initialState,
   reducers: {
-    clearNotif: state => {
+    clearNotif: (state) => {
       state.message = "";
       state.isError = false;
     },
@@ -29,10 +29,10 @@ export const notifSlice = createSlice({
     setErrorMsg: (state, action: PayloadAction<string>) => {
       state.message = action.payload;
       state.isError = true;
-    }
-  }
-})
+    },
+  },
+});
 
-export const { clearNotif, setSuccessMsg, setErrorMsg } = notifSlice.actions
+export const { clearNotif, setSuccessMsg, setErrorMsg } = notifSlice.actions;
 
-export default notifSlice.reducer
+export default notifSlice.reducer;

@@ -1,5 +1,3 @@
-"use client";
-
 import { ImgHeader, CardCarousel } from "@components";
 import {
   OfficialRules,
@@ -31,7 +29,7 @@ const rules = [
   { id: "disqualification",  title: "11. Disqualification",       content: <Disqualification /> },
 ];
 
-export default function Rules() {
+export default function Page() {
   return (
     <div className="bg-off-white sm:min-h-screen relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0 z-0">

@@ -2,7 +2,8 @@
 // cache tags, helpers. Deliberately not "use server" — that only allows actions.
 
 import { updateTag } from "next/cache";
-import { getCurrentUser, canAccessOrganizer, isAdmin } from "@/lib/auth";
+import { getCurrentUser, canAccessOrganizer, isAdmin, isCompetitor } from "@/lib/auth";
+import type { CurrentUser } from "@/lib/auth";
 import type { User, Prisma } from "@prisma/client";
 import type {
   CompetitorDTO, RegistrationDTO, BlogDTO,
@@ -39,11 +40,6 @@ export interface UpdateMeBody {
   student_type?: string;
   skill_level?: string;
   school?: string | null;
-}
-
-export interface RegistrationItem {
-  event_code: string;
-  nandu_str?: string;
 }
 
 export interface SettingsBody {
@@ -187,25 +183,40 @@ export const reOrganizerRegistration = (u: OrganizerRegistrationDTO): OrganizerR
   registration: u.registration.map(reRegistration),
 });
 
-// ---------- organizer gate ----------
+// ---------- action gates ----------
 
+// Named *Gate, not require*, to keep them distinct from lib/auth's page gates:
+// those redirect, these return an { error } an action can hand back to the form.
 export type OrganizerGate = { user: User; error?: undefined } | { user?: undefined; error: FieldErrors };
 
-export async function requireOrganizer(): Promise<OrganizerGate> {
+export async function organizerGate(): Promise<OrganizerGate> {
   const user = await getCurrentUser();
   if (!user) return { error: { detail: "Not authenticated." } };
   if (!(await canAccessOrganizer(user))) return { error: { detail: "You do not have permission." } };
   return { user };
 }
 
-// Admin gate for server actions (mirrors requireOrganizer's shape). Admin access
+// Admin gate for server actions (mirrors organizerGate's shape). Admin access
 // is strictly user_type "Admin", independent of the organizer host rule.
 export type AdminGate = { user: User; error?: undefined } | { user?: undefined; error: FieldErrors };
 
-export async function requireAdmin(): Promise<AdminGate> {
+export async function adminGate(): Promise<AdminGate> {
   const user = await getCurrentUser();
   if (!user) return { error: { detail: "Not authenticated." } };
   if (!isAdmin(user)) return { error: { detail: "You do not have permission." } };
+  return { user };
+}
+
+// Competitor gate for the actions that write competitor-owned data. Same shape
+// again; carries competitor_profile because callers read school/gender off it.
+export type CompetitorGate =
+  | { user: CurrentUser; error?: undefined }
+  | { user?: undefined; error: FieldErrors };
+
+export async function competitorGate(): Promise<CompetitorGate> {
+  const user = await getCurrentUser();
+  if (!user) return { error: { detail: "Not authenticated." } };
+  if (!isCompetitor(user)) return { error: { detail: "Not a competitor." } };
   return { user };
 }
 

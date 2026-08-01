@@ -13,7 +13,7 @@ import { shapeCompetitor, toStudentType, toGender, toSkillLevel } from "@/lib/ap
 import type { CompetitorDTO } from "@/lib/api";
 import {
   USER_DATA_TTL, userDataTag, TAG_REGISTRATIONS, TAG_GROUPSETS,
-  revalidateUserData, rehydrateCompetitor,
+  revalidateUserData, rehydrateCompetitor, competitorGate,
 } from "./shared";
 import type { Mutation, RegisterBody, CompetitorProfileBody, UpdateMeBody } from "./shared";
 
@@ -69,8 +69,10 @@ async function competitorProfileLock(
 export async function saveCompetitorProfile(
   body: CompetitorProfileBody,
 ): Promise<Mutation<CompetitorDTO>> {
-  const current = await getCurrentUser();
-  if (!current) return { error: { detail: "Not authenticated." } };
+  // Competitor-only: a School or Admin account has no competitor profile, so it
+  // must not be able to create one for itself by calling this action directly.
+  const { user: current, error: gateError } = await competitorGate();
+  if (gateError) return { error: gateError };
 
   const { currentYear, locked } = await competitorProfileLock(current.user_id);
 
@@ -165,8 +167,10 @@ export async function getMe(): Promise<CompetitorDTO | null> {
 }
 
 export async function updateMe(body: UpdateMeBody): Promise<Mutation<CompetitorDTO>> {
-  const current = await getCurrentUser();
-  if (!current) return { error: { detail: "Not authenticated." } };
+  // Competitor-only, like saveCompetitorProfile: the whole payload is competitor
+  // fields, so there is nothing here for a School or Admin account to update.
+  const { user: current, error: gateError } = await competitorGate();
+  if (gateError) return { error: gateError };
 
   // Eligibility-driving fields freeze once registrations exist. Enforced here,
   // not just in the UI, so a direct call to this action can't bypass it.
@@ -208,6 +212,12 @@ export async function updateMe(body: UpdateMeBody): Promise<Mutation<CompetitorD
 export async function deleteMe(): Promise<Mutation<{ detail: string }>> {
   const current = await getCurrentUser();
   if (!current) return { error: { detail: "Not authenticated." } };
+  // Settings.host cascades on user delete, so a host deleting their own account
+  // would take every settings row they host — and the competition — with it.
+  const hosts = await prisma.settings.count({ where: { host_id: current.user_id } });
+  if (hosts > 0) {
+    return { error: { detail: "This account hosts the competition settings and cannot be deleted." } };
+  }
   await prisma.user.delete({ where: { user_id: current.user_id } });
   revalidateUserData(current.user_id);
   // Removing the user drops them from the organizer registration and group set
@@ -217,10 +227,10 @@ export async function deleteMe(): Promise<Mutation<{ detail: string }>> {
   return { data: { detail: "deleted" } };
 }
 
-export async function activate({ uid }: { uid?: string; token?: string }): Promise<Mutation<{ detail: string }>> {
-  if (uid) {
-    const u = await prisma.user.findUnique({ where: { user_id: uid }, select: { user_id: true } });
-    if (!u) return { error: { detail: "Invalid activation link." } };
-  }
+// Sign-up already leaves the account active (is_active defaults true) and nothing
+// issues an activation token, so this is only the landing page's confirmation.
+// It deliberately does not look `uid` up: an unauthenticated caller could
+// otherwise probe arbitrary user ids and read existence off the response.
+export async function activate(_params: { uid?: string; token?: string }): Promise<Mutation<{ detail: string }>> {
   return { data: { detail: "Account active." } };
 }

@@ -83,7 +83,8 @@ export function fromWeaponType(value: WeaponType | null | undefined): string | n
   return value ? WEAPON_TYPE_CODE_BY_MEMBER[value] ?? null : null;
 }
 
-// Readable names for the "1"–"7" codes the DTOs carry. Mirrors ProfileSetup's dropdown.
+// Readable names for the "1"–"7" codes the DTOs carry. The single source for
+// this wording — both the read-only label below and STUDENT_TYPE_CHOICES.
 const STUDENT_TYPE_LABEL_BY_CODE: Record<string, string> = {
   "1": "Full/Part-Time Undergraduate Student",
   "2": "Full-Time Graduate/Professional School Student",
@@ -98,3 +99,19 @@ const STUDENT_TYPE_LABEL_BY_CODE: Record<string, string> = {
 export function studentTypeLabel(code: string | null | undefined): string {
   return code ? STUDENT_TYPE_LABEL_BY_CODE[code] ?? "" : "";
 }
+
+// ---------- profile dropdown choices ----------
+
+// Display label -> code, the shape <Dropdown options> takes. One source for every
+// profile dropdown, so the competitor-facing profile setup and the organizer's
+// registration editor can't drift apart or from the labels used above.
+// For gender and skill level the Prisma member names double as the display
+// labels, so the member -> code maps are already exactly this shape.
+export const GENDER_CHOICES: Record<string, string> = GENDER_CODE_BY_MEMBER;
+export const SKILL_LEVEL_CHOICES: Record<string, string> = SKILL_LEVEL_CODE_BY_MEMBER;
+
+// Student-type members are terse ("Undergraduate"), so their choices come from
+// inverting the label map instead — the wording stays in one place.
+export const STUDENT_TYPE_CHOICES: Record<string, string> = Object.fromEntries(
+  Object.entries(STUDENT_TYPE_LABEL_BY_CODE).map(([code, label]) => [label, code])
+);

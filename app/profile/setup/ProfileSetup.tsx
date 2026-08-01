@@ -5,9 +5,10 @@ import { useState } from "react";
 import type { SyntheticEvent } from "react";
 import { saveCompetitorProfile } from "@functions/actions";
 import { useNavigate } from "@/routerCompat";
-import { useDispatch } from "react-redux";
+import { useAppDispatch } from "@/store/hooks";
 import { setSuccessMsg } from "@slices";
 import { validate, handleFormBlur, handleFormChange } from "@functions/forms";
+import { GENDER_CHOICES, SKILL_LEVEL_CHOICES, STUDENT_TYPE_CHOICES } from "@/lib/api";
 // competitor profile setup — the onboarding step after sign-up, reused for the
 // yearly re-confirmation when a new competition year starts
 
@@ -27,21 +28,8 @@ export default function ProfileSetup({
   colleges?: Record<string, string>;
   initial?: ProfileInitial;
 }) {
-  // choices mirror the enums defined in models.py
-  const skillLevels = { Beginner: "B", Intermediate: "I", Advanced: "A" };
-  const genderChoices = { Male: "M", Female: "F" };
-  const studentTypes = {
-    "Full/Part-Time Undergraduate Student": "1",
-    "Full-Time Graduate/Professional School Student": "2",
-    "Early Graduate Of Current Year": "3",
-    "Non-Enrolled Student": "4",
-    "One Year Alumni": "5",
-    "Part-Time Graduate Student": "6",
-    "International Student": "7",
-  };
-
   const nav = useNavigate();
-  const dispatch = useDispatch();
+  const dispatch = useAppDispatch();
 
   const [formData, setFormData] = useState<Record<string, string>>(initial ? { ...initial } : {});
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -102,14 +90,14 @@ export default function ProfileSetup({
             <Heading className="mt-2 sm:mt-6 !text-4xl !p-2 !animate-none">Complete Your Profile</Heading>
             <form className="self-stretch px-4 sm:px-12 pb-10 flex flex-col gap-6" onSubmit={handleSubmit}>
               <FormError error={error} />
-              <Field {...fieldProps} as={Dropdown} name="skill_level" label="Experience Level*" options={skillLevels} required />
+              <Field {...fieldProps} as={Dropdown} name="skill_level" label="Experience Level*" options={SKILL_LEVEL_CHOICES} required />
               <Field {...fieldProps} as={Dropdown} name="school" label="College*" options={colleges} required />
               <div className="flex flex-col sm:flex-row gap-4">
                 <div className="flex flex-col flex-1">
-                  <Field {...fieldProps} as={Dropdown} name="gender" label="Gender*" options={genderChoices} errorClass="mt-1" required />
+                  <Field {...fieldProps} as={Dropdown} name="gender" label="Gender*" options={GENDER_CHOICES} errorClass="mt-1" required />
                 </div>
                 <div className="flex flex-col flex-1">
-                  <Field {...fieldProps} as={Dropdown} name="student_type" label="Student Type*" options={studentTypes} errorClass="mt-1" required />
+                  <Field {...fieldProps} as={Dropdown} name="student_type" label="Student Type*" options={STUDENT_TYPE_CHOICES} errorClass="mt-1" required />
                 </div>
               </div>
               <SubmitButton loading={loading} handleSubmit={handleSubmit} label="Save profile" />

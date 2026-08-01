@@ -11,15 +11,17 @@ import { shapeOrganizerRegistration, toStudentType, toGender, toSkillLevel } fro
 import type { OrganizerRegistrationDTO } from "@/lib/api";
 import {
   READ_CACHE_TTL, TAG_REGISTRATIONS, userDataTag,
-  requireOrganizer, revalidateUserData, reOrganizerRegistration,
+  organizerGate, revalidateUserData, reOrganizerRegistration,
 } from "./shared";
 import type { Mutation, OrganizerRegFilters, UpdateOrganizerRegBody } from "./shared";
 
 // Returns the un-awaited PrismaPromise so callers can either await it directly
 // or append it to a $transaction batch (see updateOrganizerRegistration).
+// Scoped to Competitor accounts: these views manage competitors, so a School or
+// Admin user_id must not resolve here — not for reading, not for writing.
 function loadOrganizerUser(userId: string, year: number) {
-  return prisma.user.findUnique({
-    where: { user_id: userId },
+  return prisma.user.findFirst({
+    where: { user_id: userId, user_type: "Competitor" },
     include: {
       competitor_profile: {
         include: { school: true, registration: { where: { comp_year: year }, include: { event: true } } },
@@ -29,7 +31,7 @@ function loadOrganizerUser(userId: string, year: number) {
 }
 
 export async function getOrganizerRegistrations(filters: OrganizerRegFilters = {}): Promise<OrganizerRegistrationDTO[]> {
-  const { error } = await requireOrganizer();
+  const { error } = await organizerGate();
   if (error) return [];
   const settings = await loadSettings();
   if (!settings) return [];
@@ -51,7 +53,7 @@ export async function getOrganizerRegistrations(filters: OrganizerRegFilters = {
       if (filters.school) profileFilter.school_id = filters.school;
       const where: Prisma.UserWhereInput = { competitor_profile: { is: profileFilter } };
       const rows = await prisma.user.findMany({
-        where,
+        where: { ...where, user_type: "Competitor" },
         include: {
           competitor_profile: {
             include: { school: true, registration: { where: { comp_year: year }, include: { event: true } } },
@@ -67,7 +69,7 @@ export async function getOrganizerRegistrations(filters: OrganizerRegFilters = {
 }
 
 export async function getOrganizerRegistration(uuid: string): Promise<OrganizerRegistrationDTO | null> {
-  const { error } = await requireOrganizer();
+  const { error } = await organizerGate();
   if (error) return null;
   const settings = await loadSettings();
   if (!settings) return null;
@@ -89,11 +91,20 @@ export async function updateOrganizerRegistration(
   uuid: string,
   body: UpdateOrganizerRegBody
 ): Promise<Mutation<OrganizerRegistrationDTO>> {
-  const { error } = await requireOrganizer();
+  const { error } = await organizerGate();
   if (error) return { error };
   const settings = await loadSettings();
   if (!settings) return { error: { detail: "No settings have been created yet." } };
   const year = settings.reg_year;
+
+  // Resolve the target before any write: this action edits competitor rows, so a
+  // School or Admin user_id must be rejected rather than have a competitor
+  // profile written onto it.
+  const isCompetitorTarget = await prisma.user.findFirst({
+    where: { user_id: uuid, user_type: "Competitor" },
+    select: { user_id: true },
+  });
+  if (!isCompetitorTarget) return { error: { detail: "User not found." } };
 
   // Registration row edits; the profile write and read-back join this batch below.
   const regOps: Prisma.PrismaPromise<unknown>[] = [];
@@ -170,12 +181,14 @@ export async function updateOrganizerRegistration(
 }
 
 export async function findUserByEmail(email: string): Promise<OrganizerRegistrationDTO | null> {
-  const { error } = await requireOrganizer();
+  const { error } = await organizerGate();
   if (error) return null;
   const settings = await loadSettings();
   const year = settings?.reg_year;
+  // Competitor-scoped like the rest of this file: the lookup exists to pull a
+  // competitor into the registration views, not to resolve arbitrary accounts.
   const target = await prisma.user.findFirst({
-    where: { email: { equals: email ?? "", mode: "insensitive" } },
+    where: { email: { equals: email ?? "", mode: "insensitive" }, user_type: "Competitor" },
     include: {
       competitor_profile: {
         include: {

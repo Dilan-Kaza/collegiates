@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { useDispatch } from "react-redux";
+import { useAppDispatch } from "@/store/hooks";
 import { setErrorMsg } from "@slices";
 import { findUserByEmail } from "@functions/actions";
 
@@ -12,7 +12,7 @@ interface OrganizerFindUserProps {
 
 export default function OrganizerFindUser({ onFound }: OrganizerFindUserProps) {
 
-    const dispatch = useDispatch();
+    const dispatch = useAppDispatch();
     const [email, setEmail] = useState("");
     const [loading, setLoading] = useState(false);
 

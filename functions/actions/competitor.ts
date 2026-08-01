@@ -14,7 +14,8 @@ import {
   READ_CACHE_TTL, TAG_EVENTS, TAG_REGISTRATIONS, TAG_GROUPSETS,
   userDataTag, groupsetTag, revalidateUserData, reRegistration, reGroupset,
 } from "./shared";
-import type { Mutation, RegistrationItem } from "./shared";
+import type { Mutation } from "./shared";
+import type { RegEventItem } from "@/types";
 
 export async function getCompetitorEvents(): Promise<EventDTO[]> {
   const user = await getCurrentUser();
@@ -58,7 +59,7 @@ export async function getRegistrations(): Promise<RegistrationDTO[]> {
   return regs.map(reRegistration);
 }
 
-export async function createRegistrations(items: RegistrationItem[]): Promise<Mutation<RegistrationDTO[]>> {
+export async function createRegistrations(items: RegEventItem[]): Promise<Mutation<RegistrationDTO[]>> {
   const user = await getCurrentUser();
   if (!user || !isCompetitor(user)) return { error: { detail: "Not a competitor." } };
   const settings = await loadSettings();

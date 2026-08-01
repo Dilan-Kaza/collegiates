@@ -51,17 +51,21 @@ export function SubmitButton({
   loading,
   handleSubmit,
   label = "Submit",
+  loadingLabel = "Submitting…",
 }: {
   loading?: boolean;
   handleSubmit?: MouseEventHandler<HTMLButtonElement>;
   label?: string;
+  loadingLabel?: string;
 }) {
   return (
     <button
-      onClick={handleSubmit} type="submit"
-      disabled={loading} className="btn btn-block btn-primary"
+      onClick={handleSubmit}
+      type="submit"
+      disabled={loading}
+      className="btn btn-block btn-primary"
     >
-      {loading ? "Submitting…" : label}
+      {loading ? loadingLabel : label}
     </button>
   );
 }

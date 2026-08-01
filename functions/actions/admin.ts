@@ -8,13 +8,13 @@ import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { shapeSettings, SETTINGS_INCLUDE } from "@/lib/api";
 import type { SettingsDTO } from "@/lib/api";
-import { requireAdmin, settingsWritable } from "./shared";
+import { adminGate, settingsWritable } from "./shared";
 import type { Mutation, SettingsBody, CreateSchoolAccountBody } from "./shared";
 
 // Always inserts a NEW settings row. loadSettings() reads the most-recently
 // created row, so the row created here becomes the active competition settings.
 export async function createSettings(body: SettingsBody): Promise<Mutation<SettingsDTO | null>> {
-  const { error } = await requireAdmin();
+  const { error } = await adminGate();
   if (error) return { error };
 
   // Required columns for a fresh row (early_* / due_date / comp_date are optional).
@@ -42,7 +42,7 @@ export async function createSettings(body: SettingsBody): Promise<Mutation<Setti
 export async function createSchoolAccount(
   body: CreateSchoolAccountBody,
 ): Promise<Mutation<{ user_id: string; email: string }>> {
-  const { error } = await requireAdmin();
+  const { error } = await adminGate();
   if (error) return { error };
 
   const { email } = body ?? {};

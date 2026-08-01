@@ -7,7 +7,7 @@ import { cacheKeys } from "@functions";
 import { clearSessionCache } from "@functions/sessionCache";
 import { useState } from "react";
 import { useNavigate } from "@/routerCompat";
-import { useDispatch } from "react-redux";
+import { useAppDispatch } from "@/store/hooks";
 import type { BlogDTO } from "@/lib/api";
 
 // `posts` arrives from the server. createBlogPost returns what it created, so a
@@ -15,7 +15,7 @@ import type { BlogDTO } from "@/lib/api";
 export default function BlogManager({ posts = [] }: { posts?: BlogDTO[] }) {
 
     const nav = useNavigate();
-    const dispatch = useDispatch();
+    const dispatch = useAppDispatch();
     const [created, setCreated] = useState<BlogDTO[]>([]);
     const [title, setTitle] = useState("");
     const [blog_content, setBlogContent] = useState("");

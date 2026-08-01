@@ -11,7 +11,7 @@ import { loadSettings } from "@/lib/settings";
 import { shapeSettings, shapeOrder, ORDER_INCLUDE, SETTINGS_INCLUDE } from "@/lib/api";
 import type { SettingsDTO, OrderDTO } from "@/lib/api";
 import { getOrderByYear } from "../data";
-import { requireOrganizer } from "./shared";
+import { organizerGate } from "./shared";
 import type { Mutation, OrderBody, RingKey, EventOrderInput, EventOrderCompetitorInput } from "./shared";
 
 // One slot's competitor list, resolved to the EventOrder id it belongs to.
@@ -146,7 +146,7 @@ async function pruneRing(
 // OrganizerOrderView retrieve: the saved order for the current comp_year, served
 // from the Data Cache (getOrderByYear) behind the organizer gate.
 export async function getOrganizerOrder(): Promise<OrderDTO | null> {
-  const { error } = await requireOrganizer();
+  const { error } = await organizerGate();
   if (error) return null;
   const settings = await loadSettings();
   if (!settings) return null;
@@ -156,7 +156,7 @@ export async function getOrganizerOrder(): Promise<OrderDTO | null> {
 // OrganizerOrderView create/update: upsert the single Order for the current year
 // (comp_year is its primary key) and rewrite whichever rings were provided.
 export async function saveOrder(body: OrderBody): Promise<Mutation<OrderDTO>> {
-  const { error } = await requireOrganizer();
+  const { error } = await organizerGate();
   if (error) return { error };
   const settings = await loadSettings();
   if (!settings) return { error: { detail: "No settings have been created yet." } };
@@ -189,7 +189,7 @@ export async function saveOrder(body: OrderBody): Promise<Mutation<OrderDTO>> {
 // Publish / unpublish this year's order. Publicity lives on Settings
 // (order_public), so this flips that flag and returns the updated settings.
 export async function setOrderPublic(value: boolean): Promise<Mutation<SettingsDTO | null>> {
-  const { error } = await requireOrganizer();
+  const { error } = await organizerGate();
   if (error) return { error };
   const existing = await loadSettings();
   if (!existing) return { error: { detail: "No settings have been created yet." } };
