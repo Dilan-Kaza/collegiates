@@ -1,0 +1,280 @@
+// Prisma schema mirroring the Django `collegiates_app` database, so it maps onto
+// a copy of the existing Postgres data: @@map/@map match Django's db_table and
+// db_column, and enum members @map to the varchar codes already stored in rows.
+// Django framework tables (auth_*, django_*, token_blacklist_*) are omitted.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Each enum mirrors a Django CharField(choices). Prisma Client reads and writes
+// the member NAMES, so lib/api.ts translates member <-> code at the server
+// boundary, keeping DTOs and forms on the original codes.
+
+enum Gender {
+  Male   @map("M")
+  Female @map("F")
+
+  @@map("gender")
+}
+
+enum SkillLevel {
+  Beginner     @map("B")
+  Intermediate @map("I")
+  Advanced     @map("A")
+
+  @@map("skill_level")
+}
+
+enum EventCategory {
+  External @map("E")
+  Internal @map("I")
+
+  @@map("event_category")
+}
+
+enum StudentType {
+  Undergraduate    @map("1") // Full/Part-Time Undergraduate Student
+  FullTimeGraduate @map("2") // Full-Time Graduate/Professional School Student
+  EarlyGraduate    @map("3") // Early Graduate Of Current Year
+  NonEnrolled      @map("4") // Non-Enrolled Student
+  OneYearAlumni    @map("5") // One Year Alumni
+  PartTimeGraduate @map("6") // Part-Time Graduate Student
+  International    @map("7") // International Student
+
+  @@map("student_type")
+}
+
+// "C"/"O" are the legacy Django codes; "A" (Admin) is a new role with no legacy
+// data.
+enum UserType {
+  Competitor @map("C")
+  School     @map("O")
+  Admin      @map("A")
+
+  @@map("user_type")
+}
+
+// New field with no legacy data; single-char codes match the other Event choice
+// columns.
+enum WeaponType {
+  Barehand @map("B")
+  Short    @map("S")
+  Long     @map("L")
+  Other    @map("O")
+
+  @@map("weapon_type")
+}
+
+model College {
+  college_id   String @id @default(uuid()) @db.Uuid
+  college_name String @unique @db.VarChar(255)
+
+  competitor_profiles CompetitorProfile[]
+  college_profiles    CollegeProfile[]
+  groupsets           Groupset[]
+
+  @@map("colleges")
+}
+
+model Event {
+  event_code      String         @id @db.VarChar(50)
+  event_name      String?        @unique @db.VarChar(255)
+  event_level     SkillLevel?
+  event_category  EventCategory?
+  gender_category Gender?
+  is_nandu        Boolean?
+  weapon_type     WeaponType?
+
+  registrations Registration[]
+  event_orders  EventOrder[]
+
+  @@map("events")
+}
+
+model User {
+  // Django AbstractUser columns, then this app's own. is_active gates login in
+  // auth.ts; role attributes live in the one-to-one profiles below.
+  password    String   @db.VarChar(128)
+  first_name  String   @default("") @db.VarChar(150)
+  last_name   String   @default("") @db.VarChar(150)
+  is_active   Boolean  @default(true)
+  date_joined DateTime @default(now()) @db.Timestamptz(6)
+
+  user_id   String   @id @default(uuid()) @db.Uuid
+  email     String   @unique @db.VarChar(254)
+  user_type UserType @default(Competitor)
+
+  competitor_profile CompetitorProfile?
+  college_profile    CollegeProfile?
+  hosted_settings    Settings[]
+
+  @@map("users")
+}
+
+// Competitor attributes split out of `users`; the profile's PK *is* the user_id.
+model CompetitorProfile {
+  user          User         @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  user_id       String       @id @db.Uuid
+  gender        Gender?
+  skill_level   SkillLevel?
+  school        College?     @relation(fields: [school_id], references: [college_id], onDelete: SetNull)
+  school_id     String?      @db.Uuid
+  student_type  StudentType?
+  is_competing  Boolean      @default(false)
+  has_paid      Boolean      @default(false)
+  proof_of_reg  Boolean      @default(false)
+  // Last Settings.reg_year confirmed under; re-runs /profile/setup on a new year.
+  last_reg_year Int?
+
+  registration      Registration[]
+  groupset_member   GroupsetMember[]
+  competitor_orders CompetitorOrder[]
+
+  @@map("competitor_profile")
+}
+
+// Organizer counterpart to CompetitorProfile; the profile's PK *is* the user_id.
+model CollegeProfile {
+  user       User     @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  user_id    String   @id @db.Uuid
+  college    College? @relation(fields: [college_id], references: [college_id], onDelete: SetNull)
+  college_id String?  @db.Uuid
+  // Competition years hosted (Postgres integer[]), empty by default.
+  host_years Int[]    @default([])
+
+  @@map("college_profile")
+}
+
+model Registration {
+  id            BigInt            @id @default(autoincrement())
+  competitor    CompetitorProfile @relation(fields: [competitor_id], references: [user_id], onDelete: Cascade)
+  competitor_id String            @db.Uuid
+  event         Event             @relation(fields: [event_code], references: [event_code], onDelete: Cascade)
+  event_code    String            @db.VarChar(50)
+  comp_year     Int
+  date_created  DateTime          @default(now()) @db.Timestamptz(6)
+  nandu_str     String?
+
+  @@unique([competitor_id, comp_year, event_code])
+  @@map("registration")
+}
+
+model Groupset {
+  groupset_id  String   @id @default(uuid()) @db.Uuid
+  comp_year    Int
+  school       College  @relation(fields: [school_id], references: [college_id], onDelete: Cascade)
+  school_id    String   @db.Uuid
+  team_name    String   @db.VarChar(255)
+  date_created DateTime @default(now()) @db.Timestamptz(6)
+
+  members GroupsetMember[]
+
+  @@map("groupset")
+}
+
+model GroupsetMember {
+  id          String            @id @default(uuid()) @db.Uuid
+  groupset    Groupset          @relation(fields: [groupset_id], references: [groupset_id], onDelete: Cascade)
+  groupset_id String            @db.Uuid
+  member      CompetitorProfile @relation(fields: [member_id], references: [user_id], onDelete: Cascade)
+  member_id   String            @map("member") @db.Uuid
+  date_joined DateTime          @default(now()) @db.Timestamptz(6)
+  leader      Boolean
+
+  @@unique([groupset_id, member_id])
+  @@map("groupset_members")
+}
+
+model Blog {
+  blog_id      String   @id @default(uuid()) @db.Uuid
+  date_created DateTime @default(now()) @db.Timestamptz(6)
+  author       String   @db.VarChar(255)
+  category     String   @db.VarChar(255)
+  title        String   @db.VarChar(255)
+  blog_content String
+
+  @@map("blog")
+}
+
+model Settings {
+  id                   String    @id @default(uuid()) @db.Uuid
+  reg_year             Int
+  early_reg_start      DateTime? @db.Timestamptz(6)
+  early_reg_cost_first Int?
+  early_reg_cost_extra Int?
+  reg_start            DateTime  @db.Timestamptz(6)
+  reg_end              DateTime  @db.Timestamptz(6)
+  reg_cost_first       Int
+  reg_cost_extra       Int
+  // Deadline for payment + proof of enrollment; separate from reg_end.
+  due_date             DateTime? @db.Date
+  comp_date            DateTime? @db.Date
+  contact_email        String    @db.VarChar(254)
+  // Whether this year's event order is visible to competitors.
+  order_public         Boolean   @default(false)
+  host                 User      @relation(fields: [host_id], references: [user_id], onDelete: Cascade)
+  host_id              String    @db.Uuid
+  created_at           DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@map("settings")
+}
+
+// One scheduled slot in a ring: an event with ordered competitors, or a break.
+model EventOrder {
+  id           String  @id @db.Uuid
+  comp_year    Int
+  event        Event?  @relation(fields: [event_id], references: [event_code], onDelete: SetNull)
+  event_id     String? @map("event_id_id") @db.VarChar(50)
+  break_length Int
+  name         String?
+  order        Int     @default(0)
+  ring         Ring?   @relation(fields: [ring_id], references: [id], onDelete: Cascade)
+  // Nullable only so a slot can exist before assignment; persisted slots have one.
+  ring_id      String? @db.Uuid
+
+  competitor_orders CompetitorOrder[]
+
+  @@index([ring_id])
+  @@map("event_order")
+}
+
+// Through-model for EventOrder's competitor list; keeps Django's default table name.
+model CompetitorOrder {
+  id             BigInt            @id @default(autoincrement())
+  order          Int               @default(0)
+  event_order    EventOrder        @relation(fields: [event_order_id], references: [id], onDelete: Cascade)
+  event_order_id String            @db.Uuid
+  competitor     CompetitorProfile @relation(fields: [competitor_id], references: [user_id], onDelete: Cascade)
+  competitor_id  String            @db.Uuid
+
+  @@map("collegiates_app_competitororder")
+}
+
+// One saved order per competition year (comp_year is the PK), owning up to three Rings.
+model Order {
+  comp_year  Int      @id
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  rings Ring[]
+
+  @@map("order")
+}
+
+// One ring of an Order (ring_number 1/2/3), owning its slots via EventOrder.ring_id
+// and sequencing them by EventOrder.order.
+model Ring {
+  id          String @id @default(uuid()) @db.Uuid
+  ring_number Int
+  order       Order  @relation(fields: [order_id], references: [comp_year], onDelete: Cascade)
+  order_id    Int
+
+  event_orders EventOrder[]
+
+  @@unique([order_id, ring_number])
+  @@map("ring")
+}
