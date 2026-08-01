@@ -3,20 +3,20 @@
 import { MtHeader, OrganizerBlogList } from "@components";
 import { setErrorMsg } from "@slices";
 import { createBlogPost } from "@functions/actions";
+import { cacheKeys } from "@functions";
+import { clearSessionCache } from "@functions/sessionCache";
 import { useState } from "react";
 import { useNavigate } from "@/routerCompat";
-import { useRouter } from "next/navigation";
 import { useDispatch } from "react-redux";
 import type { BlogDTO } from "@/lib/api";
 
-// The post list is resolved on the server and passed in as `posts`. After a
-// successful create we call router.refresh() to re-run the server page and pull
-// the updated list (replacing the old remount-and-refetch approach).
+// `posts` arrives from the server. createBlogPost returns what it created, so a
+// create prepends locally instead of a router.refresh() RSC round trip.
 export default function BlogManager({ posts = [] }: { posts?: BlogDTO[] }) {
 
     const nav = useNavigate();
-    const router = useRouter();
     const dispatch = useDispatch();
+    const [created, setCreated] = useState<BlogDTO[]>([]);
     const [title, setTitle] = useState("");
     const [blog_content, setBlogContent] = useState("");
     const [author, setAuthor] = useState("");
@@ -26,15 +26,18 @@ export default function BlogManager({ posts = [] }: { posts?: BlogDTO[] }) {
     const handlePost = async () => {
         if (!title.trim() || !blog_content.trim() || !category) return;
         setLoading(true);
-        const { error } = await createBlogPost({ title, blog_content, author, category });
-        if (error) {
-            dispatch(setErrorMsg(error.detail ?? "Failed to post blog"));
+        const { data, error } = await createBlogPost({ title, blog_content, author, category });
+        if (error || !data) {
+            dispatch(setErrorMsg(error?.detail ?? "Failed to post blog"));
         } else {
             setTitle("");
             setBlogContent("");
             setAuthor("");
             setCategory("");
-            router.refresh(); // re-run the server page to pull the new post
+            setCreated((prev) => [data, ...prev]);
+            // Drop the cached lists so other views re-read them.
+            clearSessionCache(cacheKeys.organizerBlogPosts);
+            clearSessionCache(cacheKeys.blogPosts);
         }
         setLoading(false);
     };
@@ -93,7 +96,7 @@ export default function BlogManager({ posts = [] }: { posts?: BlogDTO[] }) {
 
                 <div className="cg-card">
                     <div className="text-xl font-semibold text-primary border-b border-gray-200 pb-2">Posts</div>
-                    <OrganizerBlogList posts={posts} />
+                    <OrganizerBlogList posts={[...created, ...posts]} />
                 </div>
             </div>
         </>

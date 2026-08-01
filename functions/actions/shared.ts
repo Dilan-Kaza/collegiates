@@ -1,11 +1,7 @@
-// Shared internals for the server-action modules in this directory.
-//
-// This module is intentionally NOT a "use server" file: it holds the request
-// body/result types, cache-tag constants, and plain helper functions that the
-// action modules import. (A "use server" module may only export async server
-// actions, so cross-action helpers and types have to live here instead.)
+// Shared internals for this directory's server actions: body/result types,
+// cache tags, helpers. Deliberately not "use server" — that only allows actions.
 
-import { revalidateTag } from "next/cache";
+import { updateTag } from "next/cache";
 import { getCurrentUser, canAccessOrganizer, isAdmin } from "@/lib/auth";
 import type { User, Prisma } from "@prisma/client";
 import type {
@@ -18,8 +14,7 @@ import type {
 export type FieldErrors = Record<string, string>;
 export type Mutation<T> = { data: T; error?: undefined } | { data?: undefined; error: FieldErrors };
 
-// Sign-up now only creates the account. The competitor profile (gender,
-// school, student_type, skill_level) is filled in
+// Sign-up only creates the account; the competitor profile is filled in
 // afterward via createCompetitorProfile — see CompetitorProfileBody.
 export interface RegisterBody {
   email?: string;
@@ -74,9 +69,8 @@ export interface BlogBody {
   blog_content?: string;
 }
 
-// Admin: fields for promoting an existing user to a school account (user_type
-// "School" plus its one-to-one CollegeProfile linking a college). The user is
-// matched by email; first_name/last_name are optional overrides.
+// Admin: promotes an existing user (matched by email) to a school account —
+// user_type "School" plus its one-to-one CollegeProfile linking a college.
 export interface CreateSchoolAccountBody {
   email?: string;
   first_name?: string;
@@ -101,9 +95,8 @@ export interface UpdateOrganizerRegBody {
   has_paid?: boolean;
   proof_of_reg?: boolean;
   is_competing?: boolean;
-  // Competitor profile edits the organizer may make from the registrations view.
-  // Unlike the competitor-facing flow these are not gated on existing
-  // registrations — an organizer can correct a profile at any time.
+  // Profile edits from the registrations view. Unlike the competitor-facing
+  // flow, an organizer can correct these at any time.
   gender?: string;
   school?: string;
   student_type?: string;
@@ -124,9 +117,8 @@ export interface UpdateOrganizerGroupsetBody {
   members?: string[];
 }
 
-// Event-order write payload (mirrors the Django OrderSerializer / EventOrderSerializer
-// write path). Each ring item is either an event (event_id + competitor_list) or a
-// break (break_length, no event_id). `id` is present when re-saving an existing slot.
+// Event-order write payload. A ring item is either an event (event_id +
+// competitor_list) or a break; `id` is present when re-saving an existing slot.
 export type RingKey = "ring1" | "ring2" | "ring3";
 
 export interface EventOrderCompetitorInput {
@@ -150,48 +142,34 @@ export interface OrderBody {
 }
 
 // ---------- session-tied user-data cache ----------
-//
-// The dashboard and register pages fetch the current user's full payload on
-// every load. That payload is expensive (auth + a nested Prisma query) and was
-// re-run on each navigation, leaving those pages blank for a beat. We cache it
-// across requests, but keep it tied to the session:
-//   * keyed by user_id — the session identity (auth is JWT, so there is no
-//     server session row to key on; user_id is the stable per-session handle);
-//   * expires after USER_DATA_TTL seconds so it self-heals even if an
-//     invalidation is ever missed;
-//   * dropped immediately when the session ends (logout) or the user mutates
-//     their own data, via revalidateUserData().
+
+// The current user's payload is expensive (auth + nested query) and re-run on
+// every navigation, so it is cached by user_id, TTL-expired, and tag-dropped.
 export const USER_DATA_TTL = 60; // seconds
 export const userDataTag = (userId: string) => `user-data-${userId}`;
 
 // Drop a user's cached payload. Call on logout and after any mutation to their
 // profile, registrations, or group set.
 export function revalidateUserData(userId: string): void {
-  revalidateTag(userDataTag(userId));
+  updateTag(userDataTag(userId));
 }
 
 // ---------- shared read cache (Data Cache) ----------
-//
-// The read actions query Prisma on every call. They're wrapped in unstable_cache
-// with the same short-TTL-plus-tags model as the user-data cache above: served
-// from the Data Cache across requests, expiring after READ_CACHE_TTL as a safety
-// net, and dropped immediately by the matching mutation via revalidateTag.
-// Auth/gating (getCurrentUser / requireOrganizer, which read cookies) always runs
-// OUTSIDE the cached callback — only pure Prisma reads keyed by primitives go inside.
+
+// Same short-TTL-plus-tags model as above. Auth/gating reads cookies, so it runs
+// OUTSIDE the cached callback — only primitive-keyed Prisma reads go inside.
 export const READ_CACHE_TTL = USER_DATA_TTL; // 60s, matching the user-data cache
 
-// Global invalidation tags for shared (non-user-scoped) reads, plus a per-group
-// -set tag for single-record reads.
+// Global tags for shared (non-user-scoped) reads, plus a per-groupset tag.
 export const TAG_GROUPSETS = "groupsets";
 export const TAG_REGISTRATIONS = "registrations";
 export const TAG_EVENTS = "events";
 export const groupsetTag = (uuid: string) => `groupset-${uuid}`;
 
 // ---------- date rehydration ----------
-//
-// unstable_cache serializes through JSON, which flattens Date fields to ISO
-// strings. These helpers reconstruct them so the returned DTOs honor their
-// Date-typed contracts (mirrors getSettings' date rehydration).
+
+// unstable_cache serializes through JSON, flattening Date to an ISO string.
+// These rebuild it so the returned DTOs honor their Date-typed contracts.
 export function rehydrateCompetitor(c: CompetitorDTO): CompetitorDTO {
   return {
     ...c,
@@ -231,10 +209,8 @@ export async function requireAdmin(): Promise<AdminGate> {
   return { user };
 }
 
-// Builds the writable Settings columns from a request body, shared by the
-// organizer save path and the admin create path. Missing optional fields become
-// null; missing required fields are left undefined (the caller validates before
-// a create, and update simply skips them).
+// Writable Settings columns from a request body, shared by the organizer save
+// and admin create paths. Optional fields -> null, required missing -> undefined.
 export function settingsWritable(body: SettingsBody): Prisma.SettingsUncheckedUpdateInput {
   return {
     reg_year: body.reg_year,

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Carousel, Timeline, Heading, CWCReps, BlogPosts } from "@components";
 import { Link } from "@/routerCompat";
 import type { SettingsDTO, BlogDTO } from "@/lib/api";
@@ -12,7 +13,17 @@ export default function Home({ settings = {}, posts = [] }: { settings?: Partial
   return (
     <>
       <div className="relative overflow-hidden">
-        <img className="w-full object-center object-fit -z-10" src="/test_img_4.png" />
+        {/* The above-the-fold hero: `priority` preloads it instead of letting it
+            load lazily, and next/image serves a right-sized, modern-format file
+            in place of the 1.4MB PNG. */}
+        <Image
+          className="w-full object-center object-fit -z-10"
+          src="/test_img_4.png"
+          alt=""
+          width={1198}
+          height={657}
+          priority
+        />
         <div className="absolute inset-10 flex flex-col items-center justify-center">
           <Heading className="text-xl md:text-8xl animate-fadeIn text-secondary align-middle z-10">
             Welcome to Collegiate Wushu
@@ -34,7 +45,7 @@ export default function Home({ settings = {}, posts = [] }: { settings?: Partial
         <BlogPosts posts={posts} />
       </div>
 
-      <div className="py-8 md:py-[12rem] bg-primary text-secondary">
+      <div className="py-8 md:py-24 bg-primary text-secondary">
         <Timeline settings={settings} />
       </div>
 

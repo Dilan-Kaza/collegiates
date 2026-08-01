@@ -3,9 +3,8 @@
 import type { OrganizerRegistrationDTO } from "@/lib/api";
 // registrations by athlete
 
-// `registrations` is resolved on the server and passed in (was fetched on mount).
-// `onEdit` (when provided) surfaces a per-row Edit action that hands the athlete
-// straight to the Create / Edit view pre-loaded, skipping the email search.
+// `registrations` arrives from the server. `onEdit` adds a per-row action that
+// opens the Create/Edit view pre-loaded, skipping the email search.
 export default function OrganizerRegistrationList({
     registrations = [],
     onEdit,

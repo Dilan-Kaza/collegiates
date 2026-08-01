@@ -1,15 +1,7 @@
-// Prisma schema mirroring the Django `collegiates_app` database structure.
-//
-// Table names (@@map) and column names (@map) match Django's db_table /
-// db_column so this schema maps onto a copy of the existing Postgres database.
-// These choice fields are plain varchar(1) in Django (CharField with choices)
-// and are modeled as proper Prisma enums whose members @map to the original DB
-// codes so existing rows migrate over unchanged: gender / gender_category ->
-// Gender, event_level -> SkillLevel, event_category -> EventCategory,
-// skill_level -> SkillLevel, student_type -> StudentType, user_type -> UserType.
-//
-// Django framework tables (auth_*, django_*, token_blacklist_*) are intentionally
-// omitted; only the application tables are modeled.
+// Prisma schema mirroring the Django `collegiates_app` database, so it maps onto
+// a copy of the existing Postgres data: @@map/@map match Django's db_table and
+// db_column, and enum members @map to the varchar codes already stored in rows.
+// Django framework tables (auth_*, django_*, token_blacklist_*) are omitted.
 
 generator client {
   provider = "prisma-client-js"
@@ -19,13 +11,9 @@ datasource db {
   provider = "postgresql"
 }
 
-// ---------------------------------------------------------------------------
-// Enums. Each mirrors a Django CharField(choices) stored as a varchar code;
-// every member @maps to the exact code persisted in the database, so existing
-// rows migrate over unchanged. Prisma Client reads/writes the member NAMES, so
-// the server boundary (lib/api.ts) translates member <-> code so the DTOs and
-// forms keep speaking the original codes.
-// ---------------------------------------------------------------------------
+// Each enum mirrors a Django CharField(choices). Prisma Client reads and writes
+// the member NAMES, so lib/api.ts translates member <-> code at the server
+// boundary, keeping DTOs and forms on the original codes.
 
 enum Gender {
   Male   @map("M")
@@ -42,8 +30,6 @@ enum SkillLevel {
   @@map("skill_level")
 }
 
-// Style classification for an event. Members @map to single-char codes to
-// match the varchar(1) style of the other Event choice columns.
 enum EventCategory {
   External @map("E")
   Internal @map("I")
@@ -63,8 +49,8 @@ enum StudentType {
   @@map("student_type")
 }
 
-// Account role. "C"/"O" are the legacy Django codes; "A" (Admin) is a new role
-// with no legacy data.
+// "C"/"O" are the legacy Django codes; "A" (Admin) is a new role with no legacy
+// data.
 enum UserType {
   Competitor @map("C")
   School     @map("O")
@@ -73,9 +59,8 @@ enum UserType {
   @@map("user_type")
 }
 
-// Weapon classification for an event. New field with no legacy data; members
-// @map to single-char codes to match the varchar(1) style of the other Event
-// choice columns.
+// New field with no legacy data; single-char codes match the other Event choice
+// columns.
 enum WeaponType {
   Barehand @map("B")
   Short    @map("S")
@@ -112,35 +97,26 @@ model Event {
 }
 
 model User {
-  // Django AbstractUser columns that exist on the real `users` table
-  password     String    @db.VarChar(128)
-  last_login   DateTime? @db.Timestamptz(6)
-  is_superuser Boolean   @default(false)
-  first_name   String    @default("") @db.VarChar(150)
-  last_name    String    @default("") @db.VarChar(150)
-  is_staff     Boolean   @default(false)
-  is_active    Boolean   @default(true)
-  date_joined  DateTime  @default(now()) @db.Timestamptz(6)
+  // Django AbstractUser columns, then this app's own. is_active gates login in
+  // auth.ts; role attributes live in the one-to-one profiles below.
+  password    String   @db.VarChar(128)
+  first_name  String   @default("") @db.VarChar(150)
+  last_name   String   @default("") @db.VarChar(150)
+  is_active   Boolean  @default(true)
+  date_joined DateTime @default(now()) @db.Timestamptz(6)
 
-  // Custom fields
   user_id   String   @id @default(uuid()) @db.Uuid
   email     String   @unique @db.VarChar(254)
   user_type UserType @default(Competitor)
 
-  // Competitor-specific attributes live on a one-to-one CompetitorProfile keyed
-  // by this user's uuid (see CompetitorProfile). Competitors have no college
-  // profile row, and organizers have no competitor one.
   competitor_profile CompetitorProfile?
   college_profile    CollegeProfile?
-  // Competition settings this user hosts (see Settings.host).
   hosted_settings    Settings[]
 
   @@map("users")
 }
 
-// Competitor-specific attributes split out of `users` into a one-to-one table
-// keyed by the user's uuid (the profile's PK *is* the user_id). A user has at
-// most one profile; organizers typically have none.
+// Competitor attributes split out of `users`; the profile's PK *is* the user_id.
 model CompetitorProfile {
   user          User         @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
   user_id       String       @id @db.Uuid
@@ -152,9 +128,7 @@ model CompetitorProfile {
   is_competing  Boolean      @default(false)
   has_paid      Boolean      @default(false)
   proof_of_reg  Boolean      @default(false)
-  // The reg_year (from Settings) the competitor last confirmed their profile
-  // under. Not surfaced to the client; used server-side to force a returning
-  // competitor back through /profile/setup when a new competition year starts.
+  // Last Settings.reg_year confirmed under; re-runs /profile/setup on a new year.
   last_reg_year Int?
 
   registration      Registration[]
@@ -164,16 +138,13 @@ model CompetitorProfile {
   @@map("competitor_profile")
 }
 
-// Organizer-specific attributes split out of `users` into a one-to-one table
-// keyed by the user's uuid (the profile's PK *is* the user_id), mirroring
-// CompetitorProfile. A user has at most one college profile.
+// Organizer counterpart to CompetitorProfile; the profile's PK *is* the user_id.
 model CollegeProfile {
   user       User     @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
   user_id    String   @id @db.Uuid
   college    College? @relation(fields: [college_id], references: [college_id], onDelete: SetNull)
   college_id String?  @db.Uuid
-  // Competition years this organizer has hosted, as a set of ints (Postgres
-  // integer[]). Empty by default.
+  // Competition years hosted (Postgres integer[]), empty by default.
   host_years Int[]    @default([])
 
   @@map("college_profile")
@@ -240,14 +211,11 @@ model Settings {
   reg_end              DateTime  @db.Timestamptz(6)
   reg_cost_first       Int
   reg_cost_extra       Int
-  // Deadline for competitors to settle both outstanding requirements — payment
-  // and proof of enrollment. Distinct from reg_end: registration can close
-  // before the paperwork is due.
+  // Deadline for payment + proof of enrollment; separate from reg_end.
   due_date             DateTime? @db.Date
   comp_date            DateTime? @db.Date
   contact_email        String    @db.VarChar(254)
-  // Whether the current year's event order is published (visible to competitors).
-  // Lives on Settings rather than Order so publicity is part of event config.
+  // Whether this year's event order is visible to competitors.
   order_public         Boolean   @default(false)
   host                 User      @relation(fields: [host_id], references: [user_id], onDelete: Cascade)
   host_id              String    @db.Uuid
@@ -256,14 +224,7 @@ model Settings {
   @@map("settings")
 }
 
-// A single scheduled slot in a ring: either an event (with an ordered list of
-// competitors, via CompetitorOrder) or a break (event_id null, break_length set).
-// Django field `event_id` is itself a ForeignKey, so its DB column is
-// `event_id_id` (Django appends `_id` to the field name).
-//
-// A slot belongs directly to one Ring (`ring_id`) and holds its position within
-// that ring in `order`. `ring_id` is nullable only so a slot can exist before it
-// is assigned; every persisted slot is written with one.
+// One scheduled slot in a ring: an event with ordered competitors, or a break.
 model EventOrder {
   id           String  @id @db.Uuid
   comp_year    Int
@@ -273,6 +234,7 @@ model EventOrder {
   name         String?
   order        Int     @default(0)
   ring         Ring?   @relation(fields: [ring_id], references: [id], onDelete: Cascade)
+  // Nullable only so a slot can exist before assignment; persisted slots have one.
   ring_id      String? @db.Uuid
 
   competitor_orders CompetitorOrder[]
@@ -281,8 +243,7 @@ model EventOrder {
   @@map("event_order")
 }
 
-// Through-model for EventOrder.competitor_list (Django ManyToManyField). No
-// db_table on the Django model, so it keeps the default `collegiates_app_competitororder`.
+// Through-model for EventOrder's competitor list; keeps Django's default table name.
 model CompetitorOrder {
   id             BigInt            @id @default(autoincrement())
   order          Int               @default(0)
@@ -294,8 +255,7 @@ model CompetitorOrder {
   @@map("collegiates_app_competitororder")
 }
 
-// One saved order per competition year (comp_year is the primary key). Its rings
-// are Ring rows — one per ring, so an Order has at most three.
+// One saved order per competition year (comp_year is the PK), owning up to three Rings.
 model Order {
   comp_year  Int      @id
   updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(6)
@@ -305,10 +265,8 @@ model Order {
   @@map("order")
 }
 
-// One row per ring of an Order (ring_number 1/2/3), owning that ring's scheduled
-// slots directly through EventOrder.ring_id. Replaces the former join table:
-// there is exactly one Ring per (order, ring_number), and its EventOrders are
-// sequenced by their own `order` field.
+// One ring of an Order (ring_number 1/2/3), owning its slots via EventOrder.ring_id
+// and sequencing them by EventOrder.order.
 model Ring {
   id          String @id @default(uuid()) @db.Uuid
   ring_number Int

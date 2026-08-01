@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Heading } from "./Heading";
 import { useState } from "react";
 
@@ -24,10 +25,12 @@ function CWCRep({ college, pad }: { college: string; pad?: string }) {
   return (
     <>
       <div className="h-[4rem] w-full md:h-[8rem] md:w-[15rem] relative">
-        <img
+        <Image
           alt="CWC Rep"
           src={`/cwc_reps/${college}.png`}
-          className={`object-contain ${pad ?? ""} w-full h-full`}
+          fill
+          sizes="(min-width: 768px) 240px, 50vw"
+          className={`object-contain ${pad ?? ""}`}
         />
       </div>
     </>

@@ -39,15 +39,13 @@ function StaticRing({ label, items }: { label: string; items: EventOrderDTO[] })
 }
 
 export default async function EventOrder() {
-    // Resolve auth on the server so the data ships with the page — no client
-    // fetch and no loading flash. Unauthenticated users are redirected before
-    // any markup renders, mirroring the old useForwardSignIn behaviour.
+    // Auth on the server so data ships with the page; unauthenticated visitors
+    // are redirected before any markup renders.
     const user = await getCurrentUser();
     if (!user) redirect("/signin");
 
-    // getPublicOrder self-authorizes: returns the published order for the
-    // current year, or null when none is public yet (or the viewer isn't a
-    // competitor).
+    // getPublicOrder self-authorizes: this year's published order, or null when
+    // none is public yet (or the viewer isn't a competitor).
     const order = await getPublicOrder();
 
     if (!order) {

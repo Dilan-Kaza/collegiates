@@ -14,13 +14,13 @@ export default async function Page() {
   const user = await requireUser();
   if (await canAccessOrganizer(user)) redirect("/organizer");
 
-  const settings = await loadSettings();
+  // Both are cached reads and neither depends on the other, so they go together.
+  const [settings, colleges] = await Promise.all([loadSettings(), getColleges()]);
   const currentYear = settings?.reg_year ?? null;
   const profile = user.competitor_profile;
 
-  // Already confirmed for the current year: only reachable by direct navigation.
-  // Editing is permitted only while the competitor has no registrations for the
-  // year; otherwise there is nothing to do here, so send them to the dashboard.
+  // Already confirmed this year (direct navigation only). Editing needs zero
+  // registrations; otherwise there's nothing to do, so go to the dashboard.
   if (profile && currentYear != null && profile.last_reg_year === currentYear) {
     const hasRegs =
       (await prisma.registration.count({
@@ -29,7 +29,6 @@ export default async function Page() {
     if (hasRegs) redirect("/dashboard");
   }
 
-  const colleges = await getColleges();
   const initial: ProfileInitial = {
     gender: fromGender(profile?.gender) ?? "",
     school: profile?.school_id ?? "",

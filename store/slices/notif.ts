@@ -2,10 +2,8 @@
 
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
 
-// Single notification slice replacing the separate success/error slices. One
-// message is shown at a time; `isError` selects which variant the <Notif />
-// component renders. setSuccessMsg/setErrorMsg keep their old names so existing
-// dispatch call sites are unchanged.
+// One notification at a time; `isError` picks the <Notif /> variant.
+// setSuccessMsg/setErrorMsg keep their old names so call sites are unchanged.
 interface NotifState {
   message: string;
   isError: boolean;

@@ -13,16 +13,8 @@ type NavigateFn = (to: string | number, opts?: NavigateOptions) => void;
 
 const NavigateContext = createContext<NavigateFn | null>(null);
 
-// Wraps every programmatic navigation (router.push/replace/back) in a React
-// transition, and mirrors that transition's pending state into the global
-// `loading` flag. Because App Router keeps a navigation transition pending until
-// the destination's Server Component (with its server-fetched data) arrives, the
-// app-wide <LoadingOverlay /> stays up for exactly as long as we're waiting on
-// the server for the next page.
-//
-// This provider sits above the whole page tree and never unmounts, so both the
-// start (pending → true) and settle (pending → false) updates always fire, even
-// when the component that triggered the navigation unmounts mid-transition.
+// Wraps programmatic navigation in a transition, mirroring its pending state into
+// the global `loading` flag. Never unmounts, so start and settle always both fire.
 export function NavigationProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const dispatch = useDispatch();

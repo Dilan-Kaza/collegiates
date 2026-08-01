@@ -3,7 +3,7 @@
 // Account server actions: email check, registration, and the current user's
 // own profile (read/update/delete) plus activation.
 
-import { unstable_cache, revalidateTag } from "next/cache";
+import { unstable_cache, updateTag } from "next/cache";
 import { Prisma, type StudentType, type Gender, type SkillLevel } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
@@ -33,9 +33,8 @@ export async function registerUser(body: RegisterBody): Promise<Mutation<Competi
   const existing = await prisma.user.findUnique({ where: { email }, select: { user_id: true } });
   if (existing) return { error: { email: "A user with this email already exists." } };
 
-  // Sign-up creates the account only. The competitor profile (and the
-  // competitor's own skill_level) is filled in afterward
-  // via createCompetitorProfile, so a fresh user has competitor_profile == null.
+  // Sign-up creates the account only; the profile is filled in afterward via
+  // createCompetitorProfile, so a fresh user has competitor_profile == null.
   const user = await prisma.user.create({
     data: {
       email,
@@ -50,12 +49,8 @@ export async function registerUser(body: RegisterBody): Promise<Mutation<Competi
   return { data: shapeCompetitor(user, []) };
 }
 
-// Whether the competitor's profile is locked for edits: true once they have at
-// least one registration in the active competition year. Because gender/skill
-// drive which events they may enter, these fields must not change out from under
-// existing registrations. This is the single source of truth enforced by every
-// user-facing profile write (saveCompetitorProfile, updateMe) so a crafted
-// request cannot bypass the /profile/setup UI guard.
+// Locked once the competitor has a registration this year: gender/skill drive
+// event eligibility. Enforced by every profile write, not just the setup UI.
 async function competitorProfileLock(
   userId: string,
 ): Promise<{ currentYear: number | null; locked: boolean }> {
@@ -69,15 +64,8 @@ async function competitorProfileLock(
   return { currentYear, locked };
 }
 
-// Second step of onboarding, also used for the yearly re-confirmation: create
-// or update the signed-in competitor's profile and stamp last_reg_year to the
-// current reg_year (from Settings). The dashboard gate routes a competitor here
-// whenever they have no profile or last_reg_year is behind the current year.
-//
-// Profile fields are only writable when the competitor has no registrations for
-// the current year (gender/skill_level drive event eligibility, so they must
-// not change out from under existing registrations). Either way last_reg_year
-// is stamped, so submitting an unchanged form still clears the yearly re-check.
+// Onboarding step two, also the yearly re-confirmation: upsert the profile and
+// stamp last_reg_year. Fields are frozen when locked, but the stamp still lands.
 export async function saveCompetitorProfile(
   body: CompetitorProfileBody,
 ): Promise<Mutation<CompetitorDTO>> {
@@ -97,66 +85,73 @@ export async function saveCompetitorProfile(
     student_type: toStudentType(body.student_type),
   };
 
-  await prisma.user.update({
+  // The update carries the full read include, so it returns the payload the DTO
+  // needs instead of being followed by a second query.
+  const user = await prisma.user.update({
     where: { user_id: current.user_id },
     data: {
       // Competitor-owned fields on the profile are frozen while locked.
       competitor_profile: {
         upsert: {
-          // A brand-new profile is never locked (registering requires a
-          // profile), so create always carries the submitted fields.
+          // A new profile is never locked (registering requires one), so
+          // create always carries the submitted fields.
           create: { ...fieldPatch, ...yearPatch },
           update: locked ? yearPatch : { ...fieldPatch, ...yearPatch },
         },
       },
     },
+    include: fullUserInclude(currentYear),
   });
   revalidateUserData(current.user_id);
-  const user = await loadFullUser(current.user_id);
-  if (!user) return { error: { detail: "User not found." } };
-  const profile = user.competitor_profile;
-  return {
-    data: shapeCompetitor(user, profile?.registration ?? [], profile?.groupset_member[0]?.groupset ?? null),
-  };
+  return { data: shapeFullUser(user) };
 }
 
-async function loadFullUser(userId: string) {
-  const settings = await loadSettings();
-  return prisma.user.findUnique({
-    where: { user_id: userId },
-    include: {
-      // registration and groupset_member now hang off the competitor's profile,
-      // so they're included nested under it rather than at the user level.
-      competitor_profile: {
-        include: {
-          school: true,
-          registration: { include: { event: true } },
-          // The competitor's group set for the current registration cycle,
-          // bundled with the profile so it loads the same way registrations do.
-          // Mirrors getMyGroupset's year filter; matches nothing until settings exist.
-          groupset_member: {
-            where: { groupset: { comp_year: settings?.reg_year ?? -1 } },
-            include: {
-              groupset: {
-                include: { school: true, members: { include: { member: { include: { user: true } } } } },
-              },
+// A competitor's full payload: profile + school + registrations + this year's
+// group set. Shared by the cached reader and by the profile writes.
+function fullUserInclude(year: number | null) {
+  return {
+    competitor_profile: {
+      include: {
+        school: true,
+        registration: { include: { event: true } },
+        // This cycle's group set, loaded alongside registrations. Mirrors
+        // getMyGroupset's year filter; matches nothing until settings exist.
+        groupset_member: {
+          where: { groupset: { comp_year: year ?? -1 } },
+          include: {
+            groupset: {
+              include: { school: true, members: { include: { member: { include: { user: true } } } } },
             },
           },
         },
       },
     },
+  } satisfies Prisma.UserInclude;
+}
+
+type FullUser = Prisma.UserGetPayload<{ include: ReturnType<typeof fullUserInclude> }>;
+
+const shapeFullUser = (user: FullUser): CompetitorDTO => {
+  const profile = user.competitor_profile;
+  return shapeCompetitor(user, profile?.registration ?? [], profile?.groupset_member[0]?.groupset ?? null);
+};
+
+function loadFullUser(userId: string, year: number | null) {
+  return prisma.user.findUnique({
+    where: { user_id: userId },
+    include: fullUserInclude(year),
   });
 }
 
-function loadCompetitorCached(userId: string): Promise<CompetitorDTO | null> {
+// Keyed by year as well as user so a rollover misses rather than serving the
+// old year's group set. The settings read stays outside the cached callback.
+function loadCompetitorCached(userId: string, year: number | null): Promise<CompetitorDTO | null> {
   return unstable_cache(
     async (): Promise<CompetitorDTO | null> => {
-      const user = await loadFullUser(userId);
-      if (!user) return null;
-      const profile = user.competitor_profile;
-      return shapeCompetitor(user, profile?.registration ?? [], profile?.groupset_member[0]?.groupset ?? null);
+      const user = await loadFullUser(userId, year);
+      return user ? shapeFullUser(user) : null;
     },
-    ["competitor-data", userId],
+    ["competitor-data", userId, String(year)],
     { tags: [userDataTag(userId)], revalidate: USER_DATA_TTL },
   )();
 }
@@ -164,7 +159,8 @@ function loadCompetitorCached(userId: string): Promise<CompetitorDTO | null> {
 export async function getMe(): Promise<CompetitorDTO | null> {
   const current = await getCurrentUser();
   if (!current) return null;
-  const data = await loadCompetitorCached(current.user_id);
+  const settings = await loadSettings();
+  const data = await loadCompetitorCached(current.user_id, settings?.reg_year ?? null);
   return data ? rehydrateCompetitor(data) : null;
 }
 
@@ -172,20 +168,17 @@ export async function updateMe(body: UpdateMeBody): Promise<Mutation<CompetitorD
   const current = await getCurrentUser();
   if (!current) return { error: { detail: "Not authenticated." } };
 
-  // Once the competitor has registrations in the current reg year, their
-  // eligibility-driving fields (skill_level + the competitor_profile) are
-  // frozen — enforced here, not just in the UI, so a direct call to this action
-  // can't change them out from under existing registrations.
-  const { locked } = await competitorProfileLock(current.user_id);
+  // Eligibility-driving fields freeze once registrations exist. Enforced here,
+  // not just in the UI, so a direct call to this action can't bypass it.
+  const { currentYear, locked } = await competitorProfileLock(current.user_id);
 
   const data: Prisma.UserUpdateInput = {};
   if (body.first_name !== undefined) data.first_name = body.first_name;
   if (body.last_name !== undefined) data.last_name = body.last_name;
 
   if (!locked) {
-    // Competitor attributes live on the one-to-one profile. Build the patch
-    // separately and apply it via upsert so users without a profile still get
-    // one created on first edit.
+    // Competitor attributes live on the one-to-one profile; upsert so users
+    // without one still get it created on first edit.
     const profile: {
       gender?: Gender | null;
       skill_level?: SkillLevel | null;
@@ -201,14 +194,15 @@ export async function updateMe(body: UpdateMeBody): Promise<Mutation<CompetitorD
     }
   }
 
-  await prisma.user.update({ where: { user_id: current.user_id }, data });
+  // As in saveCompetitorProfile: the update returns the full payload, so there
+  // is no read-back query.
+  const user = await prisma.user.update({
+    where: { user_id: current.user_id },
+    data,
+    include: fullUserInclude(currentYear),
+  });
   revalidateUserData(current.user_id);
-  const user = await loadFullUser(current.user_id);
-  if (!user) return { error: { detail: "User not found." } };
-  const profile = user.competitor_profile;
-  return {
-    data: shapeCompetitor(user, profile?.registration ?? [], profile?.groupset_member[0]?.groupset ?? null),
-  };
+  return { data: shapeFullUser(user) };
 }
 
 export async function deleteMe(): Promise<Mutation<{ detail: string }>> {
@@ -218,8 +212,8 @@ export async function deleteMe(): Promise<Mutation<{ detail: string }>> {
   revalidateUserData(current.user_id);
   // Removing the user drops them from the organizer registration and group set
   // lists, so bust those shared caches too.
-  revalidateTag(TAG_REGISTRATIONS);
-  revalidateTag(TAG_GROUPSETS);
+  updateTag(TAG_REGISTRATIONS);
+  updateTag(TAG_GROUPSETS);
   return { data: { detail: "deleted" } };
 }
 

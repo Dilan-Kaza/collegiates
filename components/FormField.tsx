@@ -22,9 +22,8 @@ interface FieldProps {
   [key: string]: unknown;
 }
 
-// Renders a labeled control (ShortAnswer by default) wired to the shared form
-// state, followed by its validation error. Pass `as={DatePicker}` / `as={Dropdown}`
-// for the other control types. `errorClass` tunes the error spacing per layout.
+// A labeled control (ShortAnswer by default) wired to the shared form state, plus
+// its error. `as={DatePicker}`/`as={Dropdown}` swap the control; `errorClass` spaces it.
 export function Field({
   as: Control = ShortAnswer,
   name, formData, errors, handleChange, handleBlur,

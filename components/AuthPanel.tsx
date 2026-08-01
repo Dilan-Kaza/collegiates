@@ -10,9 +10,8 @@ interface AuthPanelProps {
   children?: ReactNode;
   bottomLabel?: ReactNode;
   bottomLink: string;
-  // Accepted as a prop by call sites (e.g. the sign-up layouts). Note the
-  // component reads its second positional arg for the form handler, so this
-  // prop is declared for type-compatibility with existing usage.
+  // Declared for type-compatibility with call sites: the component reads its
+  // second positional arg for the form handler, not this prop.
   onSubmit?: FormEventHandler<HTMLFormElement>;
 }
 

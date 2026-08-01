@@ -2,10 +2,8 @@
 
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
 
-// Global full-screen loading flag. A single boolean drives the <LoadingOverlay />
-// mounted in the root layout, so any client component can show the app-wide
-// loading screen by dispatching setLoading(true) and clearing it with
-// setLoading(false) (typically in a .finally()).
+// Global loading flag driving the root layout's <LoadingOverlay />. Any client
+// component can dispatch setLoading(true), clearing it in a .finally().
 interface LoadingState {
   loading: boolean;
 }

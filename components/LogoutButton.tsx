@@ -17,10 +17,8 @@ export default function LogoutButton() {
 
     const handleLogout = async () => {
         setLoggingOut(true);
-        // The logoutAction server action clears the Auth.js session cookie
-        // server-side (no /api/auth endpoint). router.refresh() re-runs the
-        // layout, re-seeding SessionProvider as unauthenticated so useSession-
-        // based redirect hooks respond.
+        // logoutAction clears the session cookie server-side; router.refresh()
+        // re-seeds SessionProvider as unauthenticated so the hooks respond.
         await logoutAction();
         clearAllSessionCache();
         dispatch(setSuccessMsg("Successfully logged out!"));

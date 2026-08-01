@@ -51,10 +51,8 @@ async function computeTotalOwed(
     return { total, count: sorted.length, earlyCount, hasGroupset: !!groupset };
 }
 
-// First-load data (settings and the current user) is resolved on the server and
-// passed in as props, so the dashboard renders fully populated with no client
-// fetch or loading overlay. Whether the event order is published is read off
-// settings (order_public) rather than passed separately.
+// First-load data arrives as props from the server, so this renders populated
+// with no client fetch. Publish state is read off settings.order_public.
 export default function Dashboard ({
     settings = {},
     userinfo = {},
@@ -68,9 +66,8 @@ export default function Dashboard ({
     // The group set now loads bundled with the current user (like registrations).
     const myTeam = userinfo.groupset ?? undefined;
 
-    // The total-owed figure is derived by an async computation. `undefined` marks
-    // it as still computing so the section can show a loading placeholder; once it
-    // resolves, `null` means "nothing owed" and a CostSummary means show the total.
+    // Async-derived total. `undefined` = still computing (show a placeholder),
+    // `null` = nothing owed, a CostSummary = show the total.
     const [cost, setCost] = useState<CostSummary | null | undefined>(undefined);
     useEffect(() => {
         let cancelled = false;

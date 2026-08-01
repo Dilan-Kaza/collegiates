@@ -3,20 +3,14 @@
 import { useState, useEffect, useMemo } from "react";
 import { saveOrder, setOrderPublic } from "@functions/actions";
 import type { OrganizerRegistrationDTO } from "@/lib/api";
-import { ReactSortable } from "react-sortablejs";
 import SortableRing from "./SortableRing";
+import BreakPanel from "./BreakPanel";
 import { eventRank, eventSeconds, toHrMin, buildIdToName, computeConflicts } from "./utils";
 import { isEventItem } from "./types";
 import type { BreakItem, Competitor, EventItem, OrderData, RingEvent, RingKey, Rings } from "./types";
 
-const BREAK_PRESETS: BreakItem[] = [
-    { id: "preset_lunch", type: "break", name: "Lunch", duration: 60 },
-    { id: "preset_judges", type: "break", name: "Judges Break", duration: 15 },
-];
-
-// `rawRegistrations` and `initialOrder` are resolved on the server and passed
-// in (both were fetched on mount here). `initialOrder` is null when no order has
-// been saved for the current year yet.
+// `rawRegistrations` and `initialOrder` are resolved on the server and passed in.
+// `initialOrder` is null when no order has been saved for the current year yet.
 export default function BuildView({
     rawRegistrations = [],
     initialOrder = null,
@@ -79,16 +73,6 @@ export default function BuildView({
     const [isPublic, setIsPublic] = useState(orderPublic); // publicity now lives on Settings
     const [saving, setSaving] = useState(false);
     const [publishing, setPublishing] = useState(false);
-    const [stagedBreaks, setStagedBreaks] = useState<BreakItem[]>([]);
-    const [breakName, setBreakName] = useState("");
-    const [breakDuration, setBreakDuration] = useState(60);
-
-    const addBreak = () => {
-        if (!breakName.trim()) return;
-        setStagedBreaks((prev) => [...prev, { id: `break_${Date.now()}`, type: "break", name: breakName.trim(), duration: Number(breakDuration) }]);
-        setBreakName("");
-        setBreakDuration(60);
-    };
 
     useEffect(() => {
         if (allEvents.length === 0 || initialized) return;
@@ -113,9 +97,8 @@ export default function BuildView({
         setInitialized(true);
     }, [allEvents, initialized, existingOrder]);
 
-    // Serializes a ring into the event-order write payload (EventOrderInput[]):
-    // each item carries its position (`order`), its saved slot id when re-saving,
-    // and either event + ordered competitors or a break length.
+    // Ring -> EventOrderInput[]: each item carries its position, its saved slot id
+    // when re-saving, and either event + competitors or a break length.
     const serializeRing = (items: RingEvent[]) => items.map((item, index) => {
         const base: { order: number; id?: string } = { order: index };
         if (item.orderId) base.id = item.orderId;
@@ -201,63 +184,7 @@ export default function BuildView({
 
     return (
         <div className="flex gap-4 items-start">
-            {/* Sidebar */}
-            <div className="w-48 shrink-0 flex flex-col gap-3 sticky top-4">
-                <div className="bg-off-white rounded-lg border border-gray-200 flex flex-col gap-2 p-3">
-                    <div className="text-xs font-semibold text-primary">Add Break</div>
-                    {stagedBreaks.length > 0 && (
-                        <ReactSortable<BreakItem>
-                            list={stagedBreaks}
-                            setList={setStagedBreaks}
-                            group="rings"
-                            animation={150}
-                            className="flex flex-col gap-1"
-                        >
-                            {stagedBreaks.map((b) => (
-                                <div key={b.id} className="rounded border border-dashed border-gray-300 bg-gray-50 px-2 py-1.5 cursor-grab select-none flex items-center gap-2 text-xs">
-                                    <span className="text-gray-400">⏸</span>
-                                    <span className="font-medium text-gray-600">{b.name}</span>
-                                    <span className="text-gray-400 ml-auto">{b.duration} min</span>
-                                </div>
-                            ))}
-                        </ReactSortable>
-                    )}
-                    <ReactSortable<BreakItem>
-                        list={BREAK_PRESETS}
-                        setList={() => {}}
-                        group={{ name: "rings", pull: "clone", put: false }}
-                        sort={false}
-                        clone={(item) => ({ ...item, id: `break_${Date.now()}` })}
-                        className="flex flex-col gap-1"
-                    >
-                        {BREAK_PRESETS.map((preset) => (
-                            <div key={preset.id} className="rounded border border-dashed border-gray-300 bg-gray-50 px-2 py-1.5 cursor-grab select-none flex items-center gap-2 text-xs">
-                                <span className="text-gray-400">⏸</span>
-                                <span className="font-medium text-gray-600">{preset.name}</span>
-                                <span className="text-gray-400 ml-auto">{preset.duration} min</span>
-                            </div>
-                        ))}
-                    </ReactSortable>
-                    <div className="border-t border-gray-100 pt-2 text-xs text-gray-400">Custom</div>
-                    <input
-                        className="border border-gray-300 rounded px-2 py-1 text-xs focus:outline-primary"
-                        placeholder="Name (e.g. Lunch)"
-                        value={breakName}
-                        onChange={(e) => setBreakName(e.target.value)}
-                    />
-                    <div className="flex items-center gap-1">
-                        <input
-                            type="number"
-                            min={1}
-                            className="border border-gray-300 rounded px-2 py-1 text-xs focus:outline-primary w-16"
-                            value={breakDuration}
-                            onChange={(e) => setBreakDuration(Number(e.target.value))}
-                        />
-                        <span className="text-xs text-gray-400">min</span>
-                    </div>
-                    <button className="btn btn-ghost btn-sm text-xs" onClick={addBreak} disabled={!breakName.trim()}>+ Add</button>
-                </div>
-            </div>
+            <BreakPanel />
 
             {/* Main area */}
             <div className="flex-1 flex flex-col gap-4 min-w-0">

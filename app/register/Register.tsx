@@ -9,10 +9,8 @@ import type { SettingsDTO, EventDTO } from "@/lib/api";
 import type { RegEventItem } from "@/types";
 // event registration flow
 
-// `catalogEvents` (the events this competitor is eligible for) is resolved on
-// the server and passed in, so the selection/confirm steps render without a
-// client fetch. Auth and the "already registered" redirect are handled by the
-// server page before this renders.
+// `catalogEvents` (what this competitor is eligible for) arrives from the server.
+// Auth and the "already registered" redirect happen on the page before this.
 export default function Register({
     settings = {},
     catalogEvents = [],

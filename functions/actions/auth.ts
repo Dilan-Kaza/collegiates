@@ -3,34 +3,73 @@
 // Auth server actions (Auth.js via the Credentials provider).
 
 import { AuthError } from "next-auth";
+import type { UserType } from "@prisma/client";
 import { signIn, signOut } from "@/auth";
-import { getCurrentUser } from "@/lib/auth";
+import prisma from "@/lib/prisma";
+import { canAccessOrganizer, getCurrentUser } from "@/lib/auth";
+import { loadSettings } from "@/lib/settings";
 import { revalidateUserData } from "./shared";
 
+// What loginAction reports about the user it just signed in: server-only facts,
+// gathered here so the sign-in page can pick a landing route. No routing here.
+export interface SignedInUser {
+  user_id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  user_type: UserType;
+  // Whether this user may reach the organizer console (settings host or admin).
+  can_access_organizer: boolean;
+  // Profile state: absent until /profile/setup runs, re-confirmed yearly.
+  // profile_reg_year behind reg_year means setup is due.
+  has_profile: boolean;
+  profile_reg_year: number | null;
+  reg_year: number | null;
+}
+
 // Signs the user in with the Credentials provider. Sets the Auth.js session
-// cookie server-side; returns { ok } or { error }.
+// cookie server-side; returns { user } or { error }.
 export async function loginAction({
   email,
   password,
 }: {
   email: string;
   password: string;
-}): Promise<{ ok?: true; error?: string }> {
+}): Promise<{ user?: SignedInUser; error?: string }> {
   try {
     await signIn("credentials", { email, password, redirect: false });
-    return { ok: true };
   } catch (error) {
     if (error instanceof AuthError) return { error: "Invalid email or password" };
     throw error;
   }
+
+  // The Credentials provider just authenticated this email, so load the row by
+  // email rather than reading back the session cookie we set moments ago.
+  const user = await prisma.user.findUnique({
+    where: { email },
+    include: { competitor_profile: true },
+  });
+  if (!user) return { error: "Invalid email or password" };
+
+  const settings = await loadSettings();
+
+  return {
+    user: {
+      user_id: user.user_id,
+      email: user.email,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      user_type: user.user_type,
+      can_access_organizer: await canAccessOrganizer(user),
+      has_profile: !!user.competitor_profile,
+      profile_reg_year: user.competitor_profile?.last_reg_year ?? null,
+      reg_year: settings?.reg_year ?? null,
+    },
+  };
 }
 
-// Reports whether the caller's Auth.js session cookie is still valid on the
-// server. The client caches its signed-in state per tab (sessionStorage), which
-// can outlive a silently-expired JWT; the SessionGuard calls this to reconcile
-// that belief and drop the stale cache when the server no longer recognizes the
-// session. Cheap: getCurrentUser is React-cache()-wrapped (JWT decode + one
-// indexed Prisma lookup).
+// Whether the caller's session cookie is still valid server-side, so the client
+// can drop a per-tab cache that outlived a silently-expired JWT.
 export async function verifySession(): Promise<{ authenticated: boolean }> {
   const current = await getCurrentUser();
   return { authenticated: !!current };

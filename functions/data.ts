@@ -1,15 +1,12 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
 import prisma from "@/lib/prisma";
-import { shapeSettings, shapeBlog, shapeOrder, ORDER_INCLUDE } from "@/lib/api";
+import { shapeSettings, shapeBlog, shapeBlogListItem, shapeOrder, ORDER_INCLUDE } from "@/lib/api";
 import type { SettingsDTO, BlogDTO, OrderDTO } from "@/lib/api";
 import { loadSettings } from "@/lib/settings";
 
-// Cached, static async data-fetching functions for public data. These query
-// Prisma directly (no HTTP round-trip) and use Next's Data Cache via
-// unstable_cache — tagged so writes can invalidate them (revalidateTag).
-// Call these from Server Components; pass the result as props to client
-// components.
+// Cached public-data fetchers: Prisma direct (no HTTP) through Next's Data Cache,
+// tagged so writes invalidate them. Call from Server Components, pass as props.
 
 // { [college_name]: college_id }
 export const getColleges = unstable_cache(
@@ -21,10 +18,8 @@ export const getColleges = unstable_cache(
   { tags: ["colleges"], revalidate: 3600 }
 );
 
-// { [label]: email } for every School account, so the admin console can offer
-// them as host options. The value is the email because createSettings resolves
-// the host by email; the label prefixes the linked college (when set) for
-// readability and appends the email to keep keys unique.
+// { [label]: email } for every School account, as host options for the admin
+// console. Keyed by email because createSettings resolves the host that way.
 export const getSchoolAccounts = unstable_cache(
   async (): Promise<Record<string, string>> => {
     const rows = await prisma.user.findMany({
@@ -44,43 +39,23 @@ export const getSchoolAccounts = unstable_cache(
   { tags: ["school-accounts"], revalidate: 3600 }
 );
 
-const _getSettings = unstable_cache(
-  async (): Promise<SettingsDTO | null> => {
-    const s = await loadSettings();
-    return s ? shapeSettings(s) : null;
-  },
-  ["settings"],
-  { tags: ["settings"], revalidate: 3600 }
-);
-
-// Ensures date fields are Date objects regardless of cache serialization,
-// so client consumers (which expect Dates) work uniformly.
+// The settings DTO for client components. loadSettings is already Data-Cache
+// backed with rehydrated Dates, so this is a pure shape — no second entry.
 export async function getSettings(): Promise<SettingsDTO | null> {
-  const s = await _getSettings();
-  if (!s) return null;
-  return {
-    ...s,
-    early_reg_start: s.early_reg_start ? new Date(s.early_reg_start) : null,
-    reg_start: new Date(s.reg_start),
-    reg_end: new Date(s.reg_end),
-    due_date: s.due_date ? new Date(s.due_date) : null,
-    comp_date: s.comp_date ? new Date(s.comp_date) : null,
-  };
+  return shapeSettings(await loadSettings());
 }
 
 export const getBlogPosts = unstable_cache(
   async (): Promise<BlogDTO[]> => {
     const rows = await prisma.blog.findMany({ orderBy: { date_created: "desc" } });
-    return rows.map(shapeBlog);
+    return rows.map(shapeBlogListItem);
   },
   ["blog-list"],
   { tags: ["blog"], revalidate: 3600 }
 );
 
-// The single saved order for a competition year (comp_year is its PK), read
-// through Next's Data Cache. Auth and public/organizer gating are the caller's
-// responsibility — this is pure, year-keyed data tagged "order" (and
-// "order-<year>") so saveOrder can invalidate it with revalidateTag.
+// The saved order for a competition year, via the Data Cache. Pure, year-keyed
+// data — auth and public/organizer gating are the caller's responsibility.
 export async function getOrderByYear(year: number): Promise<OrderDTO | null> {
   const order = await unstable_cache(
     async (): Promise<OrderDTO | null> => {

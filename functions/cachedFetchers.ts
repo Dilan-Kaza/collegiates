@@ -29,13 +29,8 @@ import type {
   OrganizerRegistrationDTO,
 } from "@/lib/api";
 
-// Cache-first client fetchers over the read server actions. Each returns the
-// sessionStorage-cached value on a hit and otherwise calls the action, caching
-// the result under the shared key from cacheKeys. First-load data is seeded
-// server-side (see CacheSeed), so on a normal navigation these resolve straight
-// from the cache; they hit the network only after an explicit clear or when
-// invoked on a page that didn't seed them. Cached entries live until a mutation
-// clears them (clearSessionCache / clearAllSessionCache) or the tab closes.
+// Cache-first client fetchers over the read actions: sessionStorage hit, else call
+// the action and cache it. Entries live until a mutation clears them or the tab closes.
 
 async function cached<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
   const hit = getSessionCache<T>(key);

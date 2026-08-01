@@ -1,8 +1,7 @@
 "use client";
 
-// Client for the external Google Sheets API (the only remaining non-action
-// data source). All internal data access now goes through server actions
-// (functions/actions/) and cached server functions (functions/data.ts).
+// Client for the external Google Sheets API — the only non-action data source.
+// Internal data goes through functions/actions/ and functions/data.ts.
 
 export interface ApiError extends Error {
   response?: { status: number; data: unknown };

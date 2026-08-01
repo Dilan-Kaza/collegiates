@@ -3,7 +3,7 @@
 // Competitor server actions: the current competitor's events, registrations,
 // and group set (read + create/join).
 
-import { unstable_cache, revalidateTag } from "next/cache";
+import { unstable_cache, updateTag } from "next/cache";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { getCurrentUser, isCompetitor } from "@/lib/auth";
@@ -19,12 +19,8 @@ import type { Mutation, RegistrationItem } from "./shared";
 export async function getCompetitorEvents(): Promise<EventDTO[]> {
   const user = await getCurrentUser();
   if (!user || !isCompetitor(user)) return [];
-  // Keyed by (level, gender): the only inputs to the query. A profile change
-  // moves the user to a different key, so no per-user invalidation is needed;
-  // the "events" tag covers changes to the catalogue itself.
-  // Prisma speaks enum member names, so query the columns with the profile's
-  // enum members directly (null when unset). The cache key stays keyed by the
-  // legacy "M"/"F" and "B"/"I"/"A" codes for stability.
+  // Keyed by (level, gender), the query's only inputs, so a profile change just
+  // moves keys. Key uses the legacy codes; the query uses Prisma's enum members.
   const skillLevel = user.competitor_profile?.skill_level ?? null;
   const gender = user.competitor_profile?.gender ?? null;
   const levelCode = fromSkillLevel(skillLevel) ?? "";
@@ -74,18 +70,30 @@ export async function createRegistrations(items: RegistrationItem[]): Promise<Mu
   if (new Set(codes).size !== codes.length) return { error: { event: "Duplicate events are not allowed." } };
 
   const year = settings.reg_year;
+
+  // Catalogue slice and the competitor's existing rows for those events in one
+  // round trip, replacing the per-event lookup + duplicate check (2N queries).
+  const [events, existing] = await Promise.all([
+    prisma.event.findMany({ where: { event_code: { in: codes } } }),
+    prisma.registration.findMany({
+      where: { competitor_id: user.user_id, comp_year: year, event_code: { in: codes } },
+      select: { event_code: true },
+    }),
+  ]);
+  const eventByCode = new Map(events.map((e) => [e.event_code, e]));
+  const alreadyRegistered = new Set(existing.map((r) => r.event_code));
+
+  // date_created is stamped here rather than left to the column default so the
+  // created rows can be shaped into DTOs without reading them back.
+  const date_created = new Date();
   const toCreate: Prisma.RegistrationCreateManyInput[] = [];
   for (const item of items) {
-    const event = await prisma.event.findUnique({ where: { event_code: item.event_code } });
+    const event = eventByCode.get(item.event_code);
     if (!event) return { error: { event: `Event with id ${item.event_code} does not exist.` } };
     if (event.gender_category !== (user.competitor_profile?.gender ?? null)) return { error: { event: "Competitor signed up for wrong gender category" } };
     if (event.event_level !== (user.competitor_profile?.skill_level ?? null)) return { error: { event: "Competitor signed up for wrong level" } };
-    const dupe = await prisma.registration.findFirst({
-      where: { competitor_id: user.user_id, event_code: event.event_code, comp_year: year },
-      select: { id: true },
-    });
-    if (dupe) return { error: { event: "You are already registered for this event." } };
-    toCreate.push({ competitor_id: user.user_id, event_code: event.event_code, comp_year: year, nandu_str: item.nandu_str ?? "" });
+    if (alreadyRegistered.has(event.event_code)) return { error: { event: "You are already registered for this event." } };
+    toCreate.push({ competitor_id: user.user_id, event_code: event.event_code, comp_year: year, nandu_str: item.nandu_str ?? "", date_created });
   }
 
   await prisma.$transaction([
@@ -96,13 +104,23 @@ export async function createRegistrations(items: RegistrationItem[]): Promise<Mu
     }),
   ]);
   revalidateUserData(user.user_id);
-  revalidateTag(TAG_REGISTRATIONS); // organizer registration lists include this competitor now
+  updateTag(TAG_REGISTRATIONS); // organizer registration lists include this competitor now
 
-  const regs = await prisma.registration.findMany({
-    where: { competitor_id: user.user_id, comp_year: year, event_code: { in: codes } },
-    include: { event: true },
-  });
-  return { data: regs.map(shapeRegistration) };
+  // Shaped from the rows we just wrote plus the events already in hand, so the
+  // write isn't followed by a read-back query.
+  return {
+    data: items.map((item) =>
+      shapeRegistration({
+        id: 0n,
+        competitor_id: user.user_id,
+        event_code: item.event_code,
+        comp_year: year,
+        nandu_str: item.nandu_str ?? "",
+        date_created,
+        event: eventByCode.get(item.event_code)!,
+      }),
+    ),
+  };
 }
 
 export async function getMyGroupset(): Promise<GroupsetDTO[]> {
@@ -155,7 +173,7 @@ export async function createGroupset(body: { team_name: string }): Promise<Mutat
   });
   // The group set is bundled into the creator's getMe payload, so refresh it.
   revalidateUserData(user.user_id);
-  revalidateTag(TAG_GROUPSETS); // new group set appears in joinable/organizer lists
+  updateTag(TAG_GROUPSETS); // new group set appears in joinable/organizer lists
   return { data: shapeGroupset(groupset) };
 }
 
@@ -189,23 +207,32 @@ export async function joinGroupset(body: { groupset: string }): Promise<Mutation
   if (!regActive(settings)) return { error: { detail: "Registration is not active" } };
   const year = settings.reg_year;
 
-  const groupset = await prisma.groupset.findUnique({ where: { groupset_id: body.groupset }, include: { members: true } });
+  // The target group set and the "already in a group set this year" check are
+  // independent, so they go out together.
+  const [groupset, alreadyIn] = await Promise.all([
+    prisma.groupset.findUnique({ where: { groupset_id: body.groupset }, include: { members: true } }),
+    prisma.groupsetMember.findFirst({ where: { member_id: user.user_id, groupset: { comp_year: year } }, select: { id: true } }),
+  ]);
   if (!groupset) return { error: { groupset: "Groupset does not exist" } };
   if (groupset.comp_year !== year) return { error: { groupset: "Groupset is not in current registration year" } };
   if (groupset.school_id !== user.competitor_profile?.school_id) return { error: { groupset: "You must sign up for a groupset from your school" } };
   if (groupset.members.some((m) => m.member_id === user.user_id)) return { error: { groupset: "You are already registered with this groupset" } };
-  const alreadyIn = await prisma.groupsetMember.findFirst({ where: { member_id: user.user_id, groupset: { comp_year: year } }, select: { id: true } });
   if (alreadyIn) return { error: { groupset: "You are already in a groupset" } };
   if (groupset.members.length >= 6) return { error: { groupset: "Groupset is full" } };
 
-  await prisma.groupsetMember.create({ data: { groupset_id: groupset.groupset_id, member_id: user.user_id, leader: false } });
+  // The insert returns the updated roster through its own select, so there is no
+  // read-back query after the write.
+  const joined = await prisma.groupsetMember.create({
+    data: { groupset_id: groupset.groupset_id, member_id: user.user_id, leader: false },
+    select: {
+      groupset: { include: { school: true, members: { include: { member: { include: { user: true } } } } } },
+    },
+  });
   // The member list is bundled into every member's getMe payload, so refresh
   // the joiner and the existing members alike.
   revalidateUserData(user.user_id);
   for (const m of groupset.members) revalidateUserData(m.member_id);
-  revalidateTag(TAG_GROUPSETS); // roster change shows in joinable/organizer lists
-  revalidateTag(groupsetTag(groupset.groupset_id));
-  const full = await prisma.groupset.findUnique({ where: { groupset_id: groupset.groupset_id }, include: { school: true, members: { include: { member: { include: { user: true } } } } } });
-  if (!full) return { error: { groupset: "Groupset does not exist" } };
-  return { data: shapeGroupset(full) };
+  updateTag(TAG_GROUPSETS); // roster change shows in joinable/organizer lists
+  updateTag(groupsetTag(groupset.groupset_id));
+  return { data: shapeGroupset(joined.groupset) };
 }

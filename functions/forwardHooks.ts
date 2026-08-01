@@ -4,18 +4,18 @@ import { useSession } from "@functions/sessionContext";
 import { useNavigate } from "@/routerCompat";
 import { useEffect } from "react";
 
-// Redirect hooks driven by the Auth.js session (via useSession) instead of the
-// old Redux loginStatus slice. SessionProvider is seeded server-side, so the
-// session is already resolved on first render — `status` is only ever
-// "authenticated" or "unauthenticated", never a transient "loading".
+// Redirect hooks driven by useSession. SessionProvider is server-seeded, so
+// `status` is resolved on first render — never a transient "loading".
 
-function useForwardDashboard() {
+// Forwards an already-signed-in visitor off an auth page. enabled=false suspends
+// it, so the sign-in page can pick its own destination after signing someone in.
+function useForwardDashboard(enabled = true) {
   const { status } = useSession();
   const nav = useNavigate();
 
   useEffect(() => {
-    if (status === "authenticated") nav("/dashboard");
-  }, [status]);
+    if (enabled && status === "authenticated") nav("/dashboard");
+  }, [status, enabled]);
 }
 
 function useForwardIfNotOrganizer() {

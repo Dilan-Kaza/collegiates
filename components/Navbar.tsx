@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Link, useNavigate } from "@/routerCompat";
 import { useSession } from "@functions/sessionContext";
 
@@ -22,11 +23,15 @@ function NavBar({ firstName = "" }: { firstName?: string }) {
       <div className="justify-between flex w-full">
         <div className="flex gap-10 items-center">
 
-          <Link to="/"><img
+          {/* Rendered at 100x100 on every page, but the source is a 656KB
+              1382x511 PNG that was being shipped whole. next/image serves it at
+              the size it's displayed. */}
+          <Link to="/"><Image
                     src="/wushu_logo.png"
                     alt="logo"
                     width={100}
                     height={100}
+                    priority
                     className="object-cover rounded-[2rem]"
                   /></Link>
           {tabs.map((tab) => (

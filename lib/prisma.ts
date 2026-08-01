@@ -5,11 +5,8 @@ import { PrismaPostgresAdapter } from "@prisma/adapter-ppg";
 // database connections.
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
-// Connect to Prisma Postgres via its serverless driver adapter. DATABASE_URL
-// must be the Prisma Postgres **Direct TCP** connection string, e.g.
-// `postgres://<id>:<key>@db.prisma.io:5432/postgres?sslmode=require` — NOT the
-// `prisma+postgres://accelerate.prisma-data.net/?api_key=...` Accelerate URL,
-// which this adapter does not accept.
+// DATABASE_URL must be the Prisma Postgres Direct TCP string, not an Accelerate
+// `prisma+postgres://` URL — this adapter rejects those (see the guard below).
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
   throw new Error(

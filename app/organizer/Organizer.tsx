@@ -7,9 +7,8 @@ import { useState } from "react";
 import type { SettingsDTO, OrganizerRegistrationDTO, OrganizerGroupsetDTO, OrderDTO, BlogDTO } from "@/lib/api";
 // organizer dashboard
 
-// Every panel's data is resolved on the server (the page gates to organizers and
-// redirects otherwise) and passed in, so this renders fully populated with no
-// client fetch.
+// Every panel's data arrives from the server, which also gates to organizers,
+// so this renders fully populated with no client fetch.
 export default function Organizer({
     settings = {},
     registrations = [],

@@ -13,16 +13,16 @@ export default async function Page() {
   // Organizers have no competitor dashboard — send them straight to the
   // organizer console before any dashboard data is fetched or rendered.
   if (await canAccessOrganizer(user)) redirect("/organizer");
-  const settings = await getSettings();
-  // Route the competitor to /profile/setup if they have no profile yet (sign-up
-  // creates the account only) or if their profile was last confirmed under an
-  // earlier competition year — they re-confirm it once per new reg_year.
+  // Independent reads, so they resolve together. On the redirect path below getMe
+  // is wasted, but it's cached and that path fires once per competitor per year.
+  const [settings, userinfo] = await Promise.all([getSettings(), getMe()]);
+  // To /profile/setup when there's no profile yet, or it was last confirmed
+  // under an earlier competition year (re-confirmed once per new reg_year).
   const currentYear = settings?.reg_year;
   const profile = user.competitor_profile;
   if (!profile || (currentYear != null && profile.last_reg_year !== currentYear)) {
     redirect("/profile/setup");
   }
-  const userinfo = await getMe();
   return (
     <>
       <CacheSeed entries={{ [cacheKeys.settings]: settings, [cacheKeys.currentUser]: userinfo }} />

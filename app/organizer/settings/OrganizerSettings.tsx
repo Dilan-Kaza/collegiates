@@ -1,7 +1,6 @@
 "use client";
 
 import { MtHeader } from "@components";
-import { useForwardIfNotOrganizer } from "@functions";
 import { setErrorMsg } from "@slices";
 import { saveSettings } from "@functions/actions";
 import { useNavigate } from "@/routerCompat";
@@ -14,7 +13,8 @@ type SettingsForm = Record<string, string | number | null>;
 
 export default function OrganizerSettings({ settings = {} }: { settings?: Partial<SettingsDTO> }) {
 
-    useForwardIfNotOrganizer();
+    // Access is gated server-side by the page (requireOrganizer), so there is no
+    // client-side redirect here.
     const nav = useNavigate();
     const dispatch = useDispatch();
 

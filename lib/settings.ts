@@ -1,19 +1,42 @@
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import prisma from "./prisma";
+import { SETTINGS_INCLUDE } from "./api";
 import type { SettingsWithHost } from "./api";
 
-// Mirrors Settings.load() — the most-recently created settings row.
-//
-// Wrapped in React `cache()`: a single render/action asks for settings from
-// several places (auth-gated data fetch, mutation validation, the group-set
-// year filter). cache() collapses those to one query for the current request
-// only; nothing persists across requests.
-export const loadSettings = cache((): Promise<SettingsWithHost | null> =>
-  prisma.settings.findFirst({
-    orderBy: { created_at: "desc" },
-    include: { host: true },
-  })
+// The Settings row in Next's Data Cache: rarely written, read on nearly every
+// request. Tagged "settings", which every write path already invalidates.
+const loadSettingsCached = unstable_cache(
+  (): Promise<SettingsWithHost | null> =>
+    prisma.settings.findFirst({
+      orderBy: { created_at: "desc" },
+      include: SETTINGS_INCLUDE,
+    }),
+  ["settings-row"],
+  { tags: ["settings"], revalidate: 3600 }
 );
+
+// The Data Cache serializes through JSON, flattening DateTime to a string.
+// Rebuild them — regActive's `<=` would otherwise compare strings silently.
+function rehydrate(s: SettingsWithHost): SettingsWithHost {
+  return {
+    ...s,
+    early_reg_start: s.early_reg_start ? new Date(s.early_reg_start) : null,
+    reg_start: new Date(s.reg_start),
+    reg_end: new Date(s.reg_end),
+    due_date: s.due_date ? new Date(s.due_date) : null,
+    comp_date: s.comp_date ? new Date(s.comp_date) : null,
+    created_at: new Date(s.created_at),
+    host: { ...s.host, date_joined: new Date(s.host.date_joined) },
+  };
+}
+
+// Mirrors Settings.load() — the most-recently created settings row. React
+// `cache()` collapses a request's several callers to one read plus rehydration.
+export const loadSettings = cache(async (): Promise<SettingsWithHost | null> => {
+  const s = await loadSettingsCached();
+  return s ? rehydrate(s) : null;
+});
 
 // Mirrors Settings.reg_active
 export function regActive(s: SettingsWithHost | null | undefined): boolean {

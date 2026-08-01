@@ -4,12 +4,24 @@ import { AuthPanel, ShortAnswer, MtHeader } from "@components";
 import { useState } from "react";
 import type { SyntheticEvent } from "react";
 import { loginAction } from "@functions/actions";
+import type { SignedInUser } from "@functions/actions";
 import { useForwardDashboard } from "@functions";
 import { setSuccessMsg } from "@slices";
 import { clearSessionCache } from "@functions/sessionCache";
 import { validate, handleFormBlur, handleFormChange } from "@functions/forms";
 import { useDispatch } from "react-redux";
 import { useRouter } from "next/navigation";
+import { useNavigate } from "@/routerCompat";
+
+// Where a freshly signed-in user lands, from what loginAction returns. Mirrors
+// /dashboard's server gates so they arrive directly instead of via a redirect.
+function landingRoute(user: SignedInUser): string {
+  if (user.can_access_organizer) return "/organizer";
+  if (!user.has_profile || (user.reg_year != null && user.profile_reg_year !== user.reg_year)) {
+    return "/profile/setup";
+  }
+  return "/dashboard";
+}
 
 export default function SignIn() {
 
@@ -17,9 +29,13 @@ export default function SignIn() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  // Set once this page has signed a user in and routed them itself, which
+  // switches off the generic "authenticated -> /dashboard" forwarding below.
+  const [signedIn, setSignedIn] = useState(false);
 
   const dispatch = useDispatch();
   const router = useRouter();
+  const nav = useNavigate();
 
   const handleChange = handleFormChange(setFormData, setErrors);
 
@@ -44,27 +60,29 @@ export default function SignIn() {
 
     setLoading(true);
 
-    // The loginAction server action sets the Auth.js session cookie server-side
-    // (no /api/auth endpoint). router.refresh() then re-runs the layout, which
-    // re-seeds SessionProvider so useSession/useForwardDashboard pick up the new
-    // session and navigate to the dashboard.
+    // loginAction sets the session cookie server-side and returns the user.
+    // router.refresh() re-runs the layout, re-seeding SessionProvider.
     const res = await loginAction({
       email: formData.email,
       password: formData.password,
     });
 
-    if (res.error) {
+    if (res.error || !res.user) {
       setError("Sign In failed");
     } else {
       setError("");
       clearSessionCache("currentUser");
       dispatch(setSuccessMsg("Sign In Successful"));
+      setSignedIn(true);
       router.refresh();
+      nav(landingRoute(res.user));
     }
     setLoading(false);
   };
 
-  useForwardDashboard();
+  // Fallback for reaching /signin while already authenticated. Suspended once
+  // this page has signed someone in and picked their destination.
+  useForwardDashboard(!signedIn);
 
   return (
     <>

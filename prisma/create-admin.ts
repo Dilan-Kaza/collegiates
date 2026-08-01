@@ -4,26 +4,8 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaPostgresAdapter } from "@prisma/adapter-ppg";
 import { hashPassword } from "../lib/password.ts";
 
-// Creates (or promotes) a user with user_type "Admin" — the role that unlocks
-// the /admin console (requireAdmin in lib/auth.ts). There is no UI for minting
-// an admin, so this script is the bootstrap path for the first one.
-//
-// Run with: npm run create-admin
-//
-// Interactive by design: it asks for the email, name, and password once running,
-// so nothing sensitive lands in shell history and no flags need remembering.
-// Every prompt can be pre-answered instead, in which case it is skipped:
-//   flags: --email, --password, --first-name, --last-name, --force
-//   env:   ADMIN_EMAIL, ADMIN_PASSWORD (flags win)
-// Those are also the only way to run without a terminal (CI, `npm run ... < file`):
-// prompting needs a TTY, so a non-TTY run requires --email, --password, and
-// --force (which answers the confirmation prompt) instead.
-//
-// Self-contained like seed.ts: it builds its own PrismaClient with the Prisma
-// Postgres driver adapter rather than importing @/lib/prisma, so it can run
-// under `node prisma/create-admin.ts` without tsconfig path-alias resolution.
-// lib/password.ts is imported relatively (with the .ts extension Node's type
-// stripping requires) so the Django-compatible PBKDF2 hashing is not duplicated.
+// Bootstraps an "Admin" user (the /admin console role). Run: npm run create-admin.
+// Prompts interactively; see --help for the flags/env that pre-answer each one.
 
 // Connected lazily so bad arguments (and --help) are reported before the
 // environment is consulted, and so nothing dials the database on --help.
@@ -70,7 +52,8 @@ function parseArgs(argv: string[]): Args {
           "    --password <password>  also ADMIN_PASSWORD\n" +
           "    --first-name <name>\n" +
           "    --last-name <name>\n" +
-          "    --force                answer the confirmation prompts yes",
+          "    --force                answer the confirmation prompts yes\n\n" +
+          "  Prompting needs a TTY. Without one, pass --email, --password, and --force.",
       );
       process.exit(0);
     }
@@ -87,15 +70,8 @@ function parseArgs(argv: string[]): Args {
   return args;
 }
 
-// ---------------------------------------------------------------------------
-// Prompting. One readline interface serves the whole run, created on first use
-// so a fully pre-answered run never touches stdin.
-//
-// Prompts require a TTY: readline emits a buffered pipe's lines as they arrive,
-// so lines typed ahead of the question that consumes them are simply lost, and
-// answers would silently go missing. A non-TTY run must pass flags/env instead.
-// ---------------------------------------------------------------------------
-
+// One readline interface for the whole run, created on first use. A TTY is
+// required: a buffered pipe's type-ahead lines are lost, silently dropping answers.
 const interactive = process.stdin.isTTY === true;
 
 let rl: readline.Interface | undefined;
@@ -105,14 +81,13 @@ let inputClosed: Promise<never> | undefined;
 function ui(): readline.Interface {
   if (!rl) {
     rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-    // readline has no public mute switch, so its output hook is overridden (the
-    // standard approach) to swallow the echo while a password is being typed.
-    // The prompt text itself is written by question() before muting is set.
+    // readline has no public mute switch, so override its output hook to swallow
+    // the echo while a password is typed. question() writes the prompt first.
     (rl as unknown as { _writeToOutput: (chunk: string) => void })._writeToOutput = (chunk: string) => {
       if (!muted) process.stdout.write(chunk);
     };
     // A pending question never settles once stdin ends (Ctrl-D), which would
-    // otherwise leave the event loop empty and exit 0 without doing anything.
+    // leave the event loop empty and exit 0 without doing anything.
     inputClosed = new Promise((_resolve, reject) => {
       rl!.once("close", () => reject(new Error("Input closed before every prompt was answered.")));
     });
@@ -212,8 +187,8 @@ async function main() {
 
   const email = await resolveEmail(args.email);
 
-  // Matches checkEmail()'s case-insensitive lookup, so an existing account is
-  // found even when its stored email differs in case from what was typed here.
+  // Matches checkEmail()'s case-insensitive lookup, so an account is found even
+  // when its stored email differs in case from what was typed.
   const existing = await db().user.findFirst({
     where: { email: { equals: email, mode: "insensitive" } },
     select: { user_id: true, email: true, user_type: true },
@@ -239,14 +214,12 @@ async function main() {
   const last_name = args.last_name ?? (interactive ? await ask("Last name (optional): ") : "");
   const password = await resolvePassword(args.password);
 
-  // is_staff / is_superuser are the Django-side flags; user_type "Admin" is what
-  // this app's own authorization checks read (lib/auth.ts isAdmin).
+  // user_type "Admin" is what isAdmin reads (lib/auth.ts); is_active is the
+  // login gate in auth.ts.
   const fields = {
     password: hashPassword(password),
     user_type: "Admin",
     is_active: true,
-    is_staff: true,
-    is_superuser: true,
   } as const;
 
   if (existing) {

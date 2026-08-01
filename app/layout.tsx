@@ -19,14 +19,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   // immediately, with no client fetch or auth-status flash.
   const currentUser = rawSession ? await getCurrentUser() : null;
   const firstName = currentUser?.first_name ?? "";
-  // Seed the client session as authenticated ONLY when a real user row backs the
-  // JWT. A JWT can outlive its user (DB reset, deleted account, wrong DB), and
-  // every server-side gate (requireUser/requireOrganizer) is DB-backed via
-  // getCurrentUser. Seeding the context straight from the raw JWT would leave the
-  // client believing it's signed in while the gates reject it — the infinite
-  // dashboard<->signin redirect loop. Passing null here makes the context agree
-  // with the server, which also trips SessionProvider's reconciler to drop any
-  // stale per-tab session cache.
+  // Seed as authenticated only when a real user row backs the JWT — a JWT can
+  // outlive its user, and seeding raw would loop dashboard<->signin forever.
   const session = currentUser ? rawSession : null;
   return (
     <Providers session={session}>

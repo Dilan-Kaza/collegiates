@@ -38,13 +38,8 @@ const profileFrom = (a: OrganizerRegistrationDTO | null): ProfileForm => ({
     school: a?.school_id ?? "",
 });
 
-// Organizer tool for building or amending a competitor's registration. The
-// organizer either arrives with an athlete already selected (edited straight
-// from the By Athlete list via `initialAthlete`) or searches for one by email,
-// then adds/removes any event from the full catalogue (competitor gender/level
-// gates don't apply here) and edits nandu codes before saving via
-// updateOrganizerRegistration. `allEvents` (the full catalogue) is resolved on
-// the server and passed in (was fetched on mount).
+// Builds or amends a competitor's registration, from `initialAthlete` or an email
+// search. `allEvents` is the full catalogue, resolved on the server.
 export default function OrganizerRegistrationEdit({
     allEvents = [],
     colleges = {},
@@ -78,10 +73,8 @@ export default function OrganizerRegistrationEdit({
 
     const getEvent = (code: string) => allEvents.find((e) => e.event_code === code);
     const selectedCodes = new Set(events.map((e) => e.event_code));
-    // Only offer events that match the (in-progress) profile gender/skill level
-    // — the same gates the competitor-facing flow applies — and aren't already
-    // selected. Following the live profile form lets the organizer set
-    // gender/level first and immediately see the matching events.
+    // Only unselected events matching the in-progress profile's gender/skill —
+    // following the live form, so setting those first reveals the matches.
     const remainingEvents = allEvents.filter(
         (e) =>
             !selectedCodes.has(e.event_code) &&

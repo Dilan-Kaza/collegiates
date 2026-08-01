@@ -30,6 +30,8 @@ Do not create api endpoints, instead use server actions.
 
 Do not attempt to start your own database or manually build a migration.
 
+Do not use prisma to create a temporary database.
+
 Do not change what libraries are used unless explicitly asked to
 
 <!-- END:nextjs-agent-rules -->

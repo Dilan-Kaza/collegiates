@@ -7,9 +7,8 @@ import type { OrderData } from "@components/event-builder";
 import type { OrganizerRegistrationDTO } from "@/lib/api";
 // organizer event builder tabs
 
-// The registration list and saved order are resolved on the server and passed
-// in; this client component owns the tab UI. (SheetView still loads its Google
-// Sheet on demand — that's a user action, not a first-load fetch.)
+// Registrations and the saved order arrive from the server; this owns the tab UI.
+// SheetView still loads its sheet on demand — a user action, not a first load.
 export default function EventBuilder({
     registrations = [],
     order = null,

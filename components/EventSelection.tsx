@@ -64,9 +64,8 @@ export default function EventSelection({ events, setEvents, catalogEvents = [], 
         return foundEvent?.event_name;
     }
 
-    // Human-readable labels for the coded attributes used to build the
-    // dropdown sections. Gender and skill level are handled by the filters, so
-    // events are organised by weapon (the section) and type (the suffix).
+    // Labels for the dropdown sections. Filters cover gender/skill, so events
+    // are organised by weapon (the section) and type (the suffix).
     const WEAPON_LABELS: Record<string, string> = { B: "Barehand", S: "Short Weapon", L: "Long Weapon", O: "Other Weapon" };
     const TYPE_LABELS: Record<string, string> = { E: "External", I: "Internal" };
 
@@ -84,9 +83,8 @@ export default function EventSelection({ events, setEvents, catalogEvents = [], 
         ? remainingEvents.filter(code => getEventFromCode(code)?.event_category === typeFilter)
         : remainingEvents;
 
-    // Bucket the remaining events into sections keyed by weapon, keeping the
-    // original catalogue order within each section. Events without a weapon
-    // fall into an "Other" section rendered last.
+    // Bucket remaining events by weapon, keeping catalogue order within each.
+    // Weaponless events fall into an "Other" section rendered last.
     const groupedRemainingEvents = (() => {
         const order = ["B", "S", "L", "O", "other"];
         const groups: Record<string, string[]> = {};

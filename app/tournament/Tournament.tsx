@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Link } from "@/routerCompat";
 import type { SettingsDTO } from "@/lib/api";
 
@@ -23,14 +24,16 @@ export default function Tournament({ settings = {} }: { settings?: TournamentSet
   return (
     <>
       <div className="relative overflow-hidden">
-        <img src="JB.jpg" className="w-full opacity-70"/>
+        {/* Leading slash matters: the old relative "JB.jpg" only resolved to
+            /JB.jpg because /tournament happens to sit at the root. */}
+        <Image src="/JB.jpg" alt="" width={2048} height={1365} priority className="w-full opacity-70"/>
 
         <div className="absolute inset-[5%] flex flex-col text-off-white pt-10 md:pt-24">
           <div className="text-2xl md:text-6xl">
             Tournament
           </div>
           <div className="text-lg md:text-2xl md:pt-10">
-            Host: {compData.host}<br/>
+            Host: {compData.host_school ?? "TBD"}<br/>
             Date: {dateToStr(compData.comp_date)}<br/>
           </div>
           <div className="text-lg md:text-2xl font-bold pt-10 hidden md:block">

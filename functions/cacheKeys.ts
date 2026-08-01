@@ -1,9 +1,5 @@
-// Single source of truth for session-cache keys, shared by the client-side
-// cache-first fetchers (cachedFetchers.ts), the seeding layer (CacheSeed.tsx),
-// and the mutation call sites that invalidate entries with clearSessionCache.
-// Keeping every key here means a seed, a fetch, and an invalidation can never
-// silently drift apart. This module is directive-free so server components can
-// import the keys when seeding props into the cache.
+// Single source of truth for session-cache keys, so a seed, a fetch, and an
+// invalidation can't drift. Directive-free so server components can import it.
 
 export const cacheKeys = {
   // Public / competitor data

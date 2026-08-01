@@ -1,9 +1,7 @@
 import crypto from "crypto";
 
-// Django-compatible PBKDF2 password hashing.
+// Django-compatible PBKDF2 hashing, so passwords round-trip with the old backend.
 // Format: pbkdf2_sha256$<iterations>$<salt>$<base64 hash>
-// This lets the ported API verify passwords created by the Django backend and
-// create new ones Django would also accept.
 
 const ALGORITHM = "pbkdf2_sha256";
 const DEFAULT_ITERATIONS = 600000; // Django 4.x/5.x default range

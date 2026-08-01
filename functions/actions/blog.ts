@@ -2,10 +2,10 @@
 
 // Blog server actions: public reads and organizer-gated writes.
 
-import { unstable_cache, revalidateTag } from "next/cache";
+import { unstable_cache, updateTag } from "next/cache";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { shapeBlog } from "@/lib/api";
+import { shapeBlog, shapeBlogListItem } from "@/lib/api";
 import type { BlogDTO } from "@/lib/api";
 import { READ_CACHE_TTL, requireOrganizer, reBlog } from "./shared";
 import type { Mutation, BlogBody } from "./shared";
@@ -14,7 +14,7 @@ export async function getOrganizerBlogPosts(): Promise<BlogDTO[]> {
   const posts = await unstable_cache(
     async (): Promise<BlogDTO[]> => {
       const rows = await prisma.blog.findMany({ orderBy: { date_created: "desc" } });
-      return rows.map(shapeBlog);
+      return rows.map(shapeBlogListItem);
     },
     ["organizer-blog-list"],
     { tags: ["blog"], revalidate: READ_CACHE_TTL },
@@ -46,7 +46,7 @@ export async function createBlogPost(body: BlogBody): Promise<Mutation<BlogDTO>>
       blog_content: body.blog_content ?? "",
     },
   });
-  revalidateTag("blog");
+  updateTag("blog");
   return { data: shapeBlog(post) };
 }
 
@@ -59,8 +59,8 @@ export async function updateBlogPost(blogId: string, body: BlogBody): Promise<Mu
   if (body.title !== undefined) data.title = body.title;
   if (body.blog_content !== undefined) data.blog_content = body.blog_content;
   const post = await prisma.blog.update({ where: { blog_id: blogId }, data });
-  revalidateTag("blog");
-  revalidateTag(`blog-${blogId}`);
+  updateTag("blog");
+  updateTag(`blog-${blogId}`);
   return { data: shapeBlog(post) };
 }
 
@@ -68,7 +68,7 @@ export async function deleteBlogPost(blogId: string): Promise<Mutation<{ detail:
   const { error } = await requireOrganizer();
   if (error) return { error };
   await prisma.blog.delete({ where: { blog_id: blogId } });
-  revalidateTag("blog");
-  revalidateTag(`blog-${blogId}`);
+  updateTag("blog");
+  updateTag(`blog-${blogId}`);
   return { data: { detail: "deleted" } };
 }

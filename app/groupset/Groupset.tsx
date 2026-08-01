@@ -4,14 +4,11 @@ import { useState } from "react";
 import { createGroupset, joinGroupset } from "@functions/actions";
 import { clearSessionCache } from "@functions/sessionCache";
 import { ShortAnswer, Dropdown, MtHeader } from "@components";
-import { fetchGroupSet } from "@functions";
 import type { GroupsetDTO } from "@/lib/api";
 // competitor groupset create/join page
 
-// The joinable group sets and the competitor's own group set are resolved on
-// the server and passed in as initial state, so the page renders populated with
-// no client fetch. After a create/join the component refetches its own group
-// set to reflect the change.
+// Joinable group sets and the competitor's own arrive as initial state from the
+// server. After a create/join the component refetches its own to reflect it.
 export default function Groupset({
     groupSetMembers: initialMembers = [],
     myGroupSet: initialMine = [],
@@ -30,17 +27,21 @@ export default function Groupset({
     const groupSetOptions = Object.fromEntries(groupSetMembers.map((g) => [g.team_name, g.groupset_id]));
     const myTeam = myGroupSet?.[0];
 
+    // Both actions return the resulting group set, so the roster comes straight
+    // from the response. Stale cache entries are still dropped for other views.
+    const applyResult = (groupset: GroupsetDTO) => {
+        clearSessionCache("groupSet");
+        // The group set is now bundled into getMe, so refresh that cache too.
+        clearSessionCache("currentUser");
+        setMyGroupSet([groupset]);
+    };
+
     const onCreate = async () => {
         if (submitting) return;
         setSubmitting(true);
         try {
-            const { error } = await createGroupset({ team_name: createName });
-            if (!error) {
-                clearSessionCache("groupSet");
-                // The group set is now bundled into getMe, so refresh that cache too.
-                clearSessionCache("currentUser");
-                await fetchGroupSet().then(setMyGroupSet);
-            }
+            const { data, error } = await createGroupset({ team_name: createName });
+            if (!error && data) applyResult(data);
         } finally {
             setSubmitting(false);
         }
@@ -50,13 +51,8 @@ export default function Groupset({
         if (submitting) return;
         setSubmitting(true);
         try {
-            const { error } = await joinGroupset({ groupset: joinName });
-            if (!error) {
-                clearSessionCache("groupSet");
-                // The group set is now bundled into getMe, so refresh that cache too.
-                clearSessionCache("currentUser");
-                await fetchGroupSet().then(setMyGroupSet);
-            }
+            const { data, error } = await joinGroupset({ groupset: joinName });
+            if (!error && data) applyResult(data);
         } finally {
             setSubmitting(false);
         }
