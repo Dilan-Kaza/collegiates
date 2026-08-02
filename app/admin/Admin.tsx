@@ -3,21 +3,13 @@
 import { useState } from "react";
 import { MtHeader, ShortAnswer, DatePicker, Dropdown, LogoutButton } from "@components";
 import { createSettings, createSchoolAccount } from "@functions/actions";
+import { errorMessage, runAction } from "@functions/actionErrors";
 import { setErrorMsg, setSuccessMsg } from "@slices";
 import { useAppDispatch } from "@/store/hooks";
 // admin console: create new competition settings and school accounts.
 // Access is enforced server-side (requireAdmin on the page + both actions).
 
 type Form = Record<string, string>;
-
-// Surfaces a { error: FieldErrors } result: prefer a general `detail`, else the
-// first field message. Returns true when an error was shown.
-function showError(dispatch: ReturnType<typeof useAppDispatch>, error?: Record<string, string>): boolean {
-  if (!error) return false;
-  const msg = error.detail ?? Object.values(error)[0] ?? "Something went wrong.";
-  dispatch(setErrorMsg(msg));
-  return true;
-}
 
 export default function Admin({
   colleges = {},
@@ -38,42 +30,60 @@ export default function Admin({
 
   const submitSchool = async () => {
     setSavingSchool(true);
-    const { error } = await createSchoolAccount({
-      email: school.email,
-      first_name: school.first_name,
-      last_name: school.last_name,
-      college: school.college,
-    });
-    if (!showError(dispatch, error)) {
+    const fallback = "Could not set up the school account.";
+    try {
+      const { error } = await runAction(
+        () => createSchoolAccount({
+          email: school.email,
+          first_name: school.first_name,
+          last_name: school.last_name,
+          college: school.college,
+        }),
+        fallback,
+      );
+      if (error) {
+        dispatch(setErrorMsg(errorMessage(error, fallback)));
+        return;
+      }
       dispatch(setSuccessMsg(`School account set up for ${school.email}.`));
       setSchool({});
+    } finally {
+      setSavingSchool(false);
     }
-    setSavingSchool(false);
   };
 
   const submitSettings = async () => {
     setSavingSettings(true);
     const num = (v: string | undefined) => (v ? Number(v) : undefined);
-    const { error } = await createSettings({
-      reg_year: num(settings.reg_year),
-      reg_start: settings.reg_start || undefined,
-      reg_end: settings.reg_end || undefined,
-      early_reg_start: settings.early_reg_start || null,
-      reg_cost_first: num(settings.reg_cost_first),
-      reg_cost_extra: num(settings.reg_cost_extra),
-      early_reg_cost_first: settings.early_reg_cost_first ? Number(settings.early_reg_cost_first) : null,
-      early_reg_cost_extra: settings.early_reg_cost_extra ? Number(settings.early_reg_cost_extra) : null,
-      due_date: settings.due_date || null,
-      comp_date: settings.comp_date || null,
-      contact_email: settings.contact_email,
-      host: settings.host,
-      order_public: settings.order_public === "true",
-    });
-    if (!showError(dispatch, error)) {
+    const fallback = "Could not create the settings.";
+    try {
+      const { error } = await runAction(
+        () => createSettings({
+          reg_year: num(settings.reg_year),
+          reg_start: settings.reg_start || undefined,
+          reg_end: settings.reg_end || undefined,
+          early_reg_start: settings.early_reg_start || null,
+          reg_cost_first: num(settings.reg_cost_first),
+          reg_cost_extra: num(settings.reg_cost_extra),
+          early_reg_cost_first: settings.early_reg_cost_first ? Number(settings.early_reg_cost_first) : null,
+          early_reg_cost_extra: settings.early_reg_cost_extra ? Number(settings.early_reg_cost_extra) : null,
+          due_date: settings.due_date || null,
+          comp_date: settings.comp_date || null,
+          contact_email: settings.contact_email,
+          host: settings.host,
+          order_public: settings.order_public === "true",
+        }),
+        fallback,
+      );
+      if (error) {
+        dispatch(setErrorMsg(errorMessage(error, fallback)));
+        return;
+      }
       dispatch(setSuccessMsg(`Settings created for ${settings.reg_year}.`));
       setSettings({});
+    } finally {
+      setSavingSettings(false);
     }
-    setSavingSettings(false);
   };
 
   return (

@@ -2,6 +2,10 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { saveOrder, setOrderPublic } from "@functions/actions";
+import { errorMessage, runAction } from "@functions/actionErrors";
+import { clearSessionCache } from "@functions/sessionCache";
+import { useAppDispatch } from "@/store/hooks";
+import { setErrorMsg, setSuccessMsg } from "@slices";
 import type { OrganizerRegistrationDTO } from "@/lib/api";
 import SortableRing from "./SortableRing";
 import BreakPanel from "./BreakPanel";
@@ -73,6 +77,11 @@ export default function BuildView({
     const [isPublic, setIsPublic] = useState(orderPublic); // publicity now lives on Settings
     const [saving, setSaving] = useState(false);
     const [publishing, setPublishing] = useState(false);
+    // Sits with the conflict banners rather than only in the toast: a failed save
+    // has to stay visible while the organizer decides what to do about it.
+    const [saveError, setSaveError] = useState("");
+
+    const dispatch = useAppDispatch();
 
     useEffect(() => {
         if (allEvents.length === 0 || initialized) return;
@@ -109,19 +118,37 @@ export default function BuildView({
 
     // Persist all three rings for the current year, then re-hydrate from the saved
     // order so each slot picks up its server-assigned orderId for the next save.
+    // A silent failure here is the costly one: the organizer walks away believing
+    // a whole day's schedule is stored, so the error has to be loud.
     const handleSave = async () => {
         if (saving) return;
         setSaving(true);
-        const res = await saveOrder({
-            ring1: serializeRing(rings.ring1),
-            ring2: serializeRing(rings.ring2),
-            ring3: serializeRing(rings.ring3),
-        });
-        if (res.data) {
+        setSaveError("");
+        const fallback = "Could not save the event order.";
+        try {
+            const res = await runAction(
+                () => saveOrder({
+                    ring1: serializeRing(rings.ring1),
+                    ring2: serializeRing(rings.ring2),
+                    ring3: serializeRing(rings.ring3),
+                }),
+                fallback,
+            );
+            if (res.error || !res.data) {
+                const message = errorMessage(res.error, fallback);
+                setSaveError(message);
+                dispatch(setErrorMsg(message));
+                return;
+            }
             setExistingOrder(res.data);
             setRings(reconstructRings(res.data));
+            // The order changed, so the organizer console's cached copy is stale.
+            clearSessionCache("organizerOrder");
+            clearSessionCache("publicOrder");
+            dispatch(setSuccessMsg("Event order saved"));
+        } finally {
+            setSaving(false);
         }
-        setSaving(false);
     };
 
     // Toggle publishing of the event order. Publicity lives on Settings
@@ -129,9 +156,23 @@ export default function BuildView({
     const handleTogglePublic = async () => {
         if (!existingOrder || publishing) return;
         setPublishing(true);
-        const res = await setOrderPublic(!isPublic);
-        if (res.data) setIsPublic(res.data.order_public);
-        setPublishing(false);
+        const wanted = !isPublic;
+        const fallback = `Could not ${wanted ? "publish" : "unpublish"} the order.`;
+        try {
+            const res = await runAction(() => setOrderPublic(wanted), fallback);
+            if (res.error || !res.data) {
+                // Leave isPublic alone — the button must keep reflecting the
+                // server's state, not the toggle the organizer attempted.
+                dispatch(setErrorMsg(errorMessage(res.error, fallback)));
+                return;
+            }
+            setIsPublic(res.data.order_public);
+            clearSessionCache("settings");
+            clearSessionCache("publicOrder");
+            dispatch(setSuccessMsg(res.data.order_public ? "Event order published" : "Event order unpublished"));
+        } finally {
+            setPublishing(false);
+        }
     };
 
     const setRing = (key: RingKey) => (list: RingEvent[]) => setRings((prev) => ({ ...prev, [key]: list }));
@@ -196,6 +237,12 @@ export default function BuildView({
                 {conflicts.close.size > 0 && (
                     <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-2 text-sm text-red-700">
                         <strong>Too close:</strong> {[...new Set([...conflicts.close].map((s) => s.split(":")[0]))].map((id) => idToName.get(id) ?? id).join(", ")}
+                    </div>
+                )}
+                {saveError && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-2 text-sm text-red-700 flex items-start justify-between gap-4">
+                        <span><strong>Not saved:</strong> {saveError}</span>
+                        <button className="text-xs underline shrink-0" onClick={() => setSaveError("")}>Dismiss</button>
                     </div>
                 )}
 

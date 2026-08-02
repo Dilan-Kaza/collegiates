@@ -4,6 +4,8 @@ import { MtHeader, Heading, Dropdown, Field, FormError, SubmitButton } from "@co
 import { useState } from "react";
 import type { SyntheticEvent } from "react";
 import { saveCompetitorProfile } from "@functions/actions";
+import { runAction } from "@functions/actionErrors";
+import { clearSessionCache } from "@functions/sessionCache";
 import { useNavigate } from "@/routerCompat";
 import { useAppDispatch } from "@/store/hooks";
 import { setSuccessMsg } from "@slices";
@@ -55,26 +57,37 @@ export default function ProfileSetup({
     }
 
     setLoading(true);
-    const { error: fieldErrors } = await saveCompetitorProfile({
-      skill_level: formData.skill_level,
-      school: formData.school,
-      gender: formData.gender,
-      student_type: formData.student_type,
-    });
+    const fallback = "Could not save your profile. Please try again.";
+    try {
+      const { error: fieldErrors } = await runAction(
+        () => saveCompetitorProfile({
+          skill_level: formData.skill_level,
+          school: formData.school,
+          gender: formData.gender,
+          student_type: formData.student_type,
+        }),
+        fallback,
+      );
 
-    if (fieldErrors) {
-      const transformed: Record<string, string> = {};
-      Object.entries(fieldErrors).forEach(([field, message]) => {
-        transformed[field] = Array.isArray(message) ? message[0] : message;
-      });
-      setErrors(transformed);
-      setError(typeof fieldErrors.detail === "string" ? fieldErrors.detail : "Please fix the errors below");
-    } else {
+      if (fieldErrors) {
+        const transformed: Record<string, string> = {};
+        Object.entries(fieldErrors).forEach(([field, message]) => {
+          transformed[field] = Array.isArray(message) ? message[0] : message;
+        });
+        setErrors(transformed);
+        setError(typeof fieldErrors.detail === "string" ? fieldErrors.detail : "Please fix the errors below");
+        return;
+      }
       setError("");
+      // The profile is bundled into getMe, and gender/skill drive which events
+      // the register page offers — both cached copies are now stale.
+      clearSessionCache("currentUser");
+      clearSessionCache("competitorEvents");
       dispatch(setSuccessMsg("Profile completed"));
       nav("/dashboard");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -90,16 +103,16 @@ export default function ProfileSetup({
             <Heading className="mt-2 sm:mt-6 !text-4xl !p-2 !animate-none">Complete Your Profile</Heading>
             <form className="self-stretch px-4 sm:px-12 pb-10 flex flex-col gap-6" onSubmit={handleSubmit}>
               <FormError error={error} />
-              <Field {...fieldProps} as={Dropdown} name="skill_level" label="Experience Level*" options={SKILL_LEVEL_CHOICES} required />
-              <Field {...fieldProps} as={Dropdown} name="school" label="College*" options={colleges} required />
               <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex flex-col flex-1">
+                  <Field {...fieldProps} as={Dropdown} name="skill_level" label="Experience Level*" options={SKILL_LEVEL_CHOICES} errorClass="mt-1" required />
+                </div>
                 <div className="flex flex-col flex-1">
                   <Field {...fieldProps} as={Dropdown} name="gender" label="Gender*" options={GENDER_CHOICES} errorClass="mt-1" required />
                 </div>
-                <div className="flex flex-col flex-1">
-                  <Field {...fieldProps} as={Dropdown} name="student_type" label="Student Type*" options={STUDENT_TYPE_CHOICES} errorClass="mt-1" required />
-                </div>
               </div>
+              <Field {...fieldProps} as={Dropdown} name="school" label="College*" options={colleges} required />
+              <Field {...fieldProps} as={Dropdown} name="student_type" label="Student Type*" options={STUDENT_TYPE_CHOICES} required />
               <SubmitButton loading={loading} handleSubmit={handleSubmit} label="Save profile" />
             </form>
           </div>

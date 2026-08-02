@@ -4,6 +4,7 @@ import { MtHeader, AuthPanel, Field, FormError, SubmitButton } from "@components
 import { useState } from "react";
 import type { FocusEvent, SyntheticEvent } from "react";
 import { checkEmail, registerUser } from "@functions/actions";
+import { runAction } from "@functions/actionErrors";
 import { useForwardDashboard } from "@functions";
 import { useNavigate } from "@/routerCompat";
 import { useAppDispatch } from "@/store/hooks";
@@ -77,20 +78,26 @@ export default function SignUp() {
       last_name: formData.last_name,
     };
 
-    const { error: fieldErrors } = await registerUser(payload);
-    if (fieldErrors) {
-      const transformedErrors: Record<string, string> = {};
-      Object.entries(fieldErrors).forEach(([field, message]) => {
-        transformedErrors[field] = Array.isArray(message) ? message[0] : message;
-      });
-      setErrors(transformedErrors);
-      setError("Please fix the errors below");
-    } else {
+    const fallback = "Could not create your account. Please try again.";
+    try {
+      const { error: fieldErrors } = await runAction(() => registerUser(payload), fallback);
+      if (fieldErrors) {
+        const transformedErrors: Record<string, string> = {};
+        Object.entries(fieldErrors).forEach(([field, message]) => {
+          transformedErrors[field] = Array.isArray(message) ? message[0] : message;
+        });
+        setErrors(transformedErrors);
+        // A `detail`-only error isn't attached to any field, so the summary line
+        // has to carry it — "fix the errors below" would point at nothing.
+        setError(fieldErrors.detail ? fieldErrors.detail : "Please fix the errors below");
+        return;
+      }
       setError("");
       dispatch(setSuccessMsg("Account created successfully"));
       nav("/signin");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
 

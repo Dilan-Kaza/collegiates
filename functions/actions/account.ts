@@ -13,7 +13,7 @@ import { shapeCompetitor, toStudentType, toGender, toSkillLevel } from "@/lib/ap
 import type { CompetitorDTO } from "@/lib/api";
 import {
   USER_DATA_TTL, userDataTag, TAG_REGISTRATIONS, TAG_GROUPSETS,
-  revalidateUserData, rehydrateCompetitor, competitorGate,
+  revalidateUserData, rehydrateCompetitor, competitorGate, actionError,
 } from "./shared";
 import type { Mutation, RegisterBody, CompetitorProfileBody, UpdateMeBody } from "./shared";
 
@@ -30,23 +30,32 @@ export async function registerUser(body: RegisterBody): Promise<Mutation<Competi
   if (!email || !password) return { error: { detail: "Email and password are required." } };
   if (password !== re_password) return { error: { re_password: "Passwords do not match" } };
 
-  const existing = await prisma.user.findUnique({ where: { email }, select: { user_id: true } });
-  if (existing) return { error: { email: "A user with this email already exists." } };
+  try {
+    const existing = await prisma.user.findUnique({ where: { email }, select: { user_id: true } });
+    if (existing) return { error: { email: "A user with this email already exists." } };
 
-  // Sign-up creates the account only; the profile is filled in afterward via
-  // createCompetitorProfile, so a fresh user has competitor_profile == null.
-  const user = await prisma.user.create({
-    data: {
-      email,
-      password: hashPassword(password),
-      user_type: "Competitor",
-      is_active: true,
-      first_name: body.first_name ?? "",
-      last_name: body.last_name ?? "",
-    },
-    include: { competitor_profile: { include: { school: true } } },
-  });
-  return { data: shapeCompetitor(user, []) };
+    // Sign-up creates the account only; the profile is filled in afterward via
+    // createCompetitorProfile, so a fresh user has competitor_profile == null.
+    const user = await prisma.user.create({
+      data: {
+        email,
+        password: hashPassword(password),
+        user_type: "Competitor",
+        is_active: true,
+        first_name: body.first_name ?? "",
+        last_name: body.last_name ?? "",
+      },
+      include: { competitor_profile: { include: { school: true } } },
+    });
+    return { data: shapeCompetitor(user, []) };
+  } catch (err) {
+    // The findUnique above isn't atomic with the insert, so a simultaneous
+    // sign-up on the same address lands here as P2002 — report it on the field.
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return { error: { email: "A user with this email already exists." } };
+    }
+    return { error: actionError("registerUser", err, "Could not create your account.") };
+  }
 }
 
 // Locked once the competitor has a registration this year: gender/skill drive
@@ -74,38 +83,47 @@ export async function saveCompetitorProfile(
   const { user: current, error: gateError } = await competitorGate();
   if (gateError) return { error: gateError };
 
-  const { currentYear, locked } = await competitorProfileLock(current.user_id);
+  try {
+    const { currentYear, locked } = await competitorProfileLock(current.user_id);
 
-  // last_reg_year is only stamped when a competition year is configured; if none
-  // exists yet we leave it untouched so the gate re-checks once settings appear.
-  const yearPatch = currentYear != null ? { last_reg_year: currentYear } : {};
+    // last_reg_year is only stamped when a competition year is configured; if none
+    // exists yet we leave it untouched so the gate re-checks once settings appear.
+    const yearPatch = currentYear != null ? { last_reg_year: currentYear } : {};
 
-  const fieldPatch = {
-    gender: toGender(body.gender),
-    skill_level: toSkillLevel(body.skill_level),
-    school_id: body.school || null,
-    student_type: toStudentType(body.student_type),
-  };
+    const fieldPatch = {
+      gender: toGender(body.gender),
+      skill_level: toSkillLevel(body.skill_level),
+      school_id: body.school || null,
+      student_type: toStudentType(body.student_type),
+    };
 
-  // The update carries the full read include, so it returns the payload the DTO
-  // needs instead of being followed by a second query.
-  const user = await prisma.user.update({
-    where: { user_id: current.user_id },
-    data: {
-      // Competitor-owned fields on the profile are frozen while locked.
-      competitor_profile: {
-        upsert: {
-          // A new profile is never locked (registering requires one), so
-          // create always carries the submitted fields.
-          create: { ...fieldPatch, ...yearPatch },
-          update: locked ? yearPatch : { ...fieldPatch, ...yearPatch },
+    // The update carries the full read include, so it returns the payload the DTO
+    // needs instead of being followed by a second query.
+    const user = await prisma.user.update({
+      where: { user_id: current.user_id },
+      data: {
+        // Competitor-owned fields on the profile are frozen while locked.
+        competitor_profile: {
+          upsert: {
+            // A new profile is never locked (registering requires one), so
+            // create always carries the submitted fields.
+            create: { ...fieldPatch, ...yearPatch },
+            update: locked ? yearPatch : { ...fieldPatch, ...yearPatch },
+          },
         },
       },
-    },
-    include: fullUserInclude(currentYear),
-  });
-  revalidateUserData(current.user_id);
-  return { data: shapeFullUser(user) };
+      include: fullUserInclude(currentYear),
+    });
+    revalidateUserData(current.user_id);
+    return { data: shapeFullUser(user) };
+  } catch (err) {
+    // school_id is the one submitted value that reaches the database unchecked
+    // (the enums go through to*), so a stale college id surfaces as P2003 here.
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2003") {
+      return { error: { school: "That college is no longer available." } };
+    }
+    return { error: actionError("saveCompetitorProfile", err, "Could not save your profile.") };
+  }
 }
 
 // A competitor's full payload: profile + school + registrations + this year's
@@ -172,59 +190,70 @@ export async function updateMe(body: UpdateMeBody): Promise<Mutation<CompetitorD
   const { user: current, error: gateError } = await competitorGate();
   if (gateError) return { error: gateError };
 
-  // Eligibility-driving fields freeze once registrations exist. Enforced here,
-  // not just in the UI, so a direct call to this action can't bypass it.
-  const { currentYear, locked } = await competitorProfileLock(current.user_id);
+  try {
+    // Eligibility-driving fields freeze once registrations exist. Enforced here,
+    // not just in the UI, so a direct call to this action can't bypass it.
+    const { currentYear, locked } = await competitorProfileLock(current.user_id);
 
-  const data: Prisma.UserUpdateInput = {};
-  if (body.first_name !== undefined) data.first_name = body.first_name;
-  if (body.last_name !== undefined) data.last_name = body.last_name;
+    const data: Prisma.UserUpdateInput = {};
+    if (body.first_name !== undefined) data.first_name = body.first_name;
+    if (body.last_name !== undefined) data.last_name = body.last_name;
 
-  if (!locked) {
-    // Competitor attributes live on the one-to-one profile; upsert so users
-    // without one still get it created on first edit.
-    const profile: {
-      gender?: Gender | null;
-      skill_level?: SkillLevel | null;
-      student_type?: StudentType | null;
-      school_id?: string | null;
-    } = {};
-    if (body.skill_level !== undefined) profile.skill_level = toSkillLevel(body.skill_level);
-    if (body.gender !== undefined) profile.gender = toGender(body.gender);
-    if (body.student_type !== undefined) profile.student_type = toStudentType(body.student_type);
-    if (body.school !== undefined) profile.school_id = body.school;
-    if (Object.keys(profile).length) {
-      data.competitor_profile = { upsert: { create: profile, update: profile } };
+    if (!locked) {
+      // Competitor attributes live on the one-to-one profile; upsert so users
+      // without one still get it created on first edit.
+      const profile: {
+        gender?: Gender | null;
+        skill_level?: SkillLevel | null;
+        student_type?: StudentType | null;
+        school_id?: string | null;
+      } = {};
+      if (body.skill_level !== undefined) profile.skill_level = toSkillLevel(body.skill_level);
+      if (body.gender !== undefined) profile.gender = toGender(body.gender);
+      if (body.student_type !== undefined) profile.student_type = toStudentType(body.student_type);
+      if (body.school !== undefined) profile.school_id = body.school;
+      if (Object.keys(profile).length) {
+        data.competitor_profile = { upsert: { create: profile, update: profile } };
+      }
     }
-  }
 
-  // As in saveCompetitorProfile: the update returns the full payload, so there
-  // is no read-back query.
-  const user = await prisma.user.update({
-    where: { user_id: current.user_id },
-    data,
-    include: fullUserInclude(currentYear),
-  });
-  revalidateUserData(current.user_id);
-  return { data: shapeFullUser(user) };
+    // As in saveCompetitorProfile: the update returns the full payload, so there
+    // is no read-back query.
+    const user = await prisma.user.update({
+      where: { user_id: current.user_id },
+      data,
+      include: fullUserInclude(currentYear),
+    });
+    revalidateUserData(current.user_id);
+    return { data: shapeFullUser(user) };
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2003") {
+      return { error: { school: "That college is no longer available." } };
+    }
+    return { error: actionError("updateMe", err, "Could not save your changes.") };
+  }
 }
 
 export async function deleteMe(): Promise<Mutation<{ detail: string }>> {
   const current = await getCurrentUser();
   if (!current) return { error: { detail: "Not authenticated." } };
-  // Settings.host cascades on user delete, so a host deleting their own account
-  // would take every settings row they host — and the competition — with it.
-  const hosts = await prisma.settings.count({ where: { host_id: current.user_id } });
-  if (hosts > 0) {
-    return { error: { detail: "This account hosts the competition settings and cannot be deleted." } };
+  try {
+    // Settings.host cascades on user delete, so a host deleting their own account
+    // would take every settings row they host — and the competition — with it.
+    const hosts = await prisma.settings.count({ where: { host_id: current.user_id } });
+    if (hosts > 0) {
+      return { error: { detail: "This account hosts the competition settings and cannot be deleted." } };
+    }
+    await prisma.user.delete({ where: { user_id: current.user_id } });
+    revalidateUserData(current.user_id);
+    // Removing the user drops them from the organizer registration and group set
+    // lists, so bust those shared caches too.
+    updateTag(TAG_REGISTRATIONS);
+    updateTag(TAG_GROUPSETS);
+    return { data: { detail: "deleted" } };
+  } catch (err) {
+    return { error: actionError("deleteMe", err, "Could not delete your account.") };
   }
-  await prisma.user.delete({ where: { user_id: current.user_id } });
-  revalidateUserData(current.user_id);
-  // Removing the user drops them from the organizer registration and group set
-  // lists, so bust those shared caches too.
-  updateTag(TAG_REGISTRATIONS);
-  updateTag(TAG_GROUPSETS);
-  return { data: { detail: "deleted" } };
 }
 
 // Sign-up already leaves the account active (is_active defaults true) and nothing

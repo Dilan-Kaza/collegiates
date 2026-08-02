@@ -4,7 +4,10 @@ import { MtHeader, EventSelection, RegistrationConfirm } from "@components";
 import { useState } from "react";
 import { useNavigate } from "@/routerCompat";
 import { createRegistrations } from "@functions/actions";
+import { errorMessage, runAction } from "@functions/actionErrors";
 import { clearSessionCache } from "@functions/sessionCache";
+import { useAppDispatch } from "@/store/hooks";
+import { setErrorMsg, setSuccessMsg } from "@slices";
 import type { SettingsDTO, EventDTO } from "@/lib/api";
 import type { RegEventItem } from "@/types";
 // event registration flow
@@ -20,9 +23,13 @@ export default function Register({
 }) {
 
     const nav = useNavigate();
+    const dispatch = useAppDispatch();
 
     const [events, setEvents] = useState<RegEventItem[]>([]);
     const [confirming, setConfirming] = useState(false);
+    // Kept on the confirm screen so a rejected registration explains itself
+    // there, instead of the Confirm button silently re-enabling.
+    const [error, setError] = useState("");
 
     const isEarly = !!settings.early_reg_start
         && settings.early_reg_cost_first != null
@@ -33,12 +40,26 @@ export default function Register({
         ? firstCost + (extraCost ?? 0) * (events.length - 1)
         : null;
 
+    // createRegistrations rejects a submission for reasons the competitor can act
+    // on — registration closed, an event that doesn't match their gender/level,
+    // already registered — so the message has to reach the confirm screen.
     const onConfirm = async () => {
-        const { error } = await createRegistrations(events);
-        if (!error) {
-            clearSessionCache("currentUser");
-            nav("/dashboard");
+        setError("");
+        const fallback = "Could not complete your registration.";
+        const { error: fieldErrors } = await runAction(
+            () => createRegistrations(events),
+            fallback,
+        );
+        if (fieldErrors) {
+            const message = errorMessage(fieldErrors, fallback);
+            setError(message);
+            dispatch(setErrorMsg(message));
+            return;
         }
+        clearSessionCache("currentUser");
+        clearSessionCache("registrations");
+        dispatch(setSuccessMsg("Registration complete"));
+        nav("/dashboard");
     };
 
     return (
@@ -53,8 +74,9 @@ export default function Register({
                     extraCost={extraCost}
                     totalCost={totalCost}
                     dueDate={settings.due_date}
-                    onBack={() => setConfirming(false)}
+                    onBack={() => { setError(""); setConfirming(false); }}
                     onConfirm={onConfirm}
+                    error={error}
                 />
             ) : (
                 <EventSelection

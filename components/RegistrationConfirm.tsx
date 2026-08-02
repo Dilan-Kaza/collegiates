@@ -2,6 +2,7 @@
 
 import type { MouseEventHandler } from "react";
 import { useState } from "react";
+import { formatSettingsDate } from "@/lib/dates";
 import type { RegEventItem } from "@/types";
 import type { EventDTO } from "@/lib/api";
 
@@ -18,17 +19,19 @@ interface RegistrationConfirmProps {
   dueDate?: Date | null;
   onBack?: MouseEventHandler<HTMLButtonElement>;
   onConfirm?: () => void | Promise<void>;
+  // Why the last confirm was rejected, shown above the buttons. The competitor
+  // stays on this screen when it is set, so the message has to be visible here.
+  error?: string;
 }
 
-export default function RegistrationConfirm({ events, catalogEvents = [], isEarly, firstCost, extraCost, totalCost, dueDate, onBack, onConfirm }: RegistrationConfirmProps) {
+export default function RegistrationConfirm({ events, catalogEvents = [], isEarly, firstCost, extraCost, totalCost, dueDate, onBack, onConfirm, error }: RegistrationConfirmProps) {
     const eventsFromApi = catalogEvents;
     const [submitting, setSubmitting] = useState(false);
     const [agreePayment, setAgreePayment] = useState(false);
     const [agreeEnrollment, setAgreeEnrollment] = useState(false);
 
-    const dueDateStr = dueDate
-        ? dueDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })
-        : "the posted deadline";
+    // Shown on the competition's clock (Pacific), like every other settings date.
+    const dueDateStr = formatSettingsDate("due_date", dueDate, undefined, "the posted deadline");
 
     const handleConfirm = async () => {
         if (submitting || !agreePayment || !agreeEnrollment) return;
@@ -94,6 +97,11 @@ export default function RegistrationConfirm({ events, catalogEvents = [], isEarl
                     </span>
                 </label>
             </div>
+            {error && (
+                <div className="bg-off-white border-l-4 border-red-500 rounded-lg px-4 py-3 mb-6 text-sm text-red-600">
+                    {error}
+                </div>
+            )}
             <div className="flex justify-between">
                 <button className="btn btn-ghost text-off-white" onClick={onBack} disabled={submitting}>Back</button>
                 <button className="btn btn-secondary" onClick={handleConfirm} disabled={submitting || !agreePayment || !agreeEnrollment}>

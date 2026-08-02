@@ -4,6 +4,8 @@ import { MtHeader, GroupsetList, OrganizerBlogList, OrganizerRegistrationList, L
 import { StillView } from "@components/event-builder";
 import { Link } from "@/routerCompat";
 import { useState } from "react";
+import { formatSettingsDate } from "@/lib/dates";
+import type { SettingsDateField } from "@/lib/dates";
 import type { SettingsDTO, OrganizerRegistrationDTO, OrganizerGroupsetDTO, OrderDTO, BlogDTO } from "@/lib/api";
 // organizer dashboard
 
@@ -48,7 +50,12 @@ export default function Organizer({
     const formatValue = (key: string, value: unknown): string => {
         if (value === null || value === undefined) return "—";
         if (dateFields.has(key)) {
-            return (value as Date).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+            return formatSettingsDate(
+                key as SettingsDateField,
+                value as Date,
+                { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' },
+                "—",
+            );
         }
         if (costFields.has(key)) {
             return `$${String(value)}`;

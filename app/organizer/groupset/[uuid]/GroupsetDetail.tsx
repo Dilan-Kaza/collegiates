@@ -1,9 +1,10 @@
 "use client";
 
 import { MtHeader, OrganizerFindUser } from "@components";
-import { setErrorMsg } from "@slices";
+import { setErrorMsg, setSuccessMsg } from "@slices";
 import { clearSessionCache } from "@functions/sessionCache";
 import { updateOrganizerGroupset } from "@functions/actions";
+import { errorMessage, runAction } from "@functions/actionErrors";
 import { useNavigate } from "@/routerCompat";
 import { useState, useEffect } from "react";
 import { useAppDispatch } from "@/store/hooks";
@@ -52,15 +53,24 @@ export default function GroupsetDetail({
 
     const handleSave = async () => {
         setLoading(true);
-        const { data, error } = await updateOrganizerGroupset(uuid, {
-            team_name: teamName,
-            leader: leaderId,
-            school: current.school?.school_id,
-            members: members.map(m => m.user_id),
-        });
-        if (error || !data) {
-            dispatch(setErrorMsg(error?.detail ?? "Failed to save"));
-        } else {
+        const fallback = "Failed to save";
+        try {
+            const { data, error } = await runAction(
+                () => updateOrganizerGroupset(uuid, {
+                    team_name: teamName,
+                    leader: leaderId,
+                    school: current.school?.school_id,
+                    members: members.map(m => m.user_id),
+                }),
+                fallback,
+            );
+            if (error || !data) {
+                // The action reports roster problems under `groupset`, not
+                // `detail`, so reading only `detail` lost them.
+                dispatch(setErrorMsg(errorMessage(error, fallback)));
+                // Stay in edit mode: the pending changes are still unsaved.
+                return;
+            }
             clearSessionCache(`groupset_${uuid}`);
             clearSessionCache("organizerGroupsets");
             setEditing(false);
@@ -69,8 +79,10 @@ export default function GroupsetDetail({
             setTeamName(data.team_name ?? "");
             setLeaderId(data.leader?.user_id ?? "");
             setMembers(data.members ?? []);
+            dispatch(setSuccessMsg("Group set saved"));
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     return (

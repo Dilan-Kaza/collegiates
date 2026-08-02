@@ -61,22 +61,30 @@ export default function SignIn() {
 
     // loginAction sets the session cookie server-side and returns the user.
     // router.refresh() re-runs the layout, re-seeding SessionProvider.
-    const res = await loginAction({
-      email: formData.email,
-      password: formData.password,
-    });
+    try {
+      const res = await loginAction({
+        email: formData.email,
+        password: formData.password,
+      });
 
-    if (res.error || !res.user) {
-      setError("Sign In failed");
-    } else {
+      if (res.error || !res.user) {
+        // loginAction distinguishes bad credentials from the database being
+        // unreachable, so show what it said rather than one generic line.
+        setError(res.error || "Sign In failed");
+        return;
+      }
       setError("");
       clearSessionCache("currentUser");
       dispatch(setSuccessMsg("Sign In Successful"));
       setSignedIn(true);
       router.refresh();
       nav(landingRoute(res.user));
+    } catch (err) {
+      console.error("[loginAction]", err);
+      setError("Could not reach the server. Please try again.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   // Fallback for reaching /signin while already authenticated. Suspended once

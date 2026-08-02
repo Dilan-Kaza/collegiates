@@ -11,7 +11,7 @@ import { loadSettings } from "@/lib/settings";
 import { shapeSettings, shapeOrder, ORDER_INCLUDE, SETTINGS_INCLUDE } from "@/lib/api";
 import type { SettingsDTO, OrderDTO } from "@/lib/api";
 import { getOrderByYear } from "../data";
-import { organizerGate } from "./shared";
+import { organizerGate, actionError } from "./shared";
 import type { Mutation, OrderBody, RingKey, EventOrderInput, EventOrderCompetitorInput } from "./shared";
 
 // One slot's competitor list, resolved to the EventOrder id it belongs to.
@@ -163,27 +163,42 @@ export async function saveOrder(body: OrderBody): Promise<Mutation<OrderDTO>> {
   const year = settings.reg_year;
   const rings: RingKey[] = ["ring1", "ring2", "ring3"];
 
-  await prisma.$transaction(async (tx) => {
-    await tx.order.upsert({
-      where: { comp_year: year },
-      create: { comp_year: year },
-      update: {},
-    });
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.order.upsert({
+        where: { comp_year: year },
+        create: { comp_year: year },
+        update: {},
+      });
 
-    for (const ring of rings) {
-      const items = body[ring];
-      if (items === undefined) continue; // ring omitted → leave it untouched
-      const ringId = await ensureRing(tx, ring, year);
-      const ids = await persistRing(tx, items, year, ringId);
-      await pruneRing(tx, ringId, ids);
+      for (const ring of rings) {
+        const items = body[ring];
+        if (items === undefined) continue; // ring omitted → leave it untouched
+        const ringId = await ensureRing(tx, ring, year);
+        const ids = await persistRing(tx, items, year, ringId);
+        await pruneRing(tx, ringId, ids);
+      }
+    });
+  } catch (err) {
+    // The whole save is one transaction, so a failure here left nothing written
+    // and the tag below must not be dropped — the cached order is still current.
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2003") {
+      return { error: { detail: "An event or competitor in this order no longer exists. Reload and try again." } };
     }
-  });
+    return { error: actionError("saveOrder", err, "Could not save the event order.") };
+  }
 
   updateTag(`order-${year}`);
 
-  const saved = await prisma.order.findUnique({ where: { comp_year: year }, include: ORDER_INCLUDE });
-  if (!saved) return { error: { detail: "Failed to save order." } };
-  return { data: shapeOrder(saved) };
+  try {
+    const saved = await prisma.order.findUnique({ where: { comp_year: year }, include: ORDER_INCLUDE });
+    if (!saved) return { error: { detail: "Failed to save order." } };
+    return { data: shapeOrder(saved) };
+  } catch (err) {
+    // The save itself committed; only reading it back failed. Say so, so the
+    // organizer doesn't re-save work that is already persisted.
+    return { error: actionError("saveOrder:readBack", err, "The order was saved, but could not be reloaded. Refresh to see it.") };
+  }
 }
 
 // Publish / unpublish this year's order. Publicity lives on Settings
@@ -193,13 +208,17 @@ export async function setOrderPublic(value: boolean): Promise<Mutation<SettingsD
   if (error) return { error };
   const existing = await loadSettings();
   if (!existing) return { error: { detail: "No settings have been created yet." } };
-  const s = await prisma.settings.update({
-    where: { id: existing.id },
-    data: { order_public: value },
-    include: SETTINGS_INCLUDE,
-  });
-  updateTag("settings");
-  return { data: shapeSettings(s) };
+  try {
+    const s = await prisma.settings.update({
+      where: { id: existing.id },
+      data: { order_public: value },
+      include: SETTINGS_INCLUDE,
+    });
+    updateTag("settings");
+    return { data: shapeSettings(s) };
+  } catch (err) {
+    return { error: actionError("setOrderPublic", err, `Could not ${value ? "publish" : "unpublish"} the order.`) };
+  }
 }
 
 // CompetitorOrderView: this year's order, but only when settings have publishing

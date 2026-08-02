@@ -3,8 +3,9 @@
 import { MtHeader } from "@components";
 import { cacheKeys } from "@functions";
 import { clearSessionCache } from "@functions/sessionCache";
-import { setErrorMsg } from "@slices";
+import { setErrorMsg, setSuccessMsg } from "@slices";
 import { updateBlogPost } from "@functions/actions";
+import { errorMessage, runAction } from "@functions/actionErrors";
 import { useNavigate } from "@/routerCompat";
 import { useState } from "react";
 import { useAppDispatch } from "@/store/hooks";
@@ -36,10 +37,15 @@ export default function BlogEditor({
 
     const handleSave = async () => {
         setLoading(true);
-        const { data, error } = await updateBlogPost(blogId, form);
-        if (error || !data) {
-            dispatch(setErrorMsg(error?.detail ?? "Failed to save post"));
-        } else {
+        const fallback = "Failed to save post";
+        try {
+            const { data, error } = await runAction(() => updateBlogPost(blogId, form), fallback);
+            if (error || !data) {
+                dispatch(setErrorMsg(errorMessage(error, fallback)));
+                // Stay in edit mode so the unsaved draft isn't replaced by the
+                // last-known-good post.
+                return;
+            }
             setPost(data);
             setEditing(false);
             // The saved post is now stale in the cache: drop its own entry and the
@@ -47,8 +53,10 @@ export default function BlogEditor({
             clearSessionCache(cacheKeys.blogPost(blogId));
             clearSessionCache(cacheKeys.organizerBlogPosts);
             clearSessionCache(cacheKeys.blogPosts);
+            dispatch(setSuccessMsg("Post saved"));
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     return (

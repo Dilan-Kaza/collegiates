@@ -1,8 +1,9 @@
 "use client";
 
 import { MtHeader, OrganizerBlogList } from "@components";
-import { setErrorMsg } from "@slices";
+import { setErrorMsg, setSuccessMsg } from "@slices";
 import { createBlogPost } from "@functions/actions";
+import { errorMessage, runAction } from "@functions/actionErrors";
 import { cacheKeys } from "@functions";
 import { clearSessionCache } from "@functions/sessionCache";
 import { useState } from "react";
@@ -26,10 +27,19 @@ export default function BlogManager({ posts = [] }: { posts?: BlogDTO[] }) {
     const handlePost = async () => {
         if (!title.trim() || !blog_content.trim() || !category) return;
         setLoading(true);
-        const { data, error } = await createBlogPost({ title, blog_content, author, category });
-        if (error || !data) {
-            dispatch(setErrorMsg(error?.detail ?? "Failed to post blog"));
-        } else {
+        const fallback = "Failed to post blog";
+        try {
+            const { data, error } = await runAction(
+                () => createBlogPost({ title, blog_content, author, category }),
+                fallback,
+            );
+            if (error || !data) {
+                // createBlogPost reports missing content under `title` /
+                // `blog_content`, so errorMessage has to look past `detail`.
+                dispatch(setErrorMsg(errorMessage(error, fallback)));
+                // The draft stays in the form — clearing it would lose the post.
+                return;
+            }
             setTitle("");
             setBlogContent("");
             setAuthor("");
@@ -38,8 +48,10 @@ export default function BlogManager({ posts = [] }: { posts?: BlogDTO[] }) {
             // Drop the cached lists so other views re-read them.
             clearSessionCache(cacheKeys.organizerBlogPosts);
             clearSessionCache(cacheKeys.blogPosts);
+            dispatch(setSuccessMsg("Post published"));
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     return (

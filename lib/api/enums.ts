@@ -100,6 +100,26 @@ export function studentTypeLabel(code: string | null | undefined): string {
   return code ? STUDENT_TYPE_LABEL_BY_CODE[code] ?? "" : "";
 }
 
+// ---------- competitor class eligibility ----------
+
+// Rules I: a competitor is Class 1 only as a current full-time undergraduate or
+// graduate student, a current part-time undergraduate working towards a degree,
+// or a fall graduate of the current academic year. Everyone else affiliated with
+// a North American school is Class 2. The undergraduate 5-for-4 limit is not
+// tracked in the profile, so it is not decided here — organizers still verify
+// eligibility from the proof of enrollment.
+const CLASS_ONE_STUDENT_TYPES: ReadonlySet<StudentType> = new Set<StudentType>([
+  "Undergraduate",
+  "FullTimeGraduate",
+  "EarlyGraduate",
+]);
+
+// Class 1 gates the team competition: teams must be made up solely of Class 1
+// competitors, so a Class 2 student type cannot create or join a group set.
+export function isClassOne(value: StudentType | null | undefined): boolean {
+  return !!value && CLASS_ONE_STUDENT_TYPES.has(value);
+}
+
 // ---------- profile dropdown choices ----------
 
 // Display label -> code, the shape <Dropdown options> takes. One source for every

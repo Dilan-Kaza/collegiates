@@ -2,9 +2,11 @@
 // cache tags, helpers. Deliberately not "use server" — that only allows actions.
 
 import { updateTag } from "next/cache";
+import { Prisma } from "@prisma/client";
 import { getCurrentUser, canAccessOrganizer, isAdmin, isCompetitor } from "@/lib/auth";
+import { parseSettingsDate } from "@/lib/dates";
 import type { CurrentUser } from "@/lib/auth";
-import type { User, Prisma } from "@prisma/client";
+import type { User } from "@prisma/client";
 import type {
   CompetitorDTO, RegistrationDTO, BlogDTO,
   GroupsetDTO, OrganizerGroupsetDTO, OrganizerRegistrationDTO,
@@ -14,6 +16,53 @@ import type {
 
 export type FieldErrors = Record<string, string>;
 export type Mutation<T> = { data: T; error?: undefined } | { data?: undefined; error: FieldErrors };
+
+// ---------- failure handling ----------
+
+// A mutation that throws is useless to the client: Next replaces the message
+// with an opaque digest in production, and the caller's `await` rejects instead
+// of yielding the { error } shape every call site is written against. So each
+// mutation catches, and unexpected failures come back through `actionError`.
+
+// Prisma failures a correct caller can still plausibly hit — a race against the
+// pre-check, or a row deleted in another tab. Anything not listed is a bug or an
+// outage: it gets the generic message and is logged rather than shown.
+const PRISMA_MESSAGES: Record<string, string> = {
+  P2002: "That value is already taken.",
+  P2003: "That change conflicts with a related record.",
+  P2025: "That record no longer exists — it may have been changed elsewhere.",
+};
+
+// redirect() and notFound() are signalled by throwing; those must keep
+// propagating rather than being reported to the user as a failed save.
+function isNextControlFlow(err: unknown): boolean {
+  const digest = (err as { digest?: unknown } | null)?.digest;
+  return typeof digest === "string" && (digest === "NEXT_NOT_FOUND" || digest.startsWith("NEXT_REDIRECT"));
+}
+
+// Maps a thrown error to the FieldErrors a mutation returns. `where` identifies
+// the action in the server log; the client only ever sees the mapped message.
+export function actionError(
+  where: string,
+  err: unknown,
+  fallback = "Something went wrong. Please try again.",
+): FieldErrors {
+  if (isNextControlFlow(err)) throw err;
+  console.error(`[action:${where}]`, err);
+  if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    const message = PRISMA_MESSAGES[err.code];
+    if (message) return { detail: message };
+  }
+  if (err instanceof Prisma.PrismaClientValidationError) {
+    return { detail: "The submitted data was not valid." };
+  }
+  return { detail: fallback };
+}
+
+// Read actions are deliberately NOT wrapped. They already return [] / null for a
+// denied read, so catching a database failure into that same empty value would
+// render an empty dashboard for an outage. They run in Server Components, so a
+// throw reaches app/error.tsx, which says so and offers a retry.
 
 // Sign-up only creates the account; the competitor profile is filled in
 // afterward via createCompetitorProfile — see CompetitorProfileBody.
@@ -220,20 +269,41 @@ export async function competitorGate(): Promise<CompetitorGate> {
   return { user };
 }
 
+// parseSettingsDate maps an unparseable day to null, which settingsWritable then
+// treats the same as "not supplied" — so a malformed date would be dropped in
+// silence. Check the supplied ones up front and report them on their own fields.
+const SETTINGS_DATE_FIELDS = [
+  "early_reg_start", "reg_start", "reg_end", "due_date", "comp_date",
+] as const;
+
+export function settingsDateErrors(body: SettingsBody): FieldErrors | null {
+  const errors: FieldErrors = {};
+  for (const field of SETTINGS_DATE_FIELDS) {
+    const value = body[field];
+    // Absent or explicitly cleared is fine; only a non-empty unparseable value
+    // is an error.
+    if (value == null || value === "") continue;
+    if (parseSettingsDate(field, value) === null) errors[field] = "Enter a valid date.";
+  }
+  return Object.keys(errors).length ? errors : null;
+}
+
 // Writable Settings columns from a request body, shared by the organizer save
 // and admin create paths. Optional fields -> null, required missing -> undefined.
+// The dates arrive as yyyy-mm-dd and are anchored to Pacific by parseSettingsDate
+// — a bare new Date(...) would read them as UTC and land a day early out west.
 export function settingsWritable(body: SettingsBody): Prisma.SettingsUncheckedUpdateInput {
   return {
     reg_year: body.reg_year,
-    early_reg_start: body.early_reg_start ? new Date(body.early_reg_start) : null,
+    early_reg_start: parseSettingsDate("early_reg_start", body.early_reg_start),
     early_reg_cost_first: body.early_reg_cost_first ?? null,
     early_reg_cost_extra: body.early_reg_cost_extra ?? null,
-    reg_start: body.reg_start ? new Date(body.reg_start) : undefined,
-    reg_end: body.reg_end ? new Date(body.reg_end) : undefined,
+    reg_start: parseSettingsDate("reg_start", body.reg_start) ?? undefined,
+    reg_end: parseSettingsDate("reg_end", body.reg_end) ?? undefined,
     reg_cost_first: body.reg_cost_first,
     reg_cost_extra: body.reg_cost_extra,
-    due_date: body.due_date ? new Date(body.due_date) : null,
-    comp_date: body.comp_date ? new Date(body.comp_date) : null,
+    due_date: parseSettingsDate("due_date", body.due_date),
+    comp_date: parseSettingsDate("comp_date", body.comp_date),
     contact_email: body.contact_email,
     order_public: body.order_public,
   };

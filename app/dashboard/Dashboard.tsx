@@ -13,6 +13,15 @@ async function isEarlyRegistration(dateCreated: Date | string, settings: Setting
         && new Date(dateCreated).getTime() < new Date(settings.reg_start).getTime();
 }
 
+// Registration opens at early_reg_start when an early window is configured,
+// otherwise at reg_start — the same boundary regActive() uses on the server.
+// Dates arrive JSON-serialized from the server component, so rebuild them.
+function registrationStarted(settings: Partial<SettingsDTO>): boolean {
+    const opens = settings.early_reg_start ?? settings.reg_start;
+    if (!opens) return true;
+    return new Date().getTime() >= new Date(opens).getTime();
+}
+
 interface CostSummary {
     total: number;
     count: number;
@@ -81,6 +90,10 @@ export default function Dashboard ({
     // dashboard only uses it to enable the "Event Order" link.
     const hasPublicOrder = settings.order_public ?? false;
 
+    // Before the registration window opens there is nowhere for /register to go,
+    // so the button is replaced rather than just disabled.
+    const regStarted = registrationStarted(settings);
+
     return (
         <>
             <div className="hidden md:block"><MtHeader /></div>
@@ -118,8 +131,10 @@ export default function Dashboard ({
                                 </div>
                             ))}
                         </div>
-                    ) : (
+                    ) : regStarted ? (
                         <button className="btn btn-primary" onClick={() => nav("/register")}>Register</button>
+                    ) : (
+                        <button className="btn btn-primary" disabled>Registration is not open</button>
                     )}
                     {myTeam ? (
                         <div className="border border-gray-200 rounded-lg px-4 py-2 text-sm w-full text-center mt-2">

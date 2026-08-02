@@ -2,20 +2,29 @@
 
 import { useState } from "react";
 import { createGroupset, joinGroupset } from "@functions/actions";
+import { errorMessage, runAction } from "@functions/actionErrors";
 import { clearSessionCache } from "@functions/sessionCache";
+import { useAppDispatch } from "@/store/hooks";
+import { setErrorMsg, setSuccessMsg } from "@slices";
 import { ShortAnswer, Dropdown, MtHeader } from "@components";
 import type { GroupsetDTO } from "@/lib/api";
 // competitor groupset create/join page
 
 // Joinable group sets and the competitor's own arrive as initial state from the
 // server. After a create/join the component refetches its own to reflect it.
+// `classOne` is resolved from the profile's student type on the server; a Class 2
+// competitor sees why the team competition is closed to them instead of a form.
 export default function Groupset({
     groupSetMembers: initialMembers = [],
     myGroupSet: initialMine = [],
+    classOne = false,
 }: {
     groupSetMembers?: GroupsetDTO[];
     myGroupSet?: GroupsetDTO[];
+    classOne?: boolean;
 }){
+
+    const dispatch = useAppDispatch();
 
     const [mode, setMode] = useState("create");
     const [createName, setCreateName] = useState("");
@@ -23,6 +32,9 @@ export default function Groupset({
     const [groupSetMembers] = useState<GroupsetDTO[]>(initialMembers);
     const [myGroupSet, setMyGroupSet] = useState<GroupsetDTO[]>(initialMine);
     const [submitting, setSubmitting] = useState(false);
+    // Shown inline next to the form as well as in the toast: the failures here
+    // ("already in a groupset", "groupset is full") are about what was entered.
+    const [error, setError] = useState("");
 
     const groupSetOptions = Object.fromEntries(groupSetMembers.map((g) => [g.team_name, g.groupset_id]));
     const myTeam = myGroupSet?.[0];
@@ -36,27 +48,45 @@ export default function Groupset({
         setMyGroupSet([groupset]);
     };
 
-    const onCreate = async () => {
+    // createGroupset and joinGroupset report every rejection through { error }
+    // (name taken, wrong school, full, already a member); surface it rather than
+    // resetting the button and leaving the competitor to guess what happened.
+    const submit = async (
+        action: () => ReturnType<typeof createGroupset>,
+        fallback: string,
+        success: string,
+    ) => {
         if (submitting) return;
         setSubmitting(true);
+        setError("");
         try {
-            const { data, error } = await createGroupset({ team_name: createName });
-            if (!error && data) applyResult(data);
+            const { data, error: fieldErrors } = await runAction(action, fallback);
+            if (fieldErrors || !data) {
+                const message = errorMessage(fieldErrors, fallback);
+                setError(message);
+                dispatch(setErrorMsg(message));
+                return;
+            }
+            applyResult(data);
+            dispatch(setSuccessMsg(success));
         } finally {
             setSubmitting(false);
         }
     };
 
-    const onJoin = async () => {
-        if (submitting) return;
-        setSubmitting(true);
-        try {
-            const { data, error } = await joinGroupset({ groupset: joinName });
-            if (!error && data) applyResult(data);
-        } finally {
-            setSubmitting(false);
-        }
-    };
+    const onCreate = () =>
+        submit(
+            () => createGroupset({ team_name: createName }),
+            "Could not create the team.",
+            "Team created",
+        );
+
+    const onJoin = () =>
+        submit(
+            () => joinGroupset({ groupset: joinName }),
+            "Could not join the team.",
+            "Joined the team",
+        );
 
     return(
         <>
@@ -82,22 +112,35 @@ export default function Groupset({
                                 </div>
                             )}
                         </>
+                    ) : !classOne ? (
+                        <>
+                            <div className="text-2xl font-semibold text-center">Team Competition</div>
+                            <div className="text-sm text-center text-brown/70">
+                                The team competition is open to Class 1 competitors only, and your student
+                                type makes you Class 2 eligible.
+                            </div>
+                            <div className="text-sm text-center text-brown/70">
+                                If that is not right, update your student type in your profile.
+                            </div>
+                        </>
                     ) : (
                     <>
                     <div className="flex rounded-lg border border-brown/20 overflow-hidden">
                         <button
                             className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "create" ? "bg-primary text-white" : "hover:bg-brown/5"}`}
-                            onClick={() => setMode("create")}
+                            onClick={() => { setMode("create"); setError(""); }}
                         >
                             Create
                         </button>
                         <button
                             className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "join" ? "bg-primary text-white" : "hover:bg-brown/5"}`}
-                            onClick={() => setMode("join")}
+                            onClick={() => { setMode("join"); setError(""); }}
                         >
                             Join
                         </button>
                     </div>
+
+                    {error && <div className="text-red-500 text-sm text-center">{error}</div>}
 
                     {mode === "create" ? (
                         <>
