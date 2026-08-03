@@ -18,19 +18,16 @@ export default async function Page() {
   ]);
   // Already registered? Send them to the dashboard before rendering the flow,
   // mirroring the old client-side redirect.
-  if ((userinfo?.registrations?.length ?? 0) > 0) redirect("/dashboard");
+  if ((userinfo?.registrations?.length ?? 0) > 0) redirect("/competitor");
   return (
     <>
-      <CacheSeed
-        entries={{
-          [cacheKeys.settings]: settings,
-          [cacheKeys.currentUser]: userinfo,
-          [cacheKeys.competitorEvents]: catalogEvents,
-        }}
-      />
+      {/* currentUser and competitorEvents are seeded by the components that bind
+          them; `settings` has no client fetcher, so it stays seed-only. */}
+      <CacheSeed entries={{ [cacheKeys.settings]: settings }} />
       <Register
         settings={settings ?? {}}
         catalogEvents={catalogEvents}
+        userinfo={userinfo}
       />
     </>
   );

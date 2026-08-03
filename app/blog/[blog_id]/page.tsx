@@ -8,13 +8,10 @@ export default async function Page({ params }: { params: Promise<{ blog_id: stri
   const [post, posts] = await Promise.all([getBlogPost(blog_id), getBlogPosts()]);
   return (
     <>
-      <CacheSeed
-        entries={{
-          [cacheKeys.blogPost(blog_id)]: post,
-          [cacheKeys.blogPosts]: posts,
-        }}
-      />
-      <Blog post={post ?? {}} posts={posts} />
+      {/* The post itself is seeded by <Blog>'s own cache binding. The list has no
+          client fetcher, so it stays a seed-only entry. */}
+      <CacheSeed entries={{ [cacheKeys.blogPosts]: posts }} />
+      <Blog post={post} posts={posts} />
     </>
   );
 }

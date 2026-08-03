@@ -5,8 +5,9 @@ import { setErrorMsg, setSuccessMsg } from "@slices";
 import { saveSettings } from "@functions/actions";
 import { errorMessage, runAction } from "@functions/actionErrors";
 import { clearSessionCache } from "@functions/sessionCache";
+import { cacheKeys } from "@functions";
 import { useNavigate } from "@/routerCompat";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAppDispatch } from "@/store/hooks";
 import { settingsDateInput } from "@/lib/dates";
 import type { SettingsDTO } from "@/lib/api";
@@ -20,11 +21,11 @@ type EditableField =
     | "reg_year"
     | "reg_start"
     | "reg_end"
-    | "reg_cost_first"
-    | "reg_cost_extra"
+    | "reg_cost_base"
+    | "reg_cost_event"
     | "early_reg_start"
-    | "early_reg_cost_first"
-    | "early_reg_cost_extra"
+    | "early_reg_cost_base"
+    | "early_reg_cost_event"
     | "due_date"
     | "comp_date"
     | "contact_email"
@@ -33,23 +34,25 @@ type EditableField =
 // Controls are all string-valued; handleSave converts back to the body's types.
 type SettingsForm = Record<EditableField, string>;
 
-const EMPTY_FORM: SettingsForm = {
-    reg_year: "",
-    reg_start: "",
-    reg_end: "",
-    reg_cost_first: "",
-    reg_cost_extra: "",
-    early_reg_start: "",
-    early_reg_cost_first: "",
-    early_reg_cost_extra: "",
-    due_date: "",
-    comp_date: "",
-    contact_email: "",
-    order_public: "false",
-};
-
 const toText = (value: number | string | null | undefined): string =>
     value === null || value === undefined ? "" : String(value);
+
+// The saved settings as form strings. Read once, at mount — see the note on the
+// state below for why this is not kept in sync with the prop.
+const formFrom = (settings: Partial<SettingsDTO>): SettingsForm => ({
+    reg_year: toText(settings.reg_year),
+    reg_start: settingsDateInput("reg_start", settings.reg_start),
+    reg_end: settingsDateInput("reg_end", settings.reg_end),
+    reg_cost_base: toText(settings.reg_cost_base),
+    reg_cost_event: toText(settings.reg_cost_event),
+    early_reg_start: settingsDateInput("early_reg_start", settings.early_reg_start),
+    early_reg_cost_base: toText(settings.early_reg_cost_base),
+    early_reg_cost_event: toText(settings.early_reg_cost_event),
+    due_date: settingsDateInput("due_date", settings.due_date),
+    comp_date: settingsDateInput("comp_date", settings.comp_date),
+    contact_email: toText(settings.contact_email),
+    order_public: settings.order_public ? "true" : "false",
+});
 
 const num = (value: string): number | undefined => (value.trim() === "" ? undefined : Number(value));
 const numOrNull = (value: string): number | null => (value.trim() === "" ? null : Number(value));
@@ -62,25 +65,13 @@ export default function OrganizerSettings({ settings = {} }: { settings?: Partia
     const nav = useNavigate();
     const dispatch = useAppDispatch();
 
-    const [form, setForm] = useState<SettingsForm>(EMPTY_FORM);
+    // Seeded once, from the settings this page was rendered with. It used to be
+    // re-synced from an effect keyed on the `settings` prop — but that prop is a
+    // fresh object on every RSC render of this route, so any refresh (a server
+    // action's updateTag, the session revalidator's router.refresh) reset the
+    // form under the organizer and discarded whatever they had typed.
+    const [form, setForm] = useState<SettingsForm>(() => formFrom(settings));
     const [loading, setLoading] = useState(false);
-
-    useEffect(() => {
-        setForm({
-            reg_year: toText(settings.reg_year),
-            reg_start: settingsDateInput("reg_start", settings.reg_start),
-            reg_end: settingsDateInput("reg_end", settings.reg_end),
-            reg_cost_first: toText(settings.reg_cost_first),
-            reg_cost_extra: toText(settings.reg_cost_extra),
-            early_reg_start: settingsDateInput("early_reg_start", settings.early_reg_start),
-            early_reg_cost_first: toText(settings.early_reg_cost_first),
-            early_reg_cost_extra: toText(settings.early_reg_cost_extra),
-            due_date: settingsDateInput("due_date", settings.due_date),
-            comp_date: settingsDateInput("comp_date", settings.comp_date),
-            contact_email: toText(settings.contact_email),
-            order_public: settings.order_public ? "true" : "false",
-        });
-    }, [settings]);
 
     const handleChange = (key: EditableField, value: string) => {
         setForm(f => ({ ...f, [key]: value }));
@@ -95,11 +86,11 @@ export default function OrganizerSettings({ settings = {} }: { settings?: Partia
                     reg_year: num(form.reg_year),
                     reg_start: form.reg_start || undefined,
                     reg_end: form.reg_end || undefined,
-                    reg_cost_first: num(form.reg_cost_first),
-                    reg_cost_extra: num(form.reg_cost_extra),
+                    reg_cost_base: num(form.reg_cost_base),
+                    reg_cost_event: num(form.reg_cost_event),
                     early_reg_start: textOrNull(form.early_reg_start),
-                    early_reg_cost_first: numOrNull(form.early_reg_cost_first),
-                    early_reg_cost_extra: numOrNull(form.early_reg_cost_extra),
+                    early_reg_cost_base: numOrNull(form.early_reg_cost_base),
+                    early_reg_cost_event: numOrNull(form.early_reg_cost_event),
                     due_date: textOrNull(form.due_date),
                     comp_date: textOrNull(form.comp_date),
                     contact_email: form.contact_email,
@@ -117,7 +108,7 @@ export default function OrganizerSettings({ settings = {} }: { settings?: Partia
             // saveSettings revalidates the "settings" cache tag, so /organizer
             // re-fetches fresh data on navigation — but the per-tab copy is
             // separate and has to be dropped here.
-            clearSessionCache("settings");
+            clearSessionCache(cacheKeys.settings);
             dispatch(setSuccessMsg("Settings saved"));
             nav("/organizer");
         } finally {
@@ -163,20 +154,20 @@ export default function OrganizerSettings({ settings = {} }: { settings?: Partia
                             onChange={(e) => handleChange("reg_end", e.target.value)}
                         />
                         <ShortAnswer
-                            label="Cost, first event ($)"
+                            label="Base cost ($)"
                             type="number"
                             min={0}
                             step={1}
-                            value={form.reg_cost_first}
-                            onChange={(e) => handleChange("reg_cost_first", e.target.value)}
+                            value={form.reg_cost_base}
+                            onChange={(e) => handleChange("reg_cost_base", e.target.value)}
                         />
                         <ShortAnswer
-                            label="Cost, each extra event ($)"
+                            label="Cost, each event ($)"
                             type="number"
                             min={0}
                             step={1}
-                            value={form.reg_cost_extra}
-                            onChange={(e) => handleChange("reg_cost_extra", e.target.value)}
+                            value={form.reg_cost_event}
+                            onChange={(e) => handleChange("reg_cost_event", e.target.value)}
                         />
                     </div>
                 </section>
@@ -194,20 +185,20 @@ export default function OrganizerSettings({ settings = {} }: { settings?: Partia
                         />
                         <div className="hidden sm:block" />
                         <ShortAnswer
-                            label="Early cost, first event ($)"
+                            label="Early base cost ($)"
                             type="number"
                             min={0}
                             step={1}
-                            value={form.early_reg_cost_first}
-                            onChange={(e) => handleChange("early_reg_cost_first", e.target.value)}
+                            value={form.early_reg_cost_base}
+                            onChange={(e) => handleChange("early_reg_cost_base", e.target.value)}
                         />
                         <ShortAnswer
-                            label="Early cost, each extra event ($)"
+                            label="Early cost, each event ($)"
                             type="number"
                             min={0}
                             step={1}
-                            value={form.early_reg_cost_extra}
-                            onChange={(e) => handleChange("early_reg_cost_extra", e.target.value)}
+                            value={form.early_reg_cost_event}
+                            onChange={(e) => handleChange("early_reg_cost_event", e.target.value)}
                         />
                     </div>
                 </section>

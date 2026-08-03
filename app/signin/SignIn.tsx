@@ -7,26 +7,25 @@ import { loginAction } from "@functions/actions";
 import type { SignedInUser } from "@functions/actions";
 import { useForwardDashboard } from "@functions";
 import { useNavigate } from "@/routerCompat";
-import { useRouter } from "next/navigation";
 import { useAppDispatch } from "@/store/hooks";
 import { setSuccessMsg } from "@slices";
 import { clearSessionCache } from "@functions/sessionCache";
+import { cacheKeys } from "@functions";
 import { validate, handleFormChange, handleFormBlur } from "@functions/forms";
 // sign-in page — a single AuthPanel form (email + password only)
 
 // Where a freshly signed-in user lands, from what loginAction returns. Mirrors
-// /dashboard's server gates so they arrive directly instead of via a redirect.
+// /competitor's server gates so they arrive directly instead of via a redirect.
 function landingRoute(user: SignedInUser): string {
   if (user.can_access_organizer) return "/organizer";
   if (!user.has_profile || (user.reg_year != null && user.profile_reg_year !== user.reg_year)) {
-    return "/profile/setup";
+    return "/competitor/profile";
   }
-  return "/dashboard";
+  return "/competitor";
 }
 
 export default function SignIn() {
   const nav = useNavigate();
-  const router = useRouter();
   const dispatch = useAppDispatch();
 
   const [formData, setFormData] = useState<Record<string, string>>({});
@@ -34,7 +33,7 @@ export default function SignIn() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   // Set once this page has signed a user in and routed them itself, which
-  // switches off the generic "authenticated -> /dashboard" forwarding below.
+  // switches off the generic "authenticated -> /competitor" forwarding below.
   const [signedIn, setSignedIn] = useState(false);
 
   const handleChange = handleFormChange(setFormData, setErrors);
@@ -59,8 +58,10 @@ export default function SignIn() {
 
     setLoading(true);
 
-    // loginAction sets the session cookie server-side and returns the user.
-    // router.refresh() re-runs the layout, re-seeding SessionProvider.
+    // loginAction sets the session cookie server-side and returns the user; the
+    // navigation below re-runs the root layout against that cookie, which is
+    // what re-seeds SessionProvider. No router.refresh() first — that rendered
+    // /signin server-side only to leave it, costing a second RSC round trip.
     try {
       const res = await loginAction({
         email: formData.email,
@@ -74,10 +75,9 @@ export default function SignIn() {
         return;
       }
       setError("");
-      clearSessionCache("currentUser");
+      clearSessionCache(cacheKeys.currentUser);
       dispatch(setSuccessMsg("Sign In Successful"));
       setSignedIn(true);
-      router.refresh();
       nav(landingRoute(res.user));
     } catch (err) {
       console.error("[loginAction]", err);

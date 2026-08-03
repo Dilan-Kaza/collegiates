@@ -15,6 +15,9 @@ export interface EventDTO {
   gender_category: string | null;
   weapon_type: string | null;
   is_nandu: boolean | null;
+  // Changquan/Nanquan, which the External All-Around's first requirement is
+  // scored on (rules 4.I).
+  is_cq_nq: boolean | null;
 }
 
 export interface BlogDTO {
@@ -29,12 +32,13 @@ export interface BlogDTO {
 export interface SettingsDTO {
   reg_year: number;
   early_reg_start: Date | null;
-  early_reg_cost_first: number | null;
-  early_reg_cost_extra: number | null;
+  // Flat fee charged once per competitor, plus a per-event fee on top of it.
+  early_reg_cost_base: number | null;
+  early_reg_cost_event: number | null;
   reg_start: Date;
   reg_end: Date;
-  reg_cost_first: number;
-  reg_cost_extra: number;
+  reg_cost_base: number;
+  reg_cost_event: number;
   // Payment + proof-of-enrollment deadline.
   due_date: Date | null;
   comp_date: Date | null;
@@ -56,6 +60,13 @@ export interface RegistrationDTO {
   event_code: string;
   event_name: string | null;
   event_level: string | null;
+  // "E"/"I"/"G"; the dashboard keys the team competition off a "G" registration.
+  event_category: string | null;
+  // Carried so All-Around progress can be scored off a registration the same way
+  // it is off the catalogue (lib/allAround.ts needs bare-hand vs. weapon, and
+  // Changquan/Nanquan for the external title's first requirement).
+  weapon_type: string | null;
+  is_cq_nq: boolean | null;
   is_nandu: boolean | null;
   nandu_str?: string | null;
 }

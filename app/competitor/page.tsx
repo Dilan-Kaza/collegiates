@@ -12,20 +12,25 @@ export default async function Page() {
   // (who have no competitor dashboard) go straight to the organizer console —
   // both before any dashboard data is fetched or rendered.
   const user = await requireCompetitor();
-  // Independent reads, so they resolve together. On the redirect path below getMe
-  // is wasted, but it's cached and that path fires once per competitor per year.
-  const [settings, userinfo] = await Promise.all([getSettings(), getMe()]);
-  // To /profile/setup when there's no profile yet, or it was last confirmed
-  // under an earlier competition year (re-confirmed once per new reg_year).
+
+  // The redirect only needs settings, and requireCompetitor already returned the
+  // profile — so this is decided before getMe runs rather than after, and the
+  // setup path no longer pays for a dashboard payload it never renders.
+  const settings = await getSettings();
   const currentYear = settings?.reg_year;
   const profile = user.competitor_profile;
+  // To /competitor/profile when there's no profile yet, or it was last confirmed
+  // under an earlier competition year (re-confirmed once per new reg_year).
   if (!profile || (currentYear != null && profile.last_reg_year !== currentYear)) {
-    redirect("/profile/setup");
+    redirect("/competitor/profile");
   }
+
+  const userinfo = await getMe();
   return (
     <>
-      <CacheSeed entries={{ [cacheKeys.settings]: settings, [cacheKeys.currentUser]: userinfo }} />
-      <Dashboard settings={settings ?? {}} userinfo={userinfo ?? {}} />
+      {/* `settings` has no client fetcher, so it stays a seed-only entry. */}
+      <CacheSeed entries={{ [cacheKeys.settings]: settings }} />
+      <Dashboard settings={settings ?? {}} userinfo={userinfo} />
     </>
   );
 }

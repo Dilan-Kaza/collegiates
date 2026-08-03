@@ -22,5 +22,9 @@ export {
 } from "./organizer-groupsets";
 export { getOrganizerOrder, saveOrder, setOrderPublic, getPublicOrder } from "./order";
 export { createSettings, createSchoolAccount } from "./admin";
+// DISABLED 2026-08-02 — Jira bug report. Uncomment when asked to fix that code;
+// see the header note in functions/actions/bug-report.ts for the other places.
+// export { submitBugReport } from "./bug-report";
+// export type { BugReportBody } from "./bug-report";
 
 export type { Mutation, FieldErrors } from "./shared";

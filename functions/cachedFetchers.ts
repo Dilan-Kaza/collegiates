@@ -1,7 +1,8 @@
 "use client";
 
-import { getSessionCache, setSessionCache } from "@functions/sessionCache";
-import { cacheKeys } from "@functions/cacheKeys";
+import { useEffect, useRef } from "react";
+import { getSessionCache, setSessionCache, useSessionCache } from "@functions/sessionCache";
+import { cacheKeys, organizerRegistrationsKey } from "@functions/cacheKeys";
 import {
   getMe,
   getCompetitorEvents,
@@ -40,6 +41,64 @@ async function cached<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
   return data;
 }
 
+// ---------- the read path components actually use ----------
+
+// Binds a server-rendered value to its cache entry.
+//
+// `initial` is what the page fetched server-side for this render, so first paint
+// is the server's data — there is no mount-time fetch and no loading state. The
+// cache is kept in step with it, and the fetcher only runs when a mutation has
+// dropped the key (every clearSessionCache call site), which is the case the old
+// write-only cache never handled: the component re-reads instead of showing a
+// stale copy until the next navigation.
+//
+// Note the returned value is the cache's superjson round-trip of `initial`, not
+// `initial` itself, so it changes identity once just after mount. Dates survive
+// the trip; consumers that memoize on it recompute one extra time.
+export function useCachedResource<T>(key: string, fetcher: () => Promise<T>, initial: T): T {
+  const cached = useSessionCache<T>(key);
+
+  // Latest-ref so a call site can pass an inline arrow (the uuid-parameterized
+  // fetchers all do) without its identity re-arming the refetch effect below.
+  const fetcherRef = useRef(fetcher);
+  fetcherRef.current = fetcher;
+
+  // Compared by identity, not value: a new object means the server sent a new
+  // payload for this route, and the server's copy always wins over whatever an
+  // earlier visit left in sessionStorage.
+  const seededFrom = useRef<T | undefined>(undefined);
+
+  useEffect(() => {
+    if (seededFrom.current === initial) return;
+    seededFrom.current = initial;
+    setSessionCache(key, initial);
+  }, [key, initial]);
+
+  useEffect(() => {
+    // Before the first seed there is nothing to refill — `undefined` here just
+    // means the effect above has not run yet, not that a mutation cleared it.
+    if (cached !== undefined || seededFrom.current === undefined) return;
+    let cancelled = false;
+    fetcherRef
+      .current()
+      // Stored as null rather than undefined: an undefined entry reads back as a
+      // miss, which would re-arm this effect and refetch forever.
+      .then((data) => {
+        if (!cancelled) setSessionCache(key, (data ?? null) as T);
+      })
+      .catch((err) => {
+        // Leave the key empty and fall back to `initial` — a failed refresh
+        // shows slightly stale data rather than blanking the view.
+        console.error(`[useCachedResource:${key}]`, err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [cached, key]);
+
+  return cached ?? initial;
+}
+
 // ---------- competitor / public ----------
 
 export const fetchMe = (): Promise<CompetitorDTO | null> =>
@@ -75,13 +134,8 @@ export const fetchOrganizerEvents = (): Promise<EventDTO[]> =>
 // key; a filtered query is a different result set, so it derives its own key.
 export const fetchOrganizerRegistrations = (
   filters?: Parameters<typeof getOrganizerRegistrations>[0],
-): Promise<OrganizerRegistrationDTO[]> => {
-  const hasFilters = filters && Object.keys(filters).length > 0;
-  const key = hasFilters
-    ? `${cacheKeys.organizerRegistrations}_${JSON.stringify(filters)}`
-    : cacheKeys.organizerRegistrations;
-  return cached(key, () => getOrganizerRegistrations(filters));
-};
+): Promise<OrganizerRegistrationDTO[]> =>
+  cached(organizerRegistrationsKey(filters), () => getOrganizerRegistrations(filters));
 
 export const fetchOrganizerRegistration = (
   uuid: string,

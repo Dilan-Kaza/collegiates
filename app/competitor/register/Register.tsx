@@ -5,10 +5,11 @@ import { useState } from "react";
 import { useNavigate } from "@/routerCompat";
 import { createRegistrations } from "@functions/actions";
 import { errorMessage, runAction } from "@functions/actionErrors";
+import { useCachedResource, fetchCompetitorEvents, fetchMe, cacheKeys } from "@functions";
 import { clearSessionCache } from "@functions/sessionCache";
 import { useAppDispatch } from "@/store/hooks";
 import { setErrorMsg, setSuccessMsg } from "@slices";
-import type { SettingsDTO, EventDTO } from "@/lib/api";
+import type { SettingsDTO, EventDTO, CompetitorDTO } from "@/lib/api";
 import type { RegEventItem } from "@/types";
 // event registration flow
 
@@ -17,13 +18,30 @@ import type { RegEventItem } from "@/types";
 export default function Register({
     settings = {},
     catalogEvents = [],
+    userinfo = null,
 }: {
     settings?: Partial<SettingsDTO>;
     catalogEvents?: EventDTO[];
+    userinfo?: CompetitorDTO | null;
 }) {
 
     const nav = useNavigate();
     const dispatch = useAppDispatch();
+
+    // Class and skill level decide whether an All-Around title is even in reach,
+    // so both steps below need the profile. Bound to the cache
+    // like the catalogue is: /competitor/profile clears `currentUser` on save, and
+    // that save is the step immediately before this one.
+    const me = useCachedResource(cacheKeys.currentUser, fetchMe, userinfo);
+
+    // Which events this competitor is eligible for depends on the gender and
+    // skill level saved in their profile, so /competitor/profile clears this key
+    // on save — the catalogue is re-read here rather than left stale.
+    const events_catalog = useCachedResource(
+        cacheKeys.competitorEvents,
+        fetchCompetitorEvents,
+        catalogEvents,
+    );
 
     const [events, setEvents] = useState<RegEventItem[]>([]);
     const [confirming, setConfirming] = useState(false);
@@ -32,12 +50,13 @@ export default function Register({
     const [error, setError] = useState("");
 
     const isEarly = !!settings.early_reg_start
-        && settings.early_reg_cost_first != null
+        && settings.early_reg_cost_base != null
         && new Date().getTime() < new Date(settings.reg_start ?? 0).getTime();
-    const firstCost = isEarly ? settings.early_reg_cost_first : settings.reg_cost_first;
-    const extraCost = isEarly ? settings.early_reg_cost_extra : settings.reg_cost_extra;
-    const totalCost = events.length > 0 && firstCost != null
-        ? firstCost + (extraCost ?? 0) * (events.length - 1)
+    const baseCost = isEarly ? settings.early_reg_cost_base : settings.reg_cost_base;
+    const eventCost = isEarly ? settings.early_reg_cost_event : settings.reg_cost_event;
+    // The base fee is charged once, on top of a fee for every event entered.
+    const totalCost = events.length > 0 && baseCost != null
+        ? baseCost + (eventCost ?? 0) * events.length
         : null;
 
     // createRegistrations rejects a submission for reasons the competitor can act
@@ -56,10 +75,10 @@ export default function Register({
             dispatch(setErrorMsg(message));
             return;
         }
-        clearSessionCache("currentUser");
-        clearSessionCache("registrations");
+        clearSessionCache(cacheKeys.currentUser);
+        clearSessionCache(cacheKeys.registrations);
         dispatch(setSuccessMsg("Registration complete"));
-        nav("/dashboard");
+        nav("/competitor");
     };
 
     return (
@@ -68,11 +87,13 @@ export default function Register({
             {confirming ? (
                 <RegistrationConfirm
                     events={events}
-                    catalogEvents={catalogEvents}
+                    catalogEvents={events_catalog}
                     isEarly={isEarly}
-                    firstCost={firstCost}
-                    extraCost={extraCost}
+                    baseCost={baseCost}
+                    eventCost={eventCost}
                     totalCost={totalCost}
+                    studentType={me?.student_type}
+                    skillLevel={me?.skill_level}
                     dueDate={settings.due_date}
                     onBack={() => { setError(""); setConfirming(false); }}
                     onConfirm={onConfirm}
@@ -82,10 +103,18 @@ export default function Register({
                 <EventSelection
                     events={events}
                     setEvents={setEvents}
-                    catalogEvents={catalogEvents}
+                    catalogEvents={events_catalog}
                     isEarly={isEarly}
-                    firstCost={firstCost}
-                    extraCost={extraCost}
+                    baseCost={baseCost}
+                    eventCost={eventCost}
+                    studentType={me?.student_type}
+                    skillLevel={me?.skill_level}
+                    // The profile is the step before this one — it navigates
+                    // here on save — so back goes there rather than to the
+                    // dashboard. Safe to return to: the profile only bounces to
+                    // the dashboard once registrations exist, and reaching this
+                    // page means there are none yet.
+                    onBack={() => nav("/competitor/profile")}
                     onSubmit={() => setConfirming(true)}
                 />
             )}

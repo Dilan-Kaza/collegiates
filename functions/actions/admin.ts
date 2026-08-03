@@ -21,8 +21,8 @@ export async function createSettings(body: SettingsBody): Promise<Mutation<Setti
   if (body.reg_year == null) return { error: { reg_year: "Registration year is required." } };
   if (!body.reg_start) return { error: { reg_start: "Registration start is required." } };
   if (!body.reg_end) return { error: { reg_end: "Registration end is required." } };
-  if (body.reg_cost_first == null) return { error: { reg_cost_first: "First-event cost is required." } };
-  if (body.reg_cost_extra == null) return { error: { reg_cost_extra: "Extra-event cost is required." } };
+  if (body.reg_cost_base == null) return { error: { reg_cost_base: "Base cost is required." } };
+  if (body.reg_cost_event == null) return { error: { reg_cost_event: "Per-event cost is required." } };
   if (!body.contact_email) return { error: { contact_email: "Contact email is required." } };
   if (!body.host) return { error: { host: "Host user email is required." } };
 

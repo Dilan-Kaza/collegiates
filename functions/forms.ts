@@ -42,7 +42,7 @@ const validate = (name: string, value: string, formData: { password?: string } =
       if (!value) return "Please select a gender";
       return "";
     case "student_type":
-      if (!value) return "Please select a student type";
+      if (!value) return "Please select a class eligibility";
       return "";
     default:
       return "";

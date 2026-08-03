@@ -4,8 +4,12 @@ import { useSession } from "@functions/sessionContext";
 import { useNavigate } from "@/routerCompat";
 import { useEffect } from "react";
 
-// Redirect hooks driven by useSession. SessionProvider is server-seeded, so
+// Redirect hook driven by useSession. SessionProvider is server-seeded, so
 // `status` is resolved on first render — never a transient "loading".
+//
+// There is deliberately no client-side organizer/admin gate here: every route
+// under /organizer and /admin is gated on the server by requireOrganizer /
+// requireAdmin, which redirects before any markup renders.
 
 // Forwards an already-signed-in visitor off an auth page. enabled=false suspends
 // it, so the sign-in page can pick its own destination after signing someone in.
@@ -14,19 +18,8 @@ function useForwardDashboard(enabled = true) {
   const nav = useNavigate();
 
   useEffect(() => {
-    if (enabled && status === "authenticated") nav("/dashboard");
-  }, [status, enabled]);
+    if (enabled && status === "authenticated") nav("/competitor");
+  }, [status, enabled, nav]);
 }
 
-function useForwardIfNotOrganizer() {
-  const { data } = useSession();
-  const nav = useNavigate();
-
-  useEffect(() => {
-    // The session is server-seeded, so `data` is already resolved on first
-    // render — no "loading" state to wait through before redirecting.
-    if (data?.user?.user_type !== "School") nav("/");
-  }, [data]);
-}
-
-export { useForwardDashboard, useForwardIfNotOrganizer };
+export { useForwardDashboard };

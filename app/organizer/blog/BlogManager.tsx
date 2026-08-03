@@ -4,20 +4,26 @@ import { MtHeader, OrganizerBlogList } from "@components";
 import { setErrorMsg, setSuccessMsg } from "@slices";
 import { createBlogPost } from "@functions/actions";
 import { errorMessage, runAction } from "@functions/actionErrors";
-import { cacheKeys } from "@functions";
+import { cacheKeys, useCachedResource, fetchOrganizerBlogPosts } from "@functions";
 import { clearSessionCache } from "@functions/sessionCache";
 import { useState } from "react";
 import { useNavigate } from "@/routerCompat";
 import { useAppDispatch } from "@/store/hooks";
 import type { BlogDTO } from "@/lib/api";
 
-// `posts` arrives from the server. createBlogPost returns what it created, so a
-// create prepends locally instead of a router.refresh() RSC round trip.
-export default function BlogManager({ posts = [] }: { posts?: BlogDTO[] }) {
+// `posts` arrives from the server for first paint, then follows its cache entry.
+// A create drops that entry, and createBlogPost has already dropped the server's
+// "blog" tag, so the refetch returns the new post — no local prepend to keep in
+// sync, and no router.refresh() RSC round trip.
+export default function BlogManager({ posts: initialPosts = [] }: { posts?: BlogDTO[] }) {
 
     const nav = useNavigate();
     const dispatch = useAppDispatch();
-    const [created, setCreated] = useState<BlogDTO[]>([]);
+    const posts = useCachedResource(
+        cacheKeys.organizerBlogPosts,
+        fetchOrganizerBlogPosts,
+        initialPosts,
+    );
     const [title, setTitle] = useState("");
     const [blog_content, setBlogContent] = useState("");
     const [author, setAuthor] = useState("");
@@ -29,11 +35,11 @@ export default function BlogManager({ posts = [] }: { posts?: BlogDTO[] }) {
         setLoading(true);
         const fallback = "Failed to post blog";
         try {
-            const { data, error } = await runAction(
+            const { error } = await runAction(
                 () => createBlogPost({ title, blog_content, author, category }),
                 fallback,
             );
-            if (error || !data) {
+            if (error) {
                 // createBlogPost reports missing content under `title` /
                 // `blog_content`, so errorMessage has to look past `detail`.
                 dispatch(setErrorMsg(errorMessage(error, fallback)));
@@ -44,8 +50,10 @@ export default function BlogManager({ posts = [] }: { posts?: BlogDTO[] }) {
             setBlogContent("");
             setAuthor("");
             setCategory("");
-            setCreated((prev) => [data, ...prev]);
-            // Drop the cached lists so other views re-read them.
+            // Dropping the list entry is what adds the post to the view: the hook
+            // above refills it from getOrganizerBlogPosts, whose "blog" tag
+            // createBlogPost just invalidated. blogPosts is the public list, read
+            // by other routes.
             clearSessionCache(cacheKeys.organizerBlogPosts);
             clearSessionCache(cacheKeys.blogPosts);
             dispatch(setSuccessMsg("Post published"));
@@ -108,7 +116,7 @@ export default function BlogManager({ posts = [] }: { posts?: BlogDTO[] }) {
 
                 <div className="cg-card">
                     <div className="text-xl font-semibold text-primary border-b border-gray-200 pb-2">Posts</div>
-                    <OrganizerBlogList posts={[...created, ...posts]} />
+                    <OrganizerBlogList posts={posts} />
                 </div>
             </div>
         </>

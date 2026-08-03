@@ -2,8 +2,6 @@ import Groupset from "./Groupset";
 import { getJoinableGroupsets, getMyGroupset } from "@functions/actions";
 import { requireCompetitor } from "@/lib/auth";
 import { isClassOne } from "@/lib/api";
-import CacheSeed from "@functions/CacheSeed";
-import { cacheKeys } from "@functions/cacheKeys";
 
 export default async function Page() {
   // Group sets are a competitor feature, so gate on that — the reads below
@@ -16,15 +14,6 @@ export default async function Page() {
     getJoinableGroupsets(),
     getMyGroupset(),
   ]);
-  return (
-    <>
-      <CacheSeed
-        entries={{
-          [cacheKeys.joinableGroupsets]: groupSetMembers,
-          [cacheKeys.groupSet]: myGroupSet,
-        }}
-      />
-      <Groupset groupSetMembers={groupSetMembers} myGroupSet={myGroupSet} classOne={classOne} />
-    </>
-  );
+  // No CacheSeed: Groupset binds both lists to their cache entries itself.
+  return <Groupset groupSetMembers={groupSetMembers} myGroupSet={myGroupSet} classOne={classOne} />;
 }

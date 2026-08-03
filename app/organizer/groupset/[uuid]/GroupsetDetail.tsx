@@ -5,14 +5,21 @@ import { setErrorMsg, setSuccessMsg } from "@slices";
 import { clearSessionCache } from "@functions/sessionCache";
 import { updateOrganizerGroupset } from "@functions/actions";
 import { errorMessage, runAction } from "@functions/actionErrors";
+import { useCachedResource, cacheKeys, fetchOrganizerGroupset } from "@functions";
 import { useNavigate } from "@/routerCompat";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAppDispatch } from "@/store/hooks";
 import type { OrganizerGroupsetDTO, OrganizerMemberDTO } from "@/lib/api";
 // organizer groupset detail/edit page
 
 // The group set arrives from the server by uuid. A save applies what
 // updateOrganizerGroupset returns rather than re-running the page.
+//
+// The edit fields are seeded from the server copy once, at mount. They used to be
+// re-synced from an effect keyed on the `groupset` prop, which meant every RSC
+// re-render of this route — a server action's updateTag, a router.refresh —
+// silently threw away an in-progress rename or roster change. The page keys this
+// component on the uuid, so navigating to a different group set still remounts.
 export default function GroupsetDetail({
     uuid,
     groupset,
@@ -24,22 +31,22 @@ export default function GroupsetDetail({
     const nav = useNavigate();
     const dispatch = useAppDispatch();
 
+    // Read-only view of the group set, kept in step with its cache entry.
+    const server = useCachedResource(
+        cacheKeys.organizerGroupset(uuid),
+        () => fetchOrganizerGroupset(uuid),
+        groupset,
+    );
+
     // The displayed group set: the server's copy until a save replaces it.
-    const [current, setCurrent] = useState<OrganizerGroupsetDTO>(groupset);
+    const [saved, setSaved] = useState<OrganizerGroupsetDTO | null>(null);
+    const current = saved ?? server ?? groupset;
+
     const [editing, setEditing] = useState(false);
     const [teamName, setTeamName] = useState(groupset.team_name ?? "");
     const [leaderId, setLeaderId] = useState(groupset.leader?.user_id ?? "");
     const [members, setMembers] = useState<OrganizerMemberDTO[]>(groupset.members ?? []);
     const [loading, setLoading] = useState(false);
-
-    // Adopt fresh server data whenever the page re-renders with a new group set
-    // (a navigation back onto this route, or any other refresh).
-    useEffect(() => {
-        setCurrent(groupset);
-        setTeamName(groupset.team_name ?? "");
-        setLeaderId(groupset.leader?.user_id ?? "");
-        setMembers(groupset.members ?? []);
-    }, [groupset]);
 
     const handleAdd = (user_id: string, name: string) => {
         if (members.some(m => m.user_id === user_id)) return;
@@ -71,11 +78,11 @@ export default function GroupsetDetail({
                 // Stay in edit mode: the pending changes are still unsaved.
                 return;
             }
-            clearSessionCache(`groupset_${uuid}`);
-            clearSessionCache("organizerGroupsets");
+            clearSessionCache(cacheKeys.organizerGroupset(uuid));
+            clearSessionCache(cacheKeys.organizerGroupsets);
             setEditing(false);
             // The action returns the saved group set, so adopt it directly.
-            setCurrent(data);
+            setSaved(data);
             setTeamName(data.team_name ?? "");
             setLeaderId(data.leader?.user_id ?? "");
             setMembers(data.members ?? []);

@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import Providers from "./providers";
 import { auth } from "@/auth";
 import { getCurrentUser } from "@/lib/auth";
-import { NavBar, NavDock, BackgroundShapes, Notif, LoadingOverlay } from "@components";
+import { NavBar, NavDock, BackgroundShapes, Notif, LoadingOverlay, Footer } from "@components";
 // root layout + metadata
 
 export const metadata: Metadata = {
@@ -26,6 +26,11 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     <Providers session={session}>
       <html lang="en">
         <head>
+          {/* Both stylesheets are render-blocking and cross-origin, so the
+              connection setup (DNS + TCP + TLS) would otherwise happen only once
+              the parser reaches the first <link>. Warm it in parallel instead. */}
+          <link rel="preconnect" href="https://use.typekit.net" />
+          <link rel="preconnect" href="https://use.typekit.net" crossOrigin="anonymous" />
           <link rel="stylesheet" href="https://use.typekit.net/org5cfx.css" />
           <link rel="stylesheet" href="https://use.typekit.net/zao2vdq.css" />
         </head>
@@ -42,6 +47,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 
           <div className="antialiased text-dark font-grotesk lg:w-[80%] lg:translate-x-[12.5%] my-2">
             {children}
+            <Footer />
           </div>
 
           <div className="fixed top-0 left-0 right-0 z-[9999] flex flex-col items-center sm:hidden">

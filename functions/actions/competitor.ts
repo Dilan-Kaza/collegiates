@@ -21,20 +21,27 @@ import type { RegEventItem } from "@/types";
 export async function getCompetitorEvents(): Promise<EventDTO[]> {
   const user = await getCurrentUser();
   if (!user || !isCompetitor(user)) return [];
-  // Keyed by (level, gender), the query's only inputs, so a profile change just
-  // moves keys. Key uses the legacy codes; the query uses Prisma's enum members.
+  // Keyed by (level, gender, class), the query's only inputs, so a profile change
+  // just moves keys. Key uses the legacy codes; the query uses Prisma's enum
+  // members.
   const skillLevel = user.competitor_profile?.skill_level ?? null;
   const gender = user.competitor_profile?.gender ?? null;
   const levelCode = fromSkillLevel(skillLevel) ?? "";
   const genderCode = fromGender(gender) ?? "";
+  // Groupset events carry no level or gender, so they never match the ordinary
+  // slice; Class 1 competitors get them as a second branch. Class 2 competitors
+  // are not eligible for the team competition, so theirs stays a single branch.
+  const classOne = isClassOne(user.competitor_profile?.student_type);
   return unstable_cache(
     async (): Promise<EventDTO[]> => {
       const events = await prisma.event.findMany({
-        where: { event_level: skillLevel, gender_category: gender },
+        where: classOne
+          ? { OR: [{ event_level: skillLevel, gender_category: gender }, { event_category: "Groupset" }] }
+          : { event_level: skillLevel, gender_category: gender },
       });
       return events.map(shapeEvent);
     },
-    ["competitor-events", levelCode, genderCode],
+    ["competitor-events", levelCode, genderCode, classOne ? "1" : "2"],
     { tags: [TAG_EVENTS], revalidate: READ_CACHE_TTL },
   )();
 }
@@ -93,8 +100,14 @@ export async function createRegistrations(items: RegEventItem[]): Promise<Mutati
     for (const item of items) {
       const event = eventByCode.get(item.event_code);
       if (!event) return { error: { event: `Event with id ${item.event_code} does not exist.` } };
-      if (event.gender_category !== (user.competitor_profile?.gender ?? null)) return { error: { event: "Competitor signed up for wrong gender category" } };
-      if (event.event_level !== (user.competitor_profile?.skill_level ?? null)) return { error: { event: "Competitor signed up for wrong level" } };
+      // A groupset event has no level or gender to match against — Class 1
+      // eligibility is what gates it, mirroring getCompetitorEvents.
+      if (event.event_category === "Groupset") {
+        if (!isClassOne(user.competitor_profile?.student_type)) return { error: { event: "Only Class 1 competitors are eligible for the team event" } };
+      } else {
+        if (event.gender_category !== (user.competitor_profile?.gender ?? null)) return { error: { event: "Competitor signed up for wrong gender category" } };
+        if (event.event_level !== (user.competitor_profile?.skill_level ?? null)) return { error: { event: "Competitor signed up for wrong level" } };
+      }
       if (alreadyRegistered.has(event.event_code)) return { error: { event: "You are already registered for this event." } };
       toCreate.push({ competitor_id: user.user_id, event_code: event.event_code, comp_year: year, nandu_str: item.nandu_str ?? "", date_created });
     }

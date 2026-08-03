@@ -30,21 +30,22 @@ enum SkillLevel {
   @@map("skill_level")
 }
 
+// External/Internal are the legacy Django split; Groupset is its own category
+// because the team event is neither, and it is entered through a groupset rather
+// than individual registration.
 enum EventCategory {
   External @map("E")
   Internal @map("I")
+  Groupset @map("G")
 
   @@map("event_category")
 }
 
+// Competitors self-report the eligibility class from rules I directly, rather
+// than a finer-grained school status the app would have to classify.
 enum StudentType {
-  Undergraduate    @map("1") // Full/Part-Time Undergraduate Student
-  FullTimeGraduate @map("2") // Full-Time Graduate/Professional School Student
-  EarlyGraduate    @map("3") // Early Graduate Of Current Year
-  NonEnrolled      @map("4") // Non-Enrolled Student
-  OneYearAlumni    @map("5") // One Year Alumni
-  PartTimeGraduate @map("6") // Part-Time Graduate Student
-  International    @map("7") // International Student
+  ClassOne @map("1") // Class 1
+  ClassTwo @map("2") // Class 2
 
   @@map("student_type")
 }
@@ -88,6 +89,12 @@ model Event {
   event_category  EventCategory?
   gender_category Gender?
   is_nandu        Boolean?
+  // Marks the Changquan ("Longfist") and Nanquan ("Southern Fist") disciplines,
+  // nandu variants included. The External All-Around's first requirement is
+  // scored on it (rules 4.I) and nothing else about an event identifies them:
+  // external + barehand also catches Traditional Open Barehand. New field with
+  // no legacy data, hence nullable.
+  is_cq_nq        Boolean?
   weapon_type     WeaponType?
 
   registrations Registration[]
@@ -128,7 +135,7 @@ model CompetitorProfile {
   is_competing  Boolean      @default(false)
   has_paid      Boolean      @default(false)
   proof_of_reg  Boolean      @default(false)
-  // Last Settings.reg_year confirmed under; re-runs /profile/setup on a new year.
+  // Last Settings.reg_year confirmed under; re-runs /competitor/profile on a new year.
   last_reg_year Int?
 
   registration      Registration[]
@@ -205,12 +212,13 @@ model Settings {
   id                   String    @id @default(uuid()) @db.Uuid
   reg_year             Int
   early_reg_start      DateTime? @db.Timestamptz(6)
-  early_reg_cost_first Int?
-  early_reg_cost_extra Int?
+  // Flat fee charged once per competitor, plus a per-event fee on top of it.
+  early_reg_cost_base  Int?
+  early_reg_cost_event Int?
   reg_start            DateTime  @db.Timestamptz(6)
   reg_end              DateTime  @db.Timestamptz(6)
-  reg_cost_first       Int
-  reg_cost_extra       Int
+  reg_cost_base        Int
+  reg_cost_event       Int
   // Deadline for payment + proof of enrollment; separate from reg_end.
   due_date             DateTime? @db.Date
   comp_date            DateTime? @db.Date

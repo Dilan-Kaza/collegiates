@@ -20,8 +20,8 @@ export interface SignedInUser {
   user_type: UserType;
   // Whether this user may reach the organizer console (settings host or admin).
   can_access_organizer: boolean;
-  // Profile state: absent until /profile/setup runs, re-confirmed yearly.
-  // profile_reg_year behind reg_year means setup is due.
+  // Profile state: absent until /competitor/profile runs, re-confirmed yearly.
+  // profile_reg_year behind reg_year means the profile step is due.
   has_profile: boolean;
   profile_reg_year: number | null;
   reg_year: number | null;

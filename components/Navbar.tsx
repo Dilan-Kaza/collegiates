@@ -14,7 +14,7 @@ function NavBar({ firstName = "" }: { firstName?: string }) {
   const username = firstName;
   const userType = session?.user?.user_type;
   const accountHref =
-    userType === "Admin" ? "/admin" : userType === "School" ? "/organizer" : "/dashboard";
+    userType === "Admin" ? "/admin" : userType === "School" ? "/organizer" : "/competitor";
 
   const nav = useNavigate();
 

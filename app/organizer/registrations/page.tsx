@@ -16,13 +16,9 @@ export default async function Page() {
   ]);
   return (
     <>
-      <CacheSeed
-        entries={{
-          [cacheKeys.organizerRegistrations]: registrations,
-          [cacheKeys.organizerEvents]: allEvents,
-          [cacheKeys.colleges]: colleges,
-        }}
-      />
+      {/* The list and the catalogue are seeded by <Registrations>' own bindings;
+          `colleges` has no client fetcher, so it stays seed-only. */}
+      <CacheSeed entries={{ [cacheKeys.colleges]: colleges }} />
       <Registrations registrations={registrations} allEvents={allEvents} colleges={colleges} />
     </>
   );

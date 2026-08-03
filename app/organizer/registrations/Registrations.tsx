@@ -3,13 +3,19 @@
 import { MtHeader, OrganizerRegistrationList, OrganizerRegistrationByEvent, OrganizerRegistrationEdit } from "@components";
 import { useNavigate } from "@/routerCompat";
 import { useState } from "react";
+import {
+    useCachedResource,
+    cacheKeys,
+    fetchOrganizerRegistrations,
+    fetchOrganizerEvents,
+} from "@functions";
 import type { OrganizerRegistrationDTO, EventDTO } from "@/lib/api";
 
 // The registration list and full event catalogue are resolved on the server and
 // passed in; this client component only owns the view-switching UI.
 export default function Registrations({
-    registrations = [],
-    allEvents = [],
+    registrations: initialRegistrations = [],
+    allEvents: initialEvents = [],
     colleges = {},
 }: {
     registrations?: OrganizerRegistrationDTO[];
@@ -18,6 +24,20 @@ export default function Registrations({
 }) {
 
     const nav = useNavigate();
+
+    // The Create/Edit tab below saves through OrganizerRegistrationEdit, which
+    // drops this key — so switching back to a list tab shows the edit rather
+    // than the copy this page was rendered with.
+    const registrations = useCachedResource(
+        cacheKeys.organizerRegistrations,
+        fetchOrganizerRegistrations,
+        initialRegistrations,
+    );
+    const allEvents = useCachedResource(
+        cacheKeys.organizerEvents,
+        fetchOrganizerEvents,
+        initialEvents,
+    );
     const [view, setView] = useState("athlete");
     // Athlete handed off from the By Athlete list so the edit view opens
     // pre-loaded; null when the organizer opens Create / Edit fresh.

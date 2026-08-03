@@ -5,6 +5,7 @@ import type { ChangeEvent, FormEvent } from "react";
 import { useAppDispatch } from "@/store/hooks";
 import { setErrorMsg, setSuccessMsg } from "@slices";
 import { clearSessionCache } from "@functions/sessionCache";
+import { cacheKeys } from "@functions";
 import { findUserByEmail, updateOrganizerRegistration } from "@functions/actions";
 import { errorMessage, runAction } from "@functions/actionErrors";
 import { Dropdown } from "@components";
@@ -136,8 +137,8 @@ export default function OrganizerRegistrationEdit({
             }
             // Invalidate the cached organizer registration list so the other tabs
             // refetch this athlete's updated registration on next view.
-            clearSessionCache("organizerRegistrations");
-            clearSessionCache(`organizerRegistration_${athlete.user_id}`);
+            clearSessionCache(cacheKeys.organizerRegistrations);
+            clearSessionCache(cacheKeys.organizerRegistration(athlete.user_id));
             dispatch(setSuccessMsg(`Registration saved for ${athlete.name}`));
             setAthlete(result.data);
             setProfile(profileFrom(result.data));

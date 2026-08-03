@@ -54,7 +54,7 @@ export default function SignUp() {
     e.preventDefault();
 
     // Sign-up collects account fields only; the competitor profile is created
-    // in the separate /profile/setup step after the user first signs in.
+    // in the separate /competitor/profile step after the user first signs in.
     const requiredFields = ["email", "password", "re_password", "first_name", "last_name"];
 
     const allErrors: Record<string, string> = {};

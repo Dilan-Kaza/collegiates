@@ -27,7 +27,7 @@ export default async function Page() {
       (await prisma.registration.count({
         where: { competitor_id: user.user_id, comp_year: currentYear },
       })) > 0;
-    if (hasRegs) redirect("/dashboard");
+    if (hasRegs) redirect("/competitor");
   }
 
   const initial: ProfileInitial = {

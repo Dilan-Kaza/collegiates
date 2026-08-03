@@ -24,8 +24,11 @@ function TimelineSection({ settings = {} }: { settings?: Partial<SettingsDTO> })
             Hosted by {compinfo.host_school ?? "TBD"}
           </h2>
           {compinfo.reg_open && (
+            // Registration starts at the profile (gender, level and class decide
+            // event eligibility) and continues to event selection from there, so
+            // this entry point matches the dashboard's Register button.
             <Link
-              to="/register"
+              to="/competitor/profile"
               className="w-fit text-lg md:text-3xl font-bold underline underline-offset-4 hover:opacity-70 transition"
             >
               Register Now →

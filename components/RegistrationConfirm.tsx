@@ -5,6 +5,7 @@ import { useState } from "react";
 import { formatSettingsDate } from "@/lib/dates";
 import type { RegEventItem } from "@/types";
 import type { EventDTO } from "@/lib/api";
+import AllAroundStatus from "./AllAroundStatus";
 
 interface RegistrationConfirmProps {
   events: RegEventItem[];
@@ -12,9 +13,13 @@ interface RegistrationConfirmProps {
   // mount here).
   catalogEvents?: EventDTO[];
   isEarly?: boolean;
-  firstCost?: number | null;
-  extraCost?: number | null;
+  baseCost?: number | null;
+  eventCost?: number | null;
   totalCost?: number | null;
+  // Profile fields the All-Around readout is gated on, so what
+  // is being confirmed states the title this registration qualifies for.
+  studentType?: string | null;
+  skillLevel?: string | null;
   // Payment + proof-of-enrollment deadline, shown in the agreement text.
   dueDate?: Date | null;
   onBack?: MouseEventHandler<HTMLButtonElement>;
@@ -24,7 +29,7 @@ interface RegistrationConfirmProps {
   error?: string;
 }
 
-export default function RegistrationConfirm({ events, catalogEvents = [], isEarly, firstCost, extraCost, totalCost, dueDate, onBack, onConfirm, error }: RegistrationConfirmProps) {
+export default function RegistrationConfirm({ events, catalogEvents = [], isEarly, baseCost, eventCost, totalCost, studentType, skillLevel, dueDate, onBack, onConfirm, error }: RegistrationConfirmProps) {
     const eventsFromApi = catalogEvents;
     const [submitting, setSubmitting] = useState(false);
     const [agreePayment, setAgreePayment] = useState(false);
@@ -45,6 +50,12 @@ export default function RegistrationConfirm({ events, catalogEvents = [], isEarl
 
     const getEventName = (eventCode: string) => eventsFromApi.find(e => e.event_code === eventCode)?.event_name;
 
+    // Resolved back to catalogue entries, which is what All-Around progress is
+    // scored over.
+    const selectedEvents = events
+        .map(event => eventsFromApi.find(e => e.event_code === event.event_code))
+        .filter((e): e is EventDTO => e !== undefined);
+
     return (
         <div className="bg-primary rounded-lg mx-[10%] px-[5%] py-5">
             <div className="text-4xl text-off-white py-10">Confirm Registration</div>
@@ -58,13 +69,19 @@ export default function RegistrationConfirm({ events, catalogEvents = [], isEarl
                     </div>
                 ))}
             </div>
+            <AllAroundStatus
+                events={selectedEvents}
+                studentType={studentType}
+                skillLevel={skillLevel}
+                className="bg-off-white rounded-lg px-4 py-3 mb-6"
+            />
             {totalCost != null && (
                 <div className="flex justify-between items-center bg-off-white rounded-lg px-4 py-3 mb-6">
                     <div>
                         <div className="font-medium text-primary">Total Price</div>
                         <div className="text-xs text-secondary">
-                            {isEarly ? "Early registration rate" : "Standard registration rate"} — ${firstCost} first event
-                            {events.length > 1 && `, $${extraCost} each additional event (${events.length - 1})`}
+                            {isEarly ? "Early registration rate" : "Standard registration rate"} — ${baseCost} base
+                            {events.length > 0 && `, $${eventCost} each event (${events.length})`}
                         </div>
                     </div>
                     <div className="text-2xl font-bold text-primary">${totalCost}</div>

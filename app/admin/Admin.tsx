@@ -63,10 +63,10 @@ export default function Admin({
           reg_start: settings.reg_start || undefined,
           reg_end: settings.reg_end || undefined,
           early_reg_start: settings.early_reg_start || null,
-          reg_cost_first: num(settings.reg_cost_first),
-          reg_cost_extra: num(settings.reg_cost_extra),
-          early_reg_cost_first: settings.early_reg_cost_first ? Number(settings.early_reg_cost_first) : null,
-          early_reg_cost_extra: settings.early_reg_cost_extra ? Number(settings.early_reg_cost_extra) : null,
+          reg_cost_base: num(settings.reg_cost_base),
+          reg_cost_event: num(settings.reg_cost_event),
+          early_reg_cost_base: settings.early_reg_cost_base ? Number(settings.early_reg_cost_base) : null,
+          early_reg_cost_event: settings.early_reg_cost_event ? Number(settings.early_reg_cost_event) : null,
           due_date: settings.due_date || null,
           comp_date: settings.comp_date || null,
           contact_email: settings.contact_email,
@@ -125,10 +125,10 @@ export default function Admin({
             <DatePicker label="Early registration start (optional)" value={settings.early_reg_start ?? ""} onChange={(e) => settingsChange("early_reg_start", e.target.value)} />
             <DatePicker label="Payment & proof of enrollment due (optional)" value={settings.due_date ?? ""} onChange={(e) => settingsChange("due_date", e.target.value)} />
             <DatePicker label="Competition date (optional)" value={settings.comp_date ?? ""} onChange={(e) => settingsChange("comp_date", e.target.value)} />
-            <ShortAnswer label="First-event cost" type="number" value={settings.reg_cost_first ?? ""} onChange={(e) => settingsChange("reg_cost_first", e.target.value)} />
-            <ShortAnswer label="Extra-event cost" type="number" value={settings.reg_cost_extra ?? ""} onChange={(e) => settingsChange("reg_cost_extra", e.target.value)} />
-            <ShortAnswer label="Early first-event cost (optional)" type="number" value={settings.early_reg_cost_first ?? ""} onChange={(e) => settingsChange("early_reg_cost_first", e.target.value)} />
-            <ShortAnswer label="Early extra-event cost (optional)" type="number" value={settings.early_reg_cost_extra ?? ""} onChange={(e) => settingsChange("early_reg_cost_extra", e.target.value)} />
+            <ShortAnswer label="Base cost" type="number" value={settings.reg_cost_base ?? ""} onChange={(e) => settingsChange("reg_cost_base", e.target.value)} />
+            <ShortAnswer label="Per-event cost" type="number" value={settings.reg_cost_event ?? ""} onChange={(e) => settingsChange("reg_cost_event", e.target.value)} />
+            <ShortAnswer label="Early base cost (optional)" type="number" value={settings.early_reg_cost_base ?? ""} onChange={(e) => settingsChange("early_reg_cost_base", e.target.value)} />
+            <ShortAnswer label="Early per-event cost (optional)" type="number" value={settings.early_reg_cost_event ?? ""} onChange={(e) => settingsChange("early_reg_cost_event", e.target.value)} />
             <ShortAnswer label="Contact email" type="email" value={settings.contact_email ?? ""} onChange={(e) => settingsChange("contact_email", e.target.value)} />
             <Dropdown label="Publish event order" options={{ No: "false", Yes: "true" }} value={settings.order_public ?? "false"} onChange={(e) => settingsChange("order_public", e.target.value)} />
           </div>

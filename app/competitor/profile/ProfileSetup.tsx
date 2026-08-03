@@ -2,15 +2,17 @@
 
 import { MtHeader, Heading, Dropdown, Field, FormError, SubmitButton } from "@components";
 import { useState } from "react";
-import type { SyntheticEvent } from "react";
+import type { ReactNode, SyntheticEvent } from "react";
+import { Link } from "@/routerCompat";
 import { saveCompetitorProfile } from "@functions/actions";
 import { runAction } from "@functions/actionErrors";
 import { clearSessionCache } from "@functions/sessionCache";
+import { cacheKeys } from "@functions";
 import { useNavigate } from "@/routerCompat";
 import { useAppDispatch } from "@/store/hooks";
 import { setSuccessMsg } from "@slices";
 import { validate, handleFormBlur, handleFormChange } from "@functions/forms";
-import { GENDER_CHOICES, SKILL_LEVEL_CHOICES, STUDENT_TYPE_CHOICES } from "@/lib/api";
+import { GENDER_CHOICES, SKILL_LEVEL_CHOICES, SKILL_LEVEL_RESTRICTIONS, STUDENT_TYPE_CHOICES } from "@/lib/api";
 // competitor profile setup — the onboarding step after sign-up, reused for the
 // yearly re-confirmation when a new competition year starts
 
@@ -21,6 +23,27 @@ export interface ProfileInitial {
   school: string;
   student_type: string;
   skill_level: string;
+}
+
+// Experience level and class eligibility are self-reported here but bind the competitor
+// for the whole tournament (and misreporting is grounds for disqualification), so
+// each field states the rule and links to the section it comes from. New tab: the
+// rest of the form is unsaved.
+function RuleHint({ section, children }: { section: string; children: ReactNode }) {
+  return (
+    <p className="-mt-1 text-xs leading-snug text-gray-600">
+      {children}{" "}
+      <Link
+        to={`/rules?section=${section}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        prefetch={false}
+        className="whitespace-nowrap text-primary underline hover:opacity-70"
+      >
+        Read the rule
+      </Link>
+    </p>
+  );
 }
 
 export default function ProfileSetup({
@@ -81,10 +104,13 @@ export default function ProfileSetup({
       setError("");
       // The profile is bundled into getMe, and gender/skill drive which events
       // the register page offers — both cached copies are now stale.
-      clearSessionCache("currentUser");
-      clearSessionCache("competitorEvents");
+      clearSessionCache(cacheKeys.currentUser);
+      clearSessionCache(cacheKeys.competitorEvents);
       dispatch(setSuccessMsg("Profile completed"));
-      nav("/dashboard");
+      // Straight into event registration, the point of completing the profile.
+      // The register page bounces anyone who already has registrations this year
+      // to the dashboard, so the yearly re-confirmation path stays correct.
+      nav("/competitor/register");
     } finally {
       setLoading(false);
     }
@@ -103,16 +129,36 @@ export default function ProfileSetup({
             <Heading className="mt-2 sm:mt-6 !text-4xl !p-2 !animate-none">Complete Your Profile</Heading>
             <form className="self-stretch px-4 sm:px-12 pb-10 flex flex-col gap-6" onSubmit={handleSubmit}>
               <FormError error={error} />
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex flex-col flex-1">
+              {/* Two thirds to experience level, one to gender: the level's options
+                  and its rule hint need the room, gender is two short words. Stacks
+                  full width below sm. */}
+              <div className="flex flex-col gap-4 sm:grid sm:grid-cols-3">
+                <div className="flex flex-col gap-2 sm:col-span-2">
                   <Field {...fieldProps} as={Dropdown} name="skill_level" label="Experience Level*" options={SKILL_LEVEL_CHOICES} errorClass="mt-1" required />
+                  <RuleHint section="skill-level">
+                    Some moves are banned depending on your level.
+                  </RuleHint>
+                  {/* What the chosen level forbids, once there is a choice — the
+                      restrictions are the practical consequence of this field. */}
+                  {SKILL_LEVEL_RESTRICTIONS[formData.skill_level] && (
+                    <p className="rounded-md border border-primary/20 bg-primary/5 px-2 py-1.5 text-xs leading-snug text-gray-700">
+                      {SKILL_LEVEL_RESTRICTIONS[formData.skill_level]}
+                    </p>
+                  )}
                 </div>
-                <div className="flex flex-col flex-1">
-                  <Field {...fieldProps} as={Dropdown} name="gender" label="Gender*" options={GENDER_CHOICES} errorClass="mt-1" required />
+                <div className="flex flex-col">
+                  <Field {...fieldProps} as={Dropdown} name="gender" label="Gender*" options={GENDER_CHOICES} labelClass="min-w-[11rem] sm:min-w-0" errorClass="mt-1" required />
                 </div>
               </div>
               <Field {...fieldProps} as={Dropdown} name="school" label="College*" options={colleges} required />
-              <Field {...fieldProps} as={Dropdown} name="student_type" label="Student Type*" options={STUDENT_TYPE_CHOICES} required />
+              <div className="flex flex-col gap-2">
+                <Field {...fieldProps} as={Dropdown} name="student_type" label="Class Eligibility*" options={STUDENT_TYPE_CHOICES} required />
+                <RuleHint section="eligibility">
+                  Class 1: enrolled undergrads and full-time grad students.
+                  Class 2: part-time grad students, one-year alumni, non-enrolled students, and
+                  undergrads past their Class 1 years.
+                </RuleHint>
+              </div>
               <SubmitButton loading={loading} handleSubmit={handleSubmit} label="Save profile" />
             </form>
           </div>

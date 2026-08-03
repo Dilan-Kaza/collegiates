@@ -4,22 +4,26 @@ import type { EventSeed } from "./events.ts";
 
 type SkillLevelMember = "Beginner" | "Intermediate" | "Advanced";
 type GenderMember = "Male" | "Female";
-type EventCategoryMember = "External" | "Internal";
+type EventCategoryMember = "External" | "Internal" | "Groupset";
 type WeaponType = "Barehand" | "Short" | "Long" | "Other";
 
 export const skillLevelByCode: Record<string, SkillLevelMember> = { B: "Beginner", I: "Intermediate", A: "Advanced" };
 export const genderByCode: Record<string, GenderMember> = { M: "Male", F: "Female" };
 
 // event_category is the External("E")/Internal("I") split: taiji/internal forms
-// are Internal, everything else (longfist, southern, weapons) is External.
+// are Internal, everything else (longfist, southern, weapons) is External. The
+// team event stands outside that split as Groupset("G").
 export function eventCategoryFor(e: EventSeed): EventCategoryMember | null {
   if (e.event_category === "I") return "Internal";
   if (e.event_category === "E") return "External";
+  if (e.event_category === "G") return "Groupset";
   return null;
 }
 
 // Weapon type per 3-digit discipline suffix of the event_code: the prefix
-// encodes level/gender, the trailing 3 digits identify the discipline.
+// encodes level/gender, the trailing 3 digits identify the discipline. A suffix
+// with no entry seeds a null weapon_type — that is how the groupset event ("901")
+// stays weaponless, since it is a team event rather than a discipline.
 export const weaponTypeBySuffix: Record<string, WeaponType> = {
   "101": "Barehand", // Longfist
   "102": "Barehand", // Southern Fist
@@ -45,5 +49,4 @@ export const weaponTypeBySuffix: Record<string, WeaponType> = {
   "341": "Other",    // Taiji Weapon
   "361": "Barehand", // Internal Open Barehand
   "381": "Other",    // Internal Open Weapon
-  "901": "Other",    // Groupset
 };

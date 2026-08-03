@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { saveOrder, setOrderPublic } from "@functions/actions";
 import { errorMessage, runAction } from "@functions/actionErrors";
 import { clearSessionCache } from "@functions/sessionCache";
+import { cacheKeys } from "@functions";
 import { useAppDispatch } from "@/store/hooks";
 import { setErrorMsg, setSuccessMsg } from "@slices";
 import type { OrganizerRegistrationDTO } from "@/lib/api";
@@ -64,7 +65,14 @@ export default function BuildView({
         const ring3 = reconstruct(orderData.ring3);
 
         const placedIds = new Set([...ring1, ...ring2, ...ring3].filter(isEventItem).map((ev) => ev.id));
-        const unplaced = allEvents.filter((ev) => !placedIds.has(ev.id));
+        // Copied, not pushed by reference: `allEvents` is memoized and its items
+        // are the same objects `eventMap` hands back, so putting them straight
+        // into ring state made setCompetitors' edits and the memo's cache share
+        // one object. `competitors` is copied too — it is the array that gets
+        // reordered by the drag handlers.
+        const unplaced = allEvents
+            .filter((ev) => !placedIds.has(ev.id))
+            .map((ev) => ({ ...ev, competitors: [...ev.competitors] }));
         unplaced.forEach((ev) => (ev.event_level === "A" ? ring1 : ring2).push(ev));
 
         return { ring1, ring2, ring3 };
@@ -143,8 +151,8 @@ export default function BuildView({
             setExistingOrder(res.data);
             setRings(reconstructRings(res.data));
             // The order changed, so the organizer console's cached copy is stale.
-            clearSessionCache("organizerOrder");
-            clearSessionCache("publicOrder");
+            clearSessionCache(cacheKeys.organizerOrder);
+            clearSessionCache(cacheKeys.publicOrder);
             dispatch(setSuccessMsg("Event order saved"));
         } finally {
             setSaving(false);
@@ -167,8 +175,8 @@ export default function BuildView({
                 return;
             }
             setIsPublic(res.data.order_public);
-            clearSessionCache("settings");
-            clearSessionCache("publicOrder");
+            clearSessionCache(cacheKeys.settings);
+            clearSessionCache(cacheKeys.publicOrder);
             dispatch(setSuccessMsg(res.data.order_public ? "Event order published" : "Event order unpublished"));
         } finally {
             setPublishing(false);

@@ -16,6 +16,9 @@ export default async function Page() {
   ]);
   return (
     <>
+      {/* The builder owns unsaved ring state, so it deliberately does not bind to
+          the registration/order cache — a mid-edit refetch must not reach it.
+          Both are still seeded here for the console to read on the way back. */}
       <CacheSeed
         entries={{
           [cacheKeys.organizerRegistrations]: registrations,

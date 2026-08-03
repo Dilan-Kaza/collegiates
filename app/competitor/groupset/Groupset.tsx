@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createGroupset, joinGroupset } from "@functions/actions";
 import { errorMessage, runAction } from "@functions/actionErrors";
 import { clearSessionCache } from "@functions/sessionCache";
+import { useCachedResource, cacheKeys, fetchGroupSet, fetchJoinableGroupsets } from "@functions";
 import { useAppDispatch } from "@/store/hooks";
 import { setErrorMsg, setSuccessMsg } from "@slices";
 import { ShortAnswer, Dropdown, MtHeader } from "@components";
@@ -29,23 +30,36 @@ export default function Groupset({
     const [mode, setMode] = useState("create");
     const [createName, setCreateName] = useState("");
     const [joinName, setJoinName] = useState("");
-    const [groupSetMembers] = useState<GroupsetDTO[]>(initialMembers);
-    const [myGroupSet, setMyGroupSet] = useState<GroupsetDTO[]>(initialMine);
     const [submitting, setSubmitting] = useState(false);
     // Shown inline next to the form as well as in the toast: the failures here
     // ("already in a groupset", "groupset is full") are about what was entered.
     const [error, setError] = useState("");
 
+    // The joinable list is school-wide, so a team someone else created shows up
+    // here once TAG_GROUPSETS drops the entry rather than only on a full reload.
+    const groupSetMembers = useCachedResource(
+        cacheKeys.joinableGroupsets,
+        fetchJoinableGroupsets,
+        initialMembers,
+    );
+    const cachedMine = useCachedResource(cacheKeys.groupSet, fetchGroupSet, initialMine);
+
+    // create/join return the resulting group set, so it is shown straight from
+    // the response instead of waiting on the refetch the clears below trigger.
+    const [saved, setSaved] = useState<GroupsetDTO[] | null>(null);
+    const myGroupSet = saved ?? cachedMine;
+
     const groupSetOptions = Object.fromEntries(groupSetMembers.map((g) => [g.team_name, g.groupset_id]));
     const myTeam = myGroupSet?.[0];
 
-    // Both actions return the resulting group set, so the roster comes straight
-    // from the response. Stale cache entries are still dropped for other views.
     const applyResult = (groupset: GroupsetDTO) => {
-        clearSessionCache("groupSet");
-        // The group set is now bundled into getMe, so refresh that cache too.
-        clearSessionCache("currentUser");
-        setMyGroupSet([groupset]);
+        setSaved([groupset]);
+        clearSessionCache(cacheKeys.groupSet);
+        // The group set is now bundled into getMe, so refresh that cache too —
+        // the dashboard reads its team from there.
+        clearSessionCache(cacheKeys.currentUser);
+        // A new or newly-joined team changes the school's joinable roster.
+        clearSessionCache(cacheKeys.joinableGroupsets);
     };
 
     // createGroupset and joinGroupset report every rejection through { error }
@@ -116,8 +130,8 @@ export default function Groupset({
                         <>
                             <div className="text-2xl font-semibold text-center">Team Competition</div>
                             <div className="text-sm text-center text-brown/70">
-                                The team competition is open to Class 1 competitors only, and your student
-                                type makes you Class 2 eligible.
+                                The team competition is open to Class 1 competitors only, and your
+                                profile says you are Class 2.
                             </div>
                             <div className="text-sm text-center text-brown/70">
                                 If that is not right, update your student type in your profile.

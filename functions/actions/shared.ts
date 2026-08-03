@@ -94,12 +94,12 @@ export interface UpdateMeBody {
 export interface SettingsBody {
   reg_year?: number;
   early_reg_start?: string | null;
-  early_reg_cost_first?: number | null;
-  early_reg_cost_extra?: number | null;
+  early_reg_cost_base?: number | null;
+  early_reg_cost_event?: number | null;
   reg_start?: string;
   reg_end?: string;
-  reg_cost_first?: number;
-  reg_cost_extra?: number;
+  reg_cost_base?: number;
+  reg_cost_event?: number;
   due_date?: string | null;
   comp_date?: string | null;
   contact_email?: string;
@@ -296,12 +296,12 @@ export function settingsWritable(body: SettingsBody): Prisma.SettingsUncheckedUp
   return {
     reg_year: body.reg_year,
     early_reg_start: parseSettingsDate("early_reg_start", body.early_reg_start),
-    early_reg_cost_first: body.early_reg_cost_first ?? null,
-    early_reg_cost_extra: body.early_reg_cost_extra ?? null,
+    early_reg_cost_base: body.early_reg_cost_base ?? null,
+    early_reg_cost_event: body.early_reg_cost_event ?? null,
     reg_start: parseSettingsDate("reg_start", body.reg_start) ?? undefined,
     reg_end: parseSettingsDate("reg_end", body.reg_end) ?? undefined,
-    reg_cost_first: body.reg_cost_first,
-    reg_cost_extra: body.reg_cost_extra,
+    reg_cost_base: body.reg_cost_base,
+    reg_cost_event: body.reg_cost_event,
     due_date: parseSettingsDate("due_date", body.due_date),
     comp_date: parseSettingsDate("comp_date", body.comp_date),
     contact_email: body.contact_email,

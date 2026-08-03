@@ -37,6 +37,7 @@ export const shapeEvent = (e: Event): EventDTO => ({
   gender_category: fromGender(e.gender_category),
   weapon_type: fromWeaponType(e.weapon_type),
   is_nandu: e.is_nandu,
+  is_cq_nq: e.is_cq_nq,
 });
 
 export const shapeBlog = (b: Blog): BlogDTO => ({
@@ -69,12 +70,12 @@ export function shapeSettings(s: SettingsWithHost | null): SettingsDTO | null {
     s && {
       reg_year: s.reg_year,
       early_reg_start: s.early_reg_start,
-      early_reg_cost_first: s.early_reg_cost_first,
-      early_reg_cost_extra: s.early_reg_cost_extra,
+      early_reg_cost_base: s.early_reg_cost_base,
+      early_reg_cost_event: s.early_reg_cost_event,
       reg_start: s.reg_start,
       reg_end: s.reg_end,
-      reg_cost_first: s.reg_cost_first,
-      reg_cost_extra: s.reg_cost_extra,
+      reg_cost_base: s.reg_cost_base,
+      reg_cost_event: s.reg_cost_event,
       due_date: s.due_date,
       comp_date: s.comp_date,
       contact_email: s.contact_email,
@@ -95,6 +96,9 @@ export function shapeRegistration(reg: RegistrationWithEvent): RegistrationDTO {
     event_code: reg.event.event_code,
     event_name: reg.event.event_name,
     event_level: fromSkillLevel(reg.event.event_level),
+    event_category: fromEventCategory(reg.event.event_category),
+    weapon_type: fromWeaponType(reg.event.weapon_type),
+    is_cq_nq: reg.event.is_cq_nq,
     is_nandu: reg.event.is_nandu,
   };
   if (reg.event.is_nandu) out.nandu_str = reg.nandu_str;
