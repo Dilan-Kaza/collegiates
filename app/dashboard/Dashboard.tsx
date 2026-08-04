@@ -94,7 +94,10 @@ export default function Dashboard ({
                 <div className="grid-row p-1">
                     <div className="flex flex-col gap-2">
                         <span className="text-4xl">{userinfo.first_name} {userinfo.last_name}</span>
-                        <LogoutButton/>
+                        <div className="flex gap-2">
+                            <LogoutButton/>
+                            <button className="btn btn-secondary btn-sm" onClick={() => nav('/dashboard/edit-profile-info')}>Edit Profile Info</button>
+                        </div>
                     </div>
                     <div className="py-2 text-sm space-y-1">
                         <div>email: {userinfo.email}</div>

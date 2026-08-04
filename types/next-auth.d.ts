@@ -7,11 +7,13 @@ declare module "next-auth" {
     user: {
       user_id: string;
       user_type: string;
+      token_version: number;
     } & DefaultSession["user"];
   }
 
   interface User {
     user_type?: string;
+    token_version?: number;
   }
 }
 
@@ -22,5 +24,6 @@ declare module "@auth/core/jwt" {
   interface JWT {
     user_id?: string;
     user_type?: string;
+    token_version?: number;
   }
 }

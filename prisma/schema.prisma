@@ -54,9 +54,13 @@ model User {
   date_joined  DateTime  @default(now()) @db.Timestamptz(6)
 
   // Custom fields
-  user_id      String    @id @default(uuid()) @db.Uuid
-  email        String    @unique @db.VarChar(254)
-  user_type    String    @default("C") @db.VarChar(1)
+  user_id       String    @id @default(uuid()) @db.Uuid
+  email         String    @unique @db.VarChar(254)
+  user_type     String    @default("C") @db.VarChar(1)
+  // Bumped whenever the password changes; compared against the value embedded
+  // in the session token by getCurrentUser() to revoke stale sessions on other
+  // devices without needing a server-side session table.
+  token_version Int       @default(0)
 
   // Competitor-specific attributes live on a one-to-one CompetitorProfile keyed
   // by this user's uuid (see CompetitorProfile). Organizers have no profile row.

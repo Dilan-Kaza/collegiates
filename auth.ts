@@ -25,7 +25,7 @@ export const { auth, signIn, signOut } = NextAuth({
         if (!user || !user.is_active) return null;
         if (!verifyPassword(password, user.password)) return null;
 
-        return { id: user.user_id, email: user.email, user_type: user.user_type };
+        return { id: user.user_id, email: user.email, user_type: user.user_type, token_version: user.token_version };
       },
     }),
   ],
@@ -34,6 +34,7 @@ export const { auth, signIn, signOut } = NextAuth({
       if (user) {
         token.user_id = user.id;
         token.user_type = user.user_type;
+        token.token_version = user.token_version;
       }
       return token;
     },
@@ -41,6 +42,7 @@ export const { auth, signIn, signOut } = NextAuth({
       if (session.user) {
         session.user.user_id = token.user_id ?? "";
         session.user.user_type = token.user_type ?? "";
+        session.user.token_version = token.token_version ?? 0;
       }
       return session;
     },

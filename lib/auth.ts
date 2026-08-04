@@ -22,10 +22,16 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const session = await auth();
   const userId = session?.user?.user_id;
   if (!userId) return null;
-  return prisma.user.findUnique({
+  const user = await prisma.user.findUnique({
     where: { user_id: userId },
     include: { competitor_profile: true },
   });
+  // A password change bumps token_version server-side; comparing it against
+  // the value embedded in this session's token revokes any session issued
+  // before that change, without a second query — this reuses the lookup
+  // above rather than adding a dedicated revocation check.
+  if (!user || user.token_version !== session.user.token_version) return null;
+  return user;
 });
 
 // Server-Component auth gates. Call at the top of a page so the redirect

@@ -10,6 +10,7 @@
 export { loginAction, logoutAction } from "./auth";
 export { checkEmail, registerUser, saveCompetitorProfile, getMe, updateMe, deleteMe, activate, resendActivation } from "./account";
 export { requestPasswordReset, resetPassword } from "./password-reset";
+export { changePassword, requestEmailChange, confirmEmailChange } from "./profile-security";
 export {
   getCompetitorEvents, getRegistrations, createRegistrations,
   getMyGroupset, createGroupset, getJoinableGroupsets, joinGroupset,

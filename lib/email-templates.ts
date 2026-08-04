@@ -4,6 +4,12 @@ import type { EmailContent } from "./email";
 // part — SendEmailCommand requires both, and mail providers weight
 // HTML-only messages as more spam-like.
 
+// Escapes untrusted values (e.g. a user-submitted email address) before they're
+// interpolated into an HTML email body — unlike `link`/`eventNames` elsewhere in
+// this file, which are server-generated and never carry attacker-controlled markup.
+const escapeHtml = (value: string): string =>
+  value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+
 const wrap = (title: string, body: string): string => `
 <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
   <h2 style="margin:0 0 16px">${title}</h2>
@@ -34,6 +40,43 @@ export function passwordResetEmail(link: string): EmailContent {
        <p>This link expires in 1 hour. If you didn't request this, you can ignore this email.</p>`,
     ),
     text: `Reset your password: ${link}\n\nThis link expires in 1 hour. If you didn't request this, you can ignore this email.`,
+  };
+}
+
+export function emailChangeConfirmationEmail(link: string): EmailContent {
+  return {
+    subject: "Confirm your new Collegiates email",
+    html: wrap(
+      "Confirm your new email",
+      `<p>We received a request to change the email on your Collegiates account to this address. Click below to confirm:</p>
+       <p><a href="${link}" style="color:#2563eb">${link}</a></p>
+       <p>This link expires in 1 hour. If you didn't request this, you can ignore this email.</p>`,
+    ),
+    text: `Confirm your new email: ${link}\n\nThis link expires in 1 hour. If you didn't request this, you can ignore this email.`,
+  };
+}
+
+export function emailChangedNotificationEmail(newEmail: string): EmailContent {
+  return {
+    subject: "Your Collegiates account email was changed",
+    html: wrap(
+      "Email address changed",
+      `<p>The email on your Collegiates account was changed to <strong>${escapeHtml(newEmail)}</strong>.</p>
+       <p>If you didn't request this, please contact us immediately.</p>`,
+    ),
+    text: `The email on your Collegiates account was changed to ${newEmail}.\n\nIf you didn't request this, please contact us immediately.`,
+  };
+}
+
+export function passwordChangedNotificationEmail(): EmailContent {
+  return {
+    subject: "Your Collegiates password was changed",
+    html: wrap(
+      "Password changed",
+      `<p>The password on your Collegiates account was just changed.</p>
+       <p>If you didn't request this, please contact us immediately.</p>`,
+    ),
+    text: `The password on your Collegiates account was just changed.\n\nIf you didn't request this, please contact us immediately.`,
   };
 }
 
