@@ -7,9 +7,8 @@ import CacheSeed from "@functions/CacheSeed";
 import { cacheKeys } from "@functions/cacheKeys";
 
 export default async function Page() {
-  // Registering is competitor-only (createRegistrations enforces the same), so
-  // gate on that before resolving the current user + the event catalogue they're
-  // eligible for on the server.
+  // Registering is competitor-only (createRegistrations enforces the same), so gate on that
+  // before resolving the current user and their eligible event catalogue on the server.
   await requireCompetitor();
   const [settings, userinfo, catalogEvents] = await Promise.all([
     getSettings(),

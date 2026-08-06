@@ -3,12 +3,8 @@ import Credentials from "next-auth/providers/credentials";
 import prisma from "@/lib/prisma";
 import { verifyPassword } from "@/lib/password";
 
-// Auth.js (NextAuth v5) — email/password Credentials provider validated against
-// the Prisma `users` table using Django-compatible PBKDF2. Sessions are JWTs
-// stored in an httpOnly cookie; user_id + user_type are embedded so server
-// actions and the UI can authorize without another DB round-trip. There is no
-// /api/auth route handler — signIn/signOut run inside server actions and the
-// session is read server-side via auth(), so nothing hits an API endpoint.
+// Auth.js (NextAuth v5) email/password Credentials provider over the Prisma `users` table with
+// Django-compatible PBKDF2. JWT session in an httpOnly cookie; no /api/auth route handler.
 export const { auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
   trustHost: true,

@@ -21,16 +21,14 @@ import type { RegEventItem } from "@/types";
 export async function getCompetitorEvents(): Promise<EventDTO[]> {
   const user = await getCurrentUser();
   if (!user || !isCompetitor(user)) return [];
-  // Keyed by (level, gender, class), the query's only inputs, so a profile change
-  // just moves keys. Key uses the legacy codes; the query uses Prisma's enum
-  // members.
+  // Keyed by (level, gender, class), the query's only inputs, so a profile change just moves keys.
+  // The key uses the legacy codes; the query uses Prisma's enum members.
   const skillLevel = user.competitor_profile?.skill_level ?? null;
   const gender = user.competitor_profile?.gender ?? null;
   const levelCode = fromSkillLevel(skillLevel) ?? "";
   const genderCode = fromGender(gender) ?? "";
-  // Groupset events carry no level or gender, so they never match the ordinary
-  // slice; Class 1 competitors get them as a second branch. Class 2 competitors
-  // are not eligible for the team competition, so theirs stays a single branch.
+  // Groupset events carry no level or gender, so they never match the ordinary slice; Class 1
+  // competitors get them as a second branch. Class 2 stays a single branch — not eligible.
   const classOne = isClassOne(user.competitor_profile?.student_type);
   return unstable_cache(
     async (): Promise<EventDTO[]> => {
@@ -147,9 +145,8 @@ export async function createRegistrations(items: RegEventItem[]): Promise<Mutati
   }
 }
 
-// The team competition is Class 1 only (rules V), so both entry points into a
-// group set — create and join — reject a Class 2 student type. Returns the
-// message to hand back, or null when the competitor is eligible.
+// The team competition is Class 1 only (rules V), so create and join both reject a Class 2
+// student type. Returns the message to hand back, or null when the competitor is eligible.
 function classOneError(user: { competitor_profile: { student_type: StudentType | null } | null }): string | null {
   const studentType = user.competitor_profile?.student_type ?? null;
   if (!studentType) return "Set your student type in your profile before joining the team competition";

@@ -4,9 +4,8 @@ import { canCompeteForAllAround, allAroundProgress } from "@/lib/allAround";
 import type { AllAroundEvent } from "@/lib/allAround";
 
 interface AllAroundStatusProps {
-  // Every event in play — the ones being picked in the registration flow, the
-  // ones already registered on the dashboard. EventDTO and RegistrationDTO both
-  // fit AllAroundEvent, so either can be passed straight through.
+  // Every event in play — being picked in registration, or already registered on the dashboard.
+  // EventDTO and RegistrationDTO both fit AllAroundEvent, so either can pass straight through.
   events: AllAroundEvent[];
   studentType?: string | null;
   skillLevel?: string | null;
@@ -15,9 +14,8 @@ interface AllAroundStatusProps {
   className?: string;
 }
 
-// Renders nothing unless the competitor could actually hold a title and is
-// working toward one: a profile that can't qualify shouldn't be told about a
-// race it can't enter, and an empty picker shouldn't show a checklist of zeros.
+// Renders nothing unless the competitor could hold a title and is working toward one: a profile
+// that can't qualify shouldn't hear about the race, nor an empty picker show a row of zeros.
 export default function AllAroundStatus({
   events,
   studentType,

@@ -27,9 +27,8 @@ export function SessionProvider({
   session: Session | null;
   children: ReactNode;
 }) {
-  // Memoized on `session`: a fresh object here re-renders every useSession()
-  // consumer — the nav bar, the dock, the forward hooks — on every render of
-  // this provider, which sits at the root of the tree.
+  // Memoized on `session`: a fresh object re-renders every useSession() consumer — the nav bar,
+  // the dock, the forward hooks — on every render of this provider, which sits at the root.
   const value = useMemo<SessionValue>(
     () => ({ data: session, status: session ? "authenticated" : "unauthenticated" }),
     [session],
@@ -44,9 +43,8 @@ export function SessionProvider({
 // server-side user-data cache uses.
 const SESSION_RECHECK_MS = 60_000;
 
-// The JWT can expire mid-session, so re-verify on focus and re-render the tree
-// as signed out once the server disagrees. Throttled because alt-tab fires
-// `focus` and `visibilitychange` together.
+// The JWT can expire mid-session, so re-verify on focus and re-render the tree as signed out once
+// the server disagrees. Throttled because alt-tab fires `focus` and `visibilitychange` together.
 function useSessionRevalidator(status: SessionStatus) {
   const router = useRouter();
   const lastChecked = useRef(0);
@@ -65,14 +63,12 @@ function useSessionRevalidator(status: SessionStatus) {
         if (cancelled || authenticated) return;
         router.refresh();
       } catch (err) {
-        // A failed check means "couldn't tell", not "signed out", so the session
-        // is left alone. Caught rather than left to reject: these run as event
-        // listeners, where a rejection escapes as an unhandled rejection.
+        // A failed check means "couldn't tell", not "signed out", so the session is left alone.
+        // Caught rather than left to reject: as event listeners, a rejection escapes unhandled.
         console.error("[verifySession]", err);
       } finally {
-        // Stamped whatever the outcome. Advancing it only on success meant a
-        // failing check never armed the throttle, so every later tab switch
-        // fired another request — indefinitely, once the first one failed.
+        // Stamped whatever the outcome. Advancing it only on success meant a failing check never
+        // armed the throttle, so every later tab switch fired another request — indefinitely.
         lastChecked.current = Date.now();
         inFlight.current = false;
       }

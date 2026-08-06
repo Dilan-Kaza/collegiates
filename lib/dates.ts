@@ -1,14 +1,5 @@
-// Time handling for the competition settings dates.
-//
-// Everything an organizer types into the settings form is a Pacific-time
-// calendar day — the competition runs on Pacific time, so "Aug 2" means Aug 2
-// there regardless of where the person reading the page is sitting. Writes
-// anchor the day to that zone and reads format in it, so a date always displays
-// as the day it was entered.
-//
-// Getting this wrong is what produced the old off-by-one: `new Date("2026-08-02")`
-// parses as UTC midnight, which `toLocaleDateString` then rendered as Aug 1 in
-// any zone behind UTC.
+// Settings dates are Pacific calendar days — writes anchor to that zone and reads format in it,
+// so a date shows as the day typed. `new Date("2026-08-02")` is UTC midnight: the old off-by-one.
 
 export const PACIFIC_TZ = "America/Los_Angeles";
 
@@ -20,9 +11,8 @@ export type SettingsDateField =
   | "due_date"
   | "comp_date";
 
-// due_date and comp_date are Postgres `date` columns: no time, no zone. Prisma
-// reads and writes them as UTC midnight, so they stay on the UTC clock — giving
-// them a Pacific offset would push the stored day forward.
+// due_date and comp_date are Postgres `date` columns: no time, no zone. Prisma reads and writes
+// them as UTC midnight, so giving them a Pacific offset would push the stored day forward.
 const CALENDAR_FIELDS = new Set<SettingsDateField>(["due_date", "comp_date"]);
 
 // reg_end is a deadline, not a start: entering Aug 2 should keep registration
@@ -38,9 +28,8 @@ const LONG_DATE: Intl.DateTimeFormatOptions = {
 
 const MS_PER_DAY = 86_400_000;
 
-// How far `timeZone` sits from UTC at `instant`, in ms. Reading the instant's
-// wall clock in that zone and re-interpreting it as UTC gives the offset, which
-// keeps DST out of this file — Intl already knows when the offset changes.
+// How far `timeZone` sits from UTC at `instant`, in ms. Reading the wall clock in that zone and
+// re-interpreting it as UTC gives the offset, so Intl handles DST rather than this file.
 function zoneOffsetMs(instant: Date, timeZone: string): number {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone,
@@ -58,9 +47,8 @@ function zoneOffsetMs(instant: Date, timeZone: string): number {
 function pacificInstant(day: string, endOfDay: boolean): Date {
   const asUTC = Date.parse(`${day}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}Z`);
   if (Number.isNaN(asUTC)) return new Date(NaN);
-  // Guess that the wall clock is UTC, then step back by the Pacific offset. DST
-  // switches at 02:00 local, so neither boundary can land in a gap; the second
-  // pass only matters if the first guess sat on the far side of a transition.
+  // Guess that the wall clock is UTC, then step back by the Pacific offset. DST switches at 02:00
+  // local so neither boundary lands in a gap; the second pass only matters across a transition.
   const guess = new Date(asUTC - zoneOffsetMs(new Date(asUTC), PACIFIC_TZ));
   return new Date(asUTC - zoneOffsetMs(guess, PACIFIC_TZ));
 }
@@ -68,11 +56,8 @@ function pacificInstant(day: string, endOfDay: boolean): Date {
 // Which clock a stored value should be read on.
 function readZone(field: SettingsDateField, date: Date): string {
   if (CALENDAR_FIELDS.has(field)) return "UTC";
-  // Rows written before these instants were Pacific-anchored sit on exact UTC
-  // midnight, which a Pacific-anchored write can never produce (it lands on
-  // 07:00/08:00Z, or one ms before that for reg_end). Read those on the UTC
-  // clock so they still show the day that was originally typed; saving the row
-  // re-anchors it and this branch stops applying to it.
+  // Rows written before these instants were Pacific-anchored sit on exact UTC midnight, which a
+  // Pacific write never produces — read those on the UTC clock; saving the row re-anchors it.
   return date.getTime() % MS_PER_DAY === 0 ? "UTC" : PACIFIC_TZ;
 }
 
@@ -103,6 +88,18 @@ export function formatSettingsDate(
   const date = toDate(value);
   if (!date) return fallback;
   return date.toLocaleDateString("en-US", { ...options, timeZone: readZone(field, date) });
+}
+
+// Whether the competition is running today, on its own clock. Gates competitor live-scoring, so
+// both sides reduce to a Pacific yyyy-mm-dd — a UTC compare would open the page a day early.
+export function isCompetitionDay(compDate: Date | string | null | undefined): boolean {
+  const day = settingsDateInput("comp_date", compDate);
+  if (!day) return false;
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: PACIFIC_TZ,
+    year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date());
+  return day === today;
 }
 
 // A stored value -> the yyyy-mm-dd an <input type="date"> expects. en-CA is

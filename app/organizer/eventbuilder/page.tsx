@@ -26,7 +26,12 @@ export default async function Page() {
           [cacheKeys.settings]: settings,
         }}
       />
-      <EventBuilder registrations={registrations} order={order} orderPublic={settings?.order_public ?? false} />
+      <EventBuilder
+        registrations={registrations}
+        order={order}
+        orderPublic={settings?.order_public ?? false}
+        regYear={settings?.reg_year ?? null}
+      />
     </>
   );
 }

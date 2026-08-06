@@ -3,18 +3,15 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import prisma from "./prisma";
 import { loadSettings } from "./settings";
+import { isCompetitionDay } from "./dates";
 import { auth } from "@/auth";
 
 // Always carries competitor_profile — the one-to-one table competitor fields
 // moved to — so callers read gender/school/flags without a second query.
 export type CurrentUser = Prisma.UserGetPayload<{ include: { competitor_profile: true } }>;
 
-// Resolves the authenticated user from the Auth.js session cookie, or null.
-// React `cache()` memoizes per request only, so it never leaks across users.
-// The row is re-read every request rather than trusted from the JWT, so a
-// user_type change (or a deactivation) takes effect immediately instead of
-// waiting out the session cookie: is_active is re-checked here, not only at
-// sign-in, or a deactivated account would keep its JWT's access for its full life.
+// Resolves the authenticated user from the Auth.js session cookie, or null; `cache()` memoizes
+// per request only. Re-read every request, so a user_type change or deactivation is immediate.
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const session = await auth();
   const userId = session?.user?.user_id;
@@ -26,10 +23,8 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   return user?.is_active ? user : null;
 });
 
-// Server-Component auth gates. Call at the top of a page so the redirect beats
-// any markup (no client flash) and the user is ready for its data fetch.
-// Server actions use the *Gate helpers in functions/actions/shared.ts instead —
-// those return an { error } for the form rather than redirecting.
+// Server-Component auth gates. Call at the top of a page so the redirect beats any markup.
+// Server actions use the *Gate helpers in functions/actions/shared.ts, which return { error }.
 export async function requireUser(): Promise<CurrentUser> {
   const user = await getCurrentUser();
   if (!user) redirect("/signin");
@@ -49,9 +44,8 @@ export async function requireAdmin(): Promise<CurrentUser> {
   return user;
 }
 
-// Competitor-only page gate (registration, group sets, the competitor dashboard).
-// Organizers and admins are sent to their own console; anyone else — a School
-// account that isn't the current host — has no competitor area, so goes home.
+// Competitor-only page gate. Organizers and admins are sent to their own console; anyone else —
+// a School account that isn't the current host — has no competitor area, so goes home.
 export async function requireCompetitor(): Promise<CurrentUser> {
   const user = await getCurrentUser();
   if (!user) redirect("/signin");
@@ -65,6 +59,18 @@ type UserTypeHolder = { user_type: string } | null | undefined;
 export const isOrganizer = (user: UserTypeHolder): boolean => user?.user_type === "School";
 export const isCompetitor = (user: UserTypeHolder): boolean => user?.user_type === "Competitor";
 export const isAdmin = (user: UserTypeHolder): boolean => user?.user_type === "Admin";
+
+// Who may see live scoring, and how much. Organizers and admins any time, including the
+// judge-by-judge columns; competitors only while it runs, outcomes only. Anyone else, nothing.
+export async function canViewLiveScores(
+  user: { user_id: string; user_type: string } | null | undefined,
+): Promise<{ allowed: boolean; detail: boolean }> {
+  if (!user) return { allowed: false, detail: false };
+  if (await canAccessOrganizer(user)) return { allowed: true, detail: true };
+  if (!isCompetitor(user)) return { allowed: false, detail: false };
+  const settings = await loadSettings();
+  return { allowed: isCompetitionDay(settings?.comp_date), detail: false };
+}
 
 // Organizer access is NOT tied to user_type: only the host named in the current
 // settings, plus admins. Reads settings to resolve the host, so it must be awaited.

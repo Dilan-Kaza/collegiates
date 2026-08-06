@@ -6,14 +6,12 @@
 import { updateTag } from "next/cache";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { shapeSettings, SETTINGS_INCLUDE } from "@/lib/api";
-import type { SettingsDTO } from "@/lib/api";
 import { adminGate, settingsWritable, settingsDateErrors, actionError } from "./shared";
 import type { Mutation, SettingsBody, CreateSchoolAccountBody } from "./shared";
 
-// Always inserts a NEW settings row. loadSettings() reads the most-recently
-// created row, so the row created here becomes the active competition settings.
-export async function createSettings(body: SettingsBody): Promise<Mutation<SettingsDTO | null>> {
+// Always inserts a NEW settings row; loadSettings() reads the most recent, so this becomes the
+// active settings. Returns no row — an `include` would force an interactive transaction (WebSocket).
+export async function createSettings(body: SettingsBody): Promise<Mutation<null>> {
   const { error } = await adminGate();
   if (error) return { error };
 
@@ -33,12 +31,11 @@ export async function createSettings(body: SettingsBody): Promise<Mutation<Setti
     const host = await prisma.user.findUnique({ where: { email: body.host }, select: { user_id: true } });
     if (!host) return { error: { host: "Host user not found." } };
 
-    const s = await prisma.settings.create({
+    await prisma.settings.create({
       data: { ...settingsWritable(body), host_id: host.user_id } as Prisma.SettingsUncheckedCreateInput,
-      include: SETTINGS_INCLUDE,
     });
     updateTag("settings");
-    return { data: shapeSettings(s) };
+    return { data: null };
   } catch (err) {
     return { error: actionError("createSettings", err, "Could not create the settings.") };
   }
@@ -103,9 +100,8 @@ export async function createSchoolAccount(
     updateTag("school-accounts");
     return { data: { user_id: user.user_id, email } };
   } catch (err) {
-    // The profile insert and the promotion are separate statements, so a failure
-    // on the second leaves the profile written. Say the promotion is incomplete
-    // rather than reporting a clean failure — re-running the action is safe.
+    // The profile insert and the promotion are separate statements, so a failure on the second
+    // leaves the profile written. Say the promotion is incomplete — re-running the action is safe.
     return { error: actionError("createSchoolAccount", err, "Could not finish setting up the school account. Check the account and try again.") };
   }
 }

@@ -4,7 +4,7 @@ import { MtHeader, OrganizerFindUser } from "@components";
 import { setErrorMsg, setSuccessMsg } from "@slices";
 import { clearSessionCache } from "@functions/sessionCache";
 import { updateOrganizerGroupset } from "@functions/actions";
-import { errorMessage, runAction } from "@functions/actionErrors";
+import { confirmMessage, errorMessage, runAction } from "@functions/actionErrors";
 import { useCachedResource, cacheKeys, fetchOrganizerGroupset } from "@functions";
 import { useNavigate } from "@/routerCompat";
 import { useState } from "react";
@@ -12,14 +12,8 @@ import { useAppDispatch } from "@/store/hooks";
 import type { OrganizerGroupsetDTO, OrganizerMemberDTO } from "@/lib/api";
 // organizer groupset detail/edit page
 
-// The group set arrives from the server by uuid. A save applies what
-// updateOrganizerGroupset returns rather than re-running the page.
-//
-// The edit fields are seeded from the server copy once, at mount. They used to be
-// re-synced from an effect keyed on the `groupset` prop, which meant every RSC
-// re-render of this route — a server action's updateTag, a router.refresh —
-// silently threw away an in-progress rename or roster change. The page keys this
-// component on the uuid, so navigating to a different group set still remounts.
+// The group set arrives from the server by uuid; a save applies what updateOrganizerGroupset
+// returns. Edit fields seed once at mount, so an RSC re-render can't discard an in-progress edit.
 export default function GroupsetDetail({
     uuid,
     groupset,
@@ -47,18 +41,23 @@ export default function GroupsetDetail({
     const [leaderId, setLeaderId] = useState(groupset.leader?.user_id ?? "");
     const [members, setMembers] = useState<OrganizerMemberDTO[]>(groupset.members ?? []);
     const [loading, setLoading] = useState(false);
+    // An eligibility rule this roster breaks, held until the organizer confirms or fixes it.
+    // Allowed through on purpose: a hand edit is usually fixing the very gap the rule reports.
+    const [confirm, setConfirm] = useState("");
 
     const handleAdd = (user_id: string, name: string) => {
         if (members.some(m => m.user_id === user_id)) return;
+        setConfirm("");
         setMembers(prev => [...prev, { user_id, name }]);
     };
 
     const handleRemove = (user_id: string) => {
         if (leaderId === user_id) setLeaderId("");
+        setConfirm("");
         setMembers(prev => prev.filter(m => m.user_id !== user_id));
     };
 
-    const handleSave = async () => {
+    const handleSave = async (override = false) => {
         setLoading(true);
         const fallback = "Failed to save";
         try {
@@ -68,16 +67,25 @@ export default function GroupsetDetail({
                     leader: leaderId,
                     school: current.school?.school_id,
                     members: members.map(m => m.user_id),
+                    override,
                 }),
                 fallback,
             );
             if (error || !data) {
+                // A `confirm` error is a rule the action will write past once the
+                // organizer says so, so it becomes a prompt rather than a failure.
+                const needsConfirm = confirmMessage(error);
+                if (needsConfirm) {
+                    setConfirm(needsConfirm);
+                    return;
+                }
                 // The action reports roster problems under `groupset`, not
                 // `detail`, so reading only `detail` lost them.
                 dispatch(setErrorMsg(errorMessage(error, fallback)));
                 // Stay in edit mode: the pending changes are still unsaved.
                 return;
             }
+            setConfirm("");
             clearSessionCache(cacheKeys.organizerGroupset(uuid));
             clearSessionCache(cacheKeys.organizerGroupsets);
             setEditing(false);
@@ -140,9 +148,20 @@ export default function GroupsetDetail({
                                 <OrganizerFindUser onFound={handleAdd} />
                             </div>
                         </div>
-                        <div className="flex justify-end">
-                            <button className="btn btn-primary" onClick={handleSave} disabled={loading}>
-                                {loading ? "Saving..." : "Save"}
+                        {confirm && (
+                            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex flex-col gap-2">
+                                <span>{confirm}</span>
+                                <span className="text-xs text-amber-700">Save anyway?</span>
+                            </div>
+                        )}
+                        <div className="flex justify-end gap-2">
+                            {confirm && (
+                                <button className="btn btn-ghost" onClick={() => setConfirm("")} disabled={loading}>
+                                    Keep editing
+                                </button>
+                            )}
+                            <button className="btn btn-primary" onClick={() => handleSave(!!confirm)} disabled={loading}>
+                                {loading ? "Saving..." : confirm ? "Save anyway" : "Save"}
                             </button>
                         </div>
                     </>

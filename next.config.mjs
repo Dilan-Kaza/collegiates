@@ -7,11 +7,8 @@ const nextConfig = {
   // unrelated lockfile elsewhere on the machine.
   outputFileTracingRoot: path.resolve(process.cwd()),
   experimental: {
-    // Client Router Cache reuse windows. `dynamic` defaults to 0, which means
-    // every navigation re-fetches the destination's RSC payload from the server
-    // — so bouncing /organizer -> /organizer/registrations -> /organizer paid for
-    // three server renders. 30s of reuse removes the repeat round trips while
-    // staying well inside the 60s TTL the server-side read caches use.
+    // Client Router Cache reuse windows. `dynamic` defaults to 0, so every navigation re-fetches
+    // the destination's RSC payload; 30s of reuse stays well inside the 60s server-read TTL.
     staleTimes: { dynamic: 30, static: 180 },
   },
 };

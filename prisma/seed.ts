@@ -38,10 +38,8 @@ async function main() {
   });
   console.log(`Events: ${eventResult.count} inserted (${events.length} total).`);
 
-  // createMany skips rows that already exist, so is_cq_nq — added to Event after
-  // the catalogue was first seeded — would stay null on every existing row, and
-  // the External All-Around's first requirement could never be filled. Set it
-  // from the seed either way. Only this column is touched.
+  // createMany skips rows that already exist, so is_cq_nq — added to Event after the catalogue was
+  // first seeded — would stay null. Set it from the seed either way. Only this column is touched.
   const cqNqCodes = events.filter((e) => e.is_cq_nq).map((e) => e.event_code);
   const [flagged, cleared] = await Promise.all([
     prisma.event.updateMany({

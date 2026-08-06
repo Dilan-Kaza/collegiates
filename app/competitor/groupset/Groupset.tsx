@@ -11,10 +11,8 @@ import { ShortAnswer, Dropdown, MtHeader } from "@components";
 import type { GroupsetDTO } from "@/lib/api";
 // competitor groupset create/join page
 
-// Joinable group sets and the competitor's own arrive as initial state from the
-// server. After a create/join the component refetches its own to reflect it.
-// `classOne` is resolved from the profile's student type on the server; a Class 2
-// competitor sees why the team competition is closed to them instead of a form.
+// Joinable group sets and the competitor's own come from the server; a create/join refetches.
+// `classOne` (from student type) decides between the form and a closed-to-Class-2 notice.
 export default function Groupset({
     groupSetMembers: initialMembers = [],
     myGroupSet: initialMine = [],
@@ -62,9 +60,8 @@ export default function Groupset({
         clearSessionCache(cacheKeys.joinableGroupsets);
     };
 
-    // createGroupset and joinGroupset report every rejection through { error }
-    // (name taken, wrong school, full, already a member); surface it rather than
-    // resetting the button and leaving the competitor to guess what happened.
+    // createGroupset and joinGroupset report every rejection through { error } — name taken, wrong
+    // school, full, already a member — so surface it rather than leaving the competitor guessing.
     const submit = async (
         action: () => ReturnType<typeof createGroupset>,
         fallback: string,

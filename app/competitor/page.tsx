@@ -8,14 +8,12 @@ import { cacheKeys } from "@functions/cacheKeys";
 // dashboard page (server component)
 
 export default async function Page() {
-  // Gate before fetching: unauthenticated users go to sign-in, and organizers
-  // (who have no competitor dashboard) go straight to the organizer console —
+  // Gate before fetching: unauthenticated users go to sign-in, organizers to their console —
   // both before any dashboard data is fetched or rendered.
   const user = await requireCompetitor();
 
-  // The redirect only needs settings, and requireCompetitor already returned the
-  // profile — so this is decided before getMe runs rather than after, and the
-  // setup path no longer pays for a dashboard payload it never renders.
+  // The redirect only needs settings, and requireCompetitor already returned the profile, so
+  // it is decided before getMe runs — the setup path never pays for a dashboard payload.
   const settings = await getSettings();
   const currentYear = settings?.reg_year;
   const profile = user.competitor_profile;

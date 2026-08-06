@@ -33,10 +33,8 @@ export default function Organizer({
     blogPosts?: BlogDTO[];
 }) {
 
-    // Each panel renders the server's copy first, then follows its cache entry.
-    // This is the console every other organizer page returns to, so an edit made
-    // on one of them (a registration saved, a group set renamed, the order
-    // re-saved, a post published) drops the matching key and these re-read it.
+    // Each panel renders the server's copy first, then follows its cache entry — so an edit made
+    // on any other organizer page drops the matching key and these re-read it.
     const registrations = useCachedResource(
         cacheKeys.organizerRegistrations,
         fetchOrganizerRegistrations,
@@ -73,6 +71,7 @@ export default function Organizer({
         due_date: "Payment & Enrollment Proof Due",
         comp_date: "Competition Date",
         contact_email: "Contact Email",
+        scoring_url: "Scoring Link",
         host: "Host",
     };
 

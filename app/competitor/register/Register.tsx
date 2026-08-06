@@ -28,15 +28,12 @@ export default function Register({
     const nav = useNavigate();
     const dispatch = useAppDispatch();
 
-    // Class and skill level decide whether an All-Around title is even in reach,
-    // so both steps below need the profile. Bound to the cache
-    // like the catalogue is: /competitor/profile clears `currentUser` on save, and
-    // that save is the step immediately before this one.
+    // Class and skill level decide whether an All-Around title is in reach, so both steps below
+    // need the profile. Cache-bound like the catalogue: /competitor/profile clears it on save.
     const me = useCachedResource(cacheKeys.currentUser, fetchMe, userinfo);
 
-    // Which events this competitor is eligible for depends on the gender and
-    // skill level saved in their profile, so /competitor/profile clears this key
-    // on save — the catalogue is re-read here rather than left stale.
+    // Eligibility depends on the gender and skill level saved in the profile, so
+    // /competitor/profile clears this key on save rather than leaving the catalogue stale.
     const events_catalog = useCachedResource(
         cacheKeys.competitorEvents,
         fetchCompetitorEvents,
@@ -59,9 +56,8 @@ export default function Register({
         ? baseCost + (eventCost ?? 0) * events.length
         : null;
 
-    // createRegistrations rejects a submission for reasons the competitor can act
-    // on — registration closed, an event that doesn't match their gender/level,
-    // already registered — so the message has to reach the confirm screen.
+    // createRegistrations rejects for reasons the competitor can act on — closed registration, a
+    // gender/level mismatch, already registered — so the message must reach the confirm screen.
     const onConfirm = async () => {
         setError("");
         const fallback = "Could not complete your registration.";
@@ -109,11 +105,8 @@ export default function Register({
                     eventCost={eventCost}
                     studentType={me?.student_type}
                     skillLevel={me?.skill_level}
-                    // The profile is the step before this one — it navigates
-                    // here on save — so back goes there rather than to the
-                    // dashboard. Safe to return to: the profile only bounces to
-                    // the dashboard once registrations exist, and reaching this
-                    // page means there are none yet.
+                    // Back goes to the profile, the step before this one. Safe to return to: it only bounces to
+                    // the dashboard once registrations exist, and reaching this page means there are none.
                     onBack={() => nav("/competitor/profile")}
                     onSubmit={() => setConfirming(true)}
                 />

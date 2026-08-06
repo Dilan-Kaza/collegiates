@@ -1,6 +1,6 @@
 "use client";
 
-import type { FormEventHandler, ReactNode } from "react";
+import type { SubmitEventHandler, ReactNode } from "react";
 import { Link } from "@/routerCompat";
 import { Heading } from "./Heading";
 // auth form panels
@@ -10,13 +10,11 @@ interface AuthPanelProps {
   children?: ReactNode;
   bottomLabel?: ReactNode;
   bottomLink: string;
-  onSubmit?: FormEventHandler<HTMLFormElement>;
+  onSubmit?: SubmitEventHandler<HTMLFormElement>;
 }
 
-// `onSubmit` used to be declared as a second positional parameter. React calls a
-// function component with `(props)` only, so it was always undefined and the
-// <form> below had no handler at all — submission worked solely because the
-// SubmitButton's own onClick calls preventDefault. It now reads the prop.
+// `onSubmit` used to be a second positional parameter, which React never passes — so the <form>
+// below had no handler and submission worked only via SubmitButton's onClick. Now read as a prop.
 function AuthPanel({ onSubmit, ...props }: AuthPanelProps) {
   return (
     <>

@@ -256,10 +256,8 @@ export async function deleteMe(): Promise<Mutation<{ detail: string }>> {
   }
 }
 
-// Sign-up already leaves the account active (is_active defaults true) and nothing
-// issues an activation token, so this is only the landing page's confirmation.
-// It deliberately does not look `uid` up: an unauthenticated caller could
-// otherwise probe arbitrary user ids and read existence off the response.
+// Sign-up already leaves the account active and nothing issues an activation token, so this is
+// only the landing page's confirmation. It doesn't look `uid` up — that would leak existence.
 export async function activate(_params: { uid?: string; token?: string }): Promise<Mutation<{ detail: string }>> {
   return { data: { detail: "Account active." } };
 }

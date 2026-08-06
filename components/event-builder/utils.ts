@@ -1,6 +1,12 @@
+import { groupIntoTeams } from "@/lib/teams";
 import type { RingEvent, Rings, Conflicts } from "./types";
 import { isEventItem } from "./types";
 // ring scheduling helpers
+
+// Break ids must be unique per instance: they key the React lists and are what BreakCard's
+// remove/update match on. A bare Date.now() collides within a millisecond, so add a counter.
+let breakIdSeq = 0;
+export const newBreakId = (): string => `break_${Date.now()}_${breakIdSeq++}`;
 
 export const EVENT_ORDER = [
     "Nandu Longfist", "Nandu Southern Fist",
@@ -18,7 +24,9 @@ export const eventRank = (name: string): number => {
 
 export function eventSeconds(ev: RingEvent): number {
     if (ev.type === "break") return ev.duration * 60;
-    const n = ev.competitors.length;
+    // A groupset event runs once per team, not once per competitor, so the ring
+    // clock counts entries: teams here, individuals everywhere else.
+    const n = ev.is_groupset ? groupIntoTeams(ev.competitors).length : ev.competitors.length;
     if (ev.is_nandu) return n * 240;
     const name = ev.event_name;
     if (name.includes("Taiji") || name.includes("Yang") || name.includes("Chen")) return n * 360;

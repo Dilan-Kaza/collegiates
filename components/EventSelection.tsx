@@ -28,9 +28,8 @@ interface EventSelectionProps {
 
 export default function EventSelection({ events, setEvents, catalogEvents = [], registeredEvents, isEarly, baseCost, eventCost, studentType, skillLevel, onBack, onSubmit }: EventSelectionProps) {
 
-    // Active event-type filter for the picker ("" = no filter, every type shows).
-    // There is no "All" chip: the chips toggle, so clicking the active one clears
-    // the filter and gets you back to the unfiltered list.
+    // Active event-type filter for the picker ("" = every type shows). There is no "All" chip:
+    // the chips toggle, so clicking the active one clears the filter.
     const [typeFilter, setTypeFilter] = useState("");
 
     const eventsFromApi = catalogEvents;
@@ -49,9 +48,8 @@ export default function EventSelection({ events, setEvents, catalogEvents = [], 
         [events],
     );
 
-    // The picked events resolved back to their catalogue entries, which is what
-    // All-Around progress is scored over — so the readout moves as events are
-    // added and removed.
+    // The picked events resolved back to their catalogue entries, which is what All-Around
+    // progress is scored over — so the readout moves as events are added and removed.
     const selectedEvents = useMemo(
         () =>
             events
@@ -60,13 +58,8 @@ export default function EventSelection({ events, setEvents, catalogEvents = [], 
         [events, eventsByCode],
     );
 
-    // Derived, not mirrored in state. The old version kept `remainingEvents` in
-    // state and reset it from an effect keyed on the catalogue prop, so any RSC
-    // refresh (a server action's updateTag, a router.refresh) put already-picked
-    // events back in the dropdown while they were still selected — letting the
-    // same event be added twice, which createRegistrations then rejects outright.
-    // Catalogue order is preserved for free, which is what the sort-on-remove
-    // was reconstructing.
+    // Derived, not mirrored in state. Kept in state and reset from an effect, an RSC refresh
+    // re-offered already-picked events, letting one be added twice. Catalogue order comes free.
     const remainingEvents = useMemo(
         () =>
             eventsFromApi
@@ -108,14 +101,12 @@ export default function EventSelection({ events, setEvents, catalogEvents = [], 
     const WEAPON_LABELS: Record<string, string> = { B: "Barehand", S: "Short Weapon", L: "Long Weapon", O: "Other Weapon" };
     const TYPE_LABELS: Record<string, string> = { E: "External", I: "Internal", G: "Groupset" };
 
-    // Only the types this competitor actually has events in get a filter button:
-    // the catalogue carries groupset events for Class 1 competitors only, so a
-    // Class 2 competitor would otherwise get a button that filters to nothing.
+    // Only types this competitor has events in get a filter button: the catalogue carries groupset
+    // events for Class 1 only, so a Class 2 competitor would get a button filtering to nothing.
     const availableTypes = Object.keys(TYPE_LABELS).filter(code => eventsFromApi.some(e => e.event_category === code));
 
-    // Suffix an option with its type so the categories coexist within a weapon
-    // group. Only the External/Internal split needs it — a groupset event is
-    // already named for what it is, so it would just read "Groupset (Groupset)".
+    // Suffix an option with its type so the categories coexist within a weapon group. Only the
+    // External/Internal split needs it — a groupset event would just read "Groupset (Groupset)".
     const getOptionLabel = (eventCode: string) => {
         const category = getEventFromCode(eventCode)?.event_category;
         const type = category === "E" || category === "I" ? TYPE_LABELS[category] : null;

@@ -1,10 +1,5 @@
-// All-Around eligibility, scored exactly as rules 4.I states
-// it — see components/rules/AllAround.tsx, which this file has to keep agreeing
-// with. Pure and shared: the registration flow scores the events being picked,
-// the dashboard scores the ones already registered, so the two can't disagree.
-//
-// Codes, not Prisma members: everything on this side of the boundary reads the
-// DTOs, which carry the legacy "1"/"A"/"E"/"B" codes (see lib/api/enums.ts).
+// All-Around eligibility, scored exactly as rules 4.I states it — keep in step with
+// components/rules/AllAround.tsx. Pure and shared; reads DTO codes, not Prisma members.
 
 // The fields a title is scored over. Both EventDTO and RegistrationDTO satisfy
 // this, which is what lets the picker and the dashboard share the scoring.
@@ -17,9 +12,8 @@ export interface AllAroundEvent {
 const isExternal = (e: AllAroundEvent) => e.event_category === "E";
 const isInternal = (e: AllAroundEvent) => e.event_category === "I";
 
-// A form is an individual event of either category. The group set ("G") is the
-// team competition, not a form, so it fills no requirement — not even the
-// external title's open fourth slot.
+// A form is an individual event of either category. The group set ("G") is the team competition,
+// so it fills no requirement — not even the external title's open fourth slot.
 const isForm = (e: AllAroundEvent) => isExternal(e) || isInternal(e);
 
 const isBarehand = (e: AllAroundEvent) => e.weapon_type === "B";
@@ -27,10 +21,8 @@ const isBarehand = (e: AllAroundEvent) => e.weapon_type === "B";
 // counts as neither barehand nor weapon rather than being guessed at.
 const isWeapon = (e: AllAroundEvent) => ["S", "L", "O"].includes(e.weapon_type ?? "");
 
-// Read straight off Event.is_cq_nq, which the seed states per row. Nothing else
-// about an event identifies the discipline — external + barehand also catches
-// Traditional Open Barehand — and a null (an event predating the column) counts
-// as "not", rather than being guessed at from the name or code.
+// Read straight off Event.is_cq_nq, stated per seed row: nothing else identifies the discipline,
+// and a null (an event predating the column) counts as "not" rather than being guessed at.
 const isChangquanOrNanquan = (e: AllAroundEvent) => e.is_cq_nq === true;
 
 interface Requirement {
@@ -89,19 +81,8 @@ export interface AllAroundTitleProgress {
   eligible: boolean;
 }
 
-// Which requirements the given events can cover at once.
-//
-// One event cannot fill two requirements ("any other external form not counted
-// in 1 and 2"), and the requirements overlap — a straightsword satisfies both
-// "an external weapon form" and "another external form" — so filling them
-// greedily in order would under-count: the straightsword taken for slot 3 leaves
-// slot 2 empty even when a spear is sitting right there. This is a maximum
-// bipartite matching, solved with Kuhn's augmenting-path algorithm, so an event
-// already assigned gets handed off whenever that frees up a slot for another.
-//
-// Requirements are tried in rules order and the matching only ever grows, so a
-// slot that fills stays filled: what's reported unmet is the loosest set of
-// requirements that genuinely can't be covered.
+// Which requirements the given events can cover at once. The requirements overlap and one event
+// can't fill two, so this is a maximum bipartite matching (Kuhn's) — greedy would under-count.
 function matchRequirements(requirements: Requirement[], events: AllAroundEvent[]): boolean[] {
   // Event index -> the requirement currently holding it.
   const heldBy: (number | null)[] = events.map(() => null);
@@ -136,11 +117,8 @@ export function canCompeteForAllAround(
   return studentType === "1" && skillLevel === "A";
 }
 
-// One entry per title the competitor is actually working toward, closest first.
-//
-// A title only shows once one of its own requirements is met: three internal
-// events fill the external title's open fourth slot, and reporting that as
-// "External All-Around, 1 of 4" would be noise for someone competing internal.
+// One entry per title the competitor is actually working toward, closest first. A title only
+// shows once one of its own requirements is met, so an internal competitor sees no noise.
 export function allAroundProgress(events: AllAroundEvent[]): AllAroundTitleProgress[] {
   const scored = TITLES.map((spec) => {
     const filled = matchRequirements(spec.requirements, events);

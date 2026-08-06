@@ -58,10 +58,8 @@ export default function SignIn() {
 
     setLoading(true);
 
-    // loginAction sets the session cookie server-side and returns the user; the
-    // navigation below re-runs the root layout against that cookie, which is
-    // what re-seeds SessionProvider. No router.refresh() first — that rendered
-    // /signin server-side only to leave it, costing a second RSC round trip.
+    // loginAction sets the session cookie server-side and returns the user; the navigation below
+    // re-runs the root layout against that cookie, re-seeding SessionProvider. No router.refresh().
     try {
       const res = await loginAction({
         email: formData.email,

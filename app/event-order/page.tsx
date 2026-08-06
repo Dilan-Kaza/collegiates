@@ -1,6 +1,7 @@
 import { MtHeader } from "@components";
 import { getPublicOrder } from "@functions/actions";
 import { requireCompetitor } from "@/lib/auth";
+import { groupIntoTeams, isGroupsetCategory } from "@/lib/teams";
 import type { EventOrderDTO } from "@/lib/api";
 import CacheSeed from "@functions/CacheSeed";
 import { cacheKeys } from "@functions/cacheKeys";
@@ -23,11 +24,26 @@ function StaticRing({ label, items }: { label: string; items: EventOrderDTO[] })
                         <div key={item.id ?? i} className="rounded border border-gray-200 bg-white px-3 py-2">
                             <div className="font-medium text-dark text-sm">{item.name}</div>
                             <div className="flex flex-col gap-0.5 mt-1">
-                                {[...(item.competitor_list ?? [])].sort((a, b) => a.order - b.order).map((c) => (
-                                    <div key={c.id} className="text-xs text-gray-500 border border-gray-100 rounded px-2 py-0.5 bg-gray-50">
-                                        {c.name}
-                                    </div>
-                                ))}
+                                {/* Groupset events are contested by teams, so they are listed
+                                    by team here too — a competitor looking up when they run
+                                    finds their team's slot. */}
+                                {isGroupsetCategory(item.event_category)
+                                    ? groupIntoTeams([...(item.competitor_list ?? [])].sort((a, b) => a.order - b.order)).map((team) => (
+                                        <div
+                                            key={team.id}
+                                            className={`text-xs border rounded px-2 py-0.5 flex items-center gap-2 ${team.unassigned ? "border-amber-200 bg-amber-50 text-amber-700" : "border-gray-100 bg-gray-50 text-gray-500"}`}
+                                        >
+                                            <span className="truncate">{team.name}</span>
+                                            <span className="ml-auto shrink-0 opacity-60">
+                                                {team.unassigned ? "No team" : team.members.length}
+                                            </span>
+                                        </div>
+                                    ))
+                                    : [...(item.competitor_list ?? [])].sort((a, b) => a.order - b.order).map((c) => (
+                                        <div key={c.id} className="text-xs text-gray-500 border border-gray-100 rounded px-2 py-0.5 bg-gray-50">
+                                            {c.name}
+                                        </div>
+                                    ))}
                             </div>
                         </div>
                     )
@@ -38,9 +54,8 @@ function StaticRing({ label, items }: { label: string; items: EventOrderDTO[] })
 }
 
 export default async function Page() {
-    // Auth on the server so data ships with the page; unauthenticated visitors
-    // are redirected before any markup renders. Competitor-only, matching
-    // getPublicOrder's own gate — organizers read the order from their builder.
+    // Auth on the server so data ships with the page and unauthenticated visitors are redirected
+    // before any markup renders. Competitor-only, matching getPublicOrder's own gate.
     await requireCompetitor();
 
     // getPublicOrder self-authorizes too: this year's published order, or null

@@ -1,11 +1,16 @@
 // Domain types for the event-builder (ring scheduling) UI.
 
+import type { TeamRefDTO } from "@/lib/api";
+
 export interface Competitor {
   id: string;
   name: string;
   email?: string;
   nandu_str?: string | null;
   order?: number;
+  // Their team for this competition year, when they are on one. Only groupset
+  // events group by it (see lib/teams.ts).
+  team?: TeamRefDTO | null;
 }
 
 export interface EventItem {
@@ -16,6 +21,9 @@ export interface EventItem {
   is_nandu?: boolean | null;
   competitors: Competitor[];
   orderId?: string;
+  // A "G" event: contested by teams, so its card lists teams and its ring time is
+  // counted per team rather than per competitor.
+  is_groupset?: boolean;
 }
 
 export interface BreakItem {
@@ -49,7 +57,11 @@ export interface OrderItem {
   event_id?: string | null;
   name?: string | null;
   break_length?: number;
-  competitor_list?: { id: string; order: number }[];
+  // `name`/`team` are what the read-only views render; the builder only needs the
+  // ids, since it resolves everything else from the live registrations.
+  competitor_list?: { id: string; order: number; name?: string; team?: TeamRefDTO | null }[];
+  // "E"/"I"/"G" from the linked event; absent on breaks.
+  event_category?: string | null;
 }
 
 export interface OrderData {

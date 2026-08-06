@@ -1,7 +1,24 @@
 "use client";
 
+import CopyButton from "./CopyButton";
 import type { OrganizerRegistrationDTO } from "@/lib/api";
 // registrations by athlete
+
+// One athlete per row, their events joined into a single cell — a roster that
+// pastes into a sheet as it reads here.
+const copyRows = (registrations: OrganizerRegistrationDTO[]): string[][] => [
+    ["Name", "Email", "College", "Level", "Competing", "Paid ($)", "Proof", "Events"],
+    ...registrations.map((user) => [
+        user.name,
+        user.email,
+        user.school ?? "",
+        user.skill_level ?? "",
+        user.is_competing ? "Yes" : "No",
+        `$${user.amt_paid}`,
+        user.proof_of_reg ? "Yes" : "No",
+        user.registration.map((reg) => reg.event_name ?? reg.event_code).join("; "),
+    ]),
+];
 
 // `registrations` arrives from the server. `onEdit` adds a per-row action that
 // opens the Create/Edit view pre-loaded, skipping the email search.
@@ -19,6 +36,10 @@ export default function OrganizerRegistrationList({
 
     return (
         <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-400">{registrations.length} athlete{registrations.length === 1 ? "" : "s"}</span>
+                <CopyButton getRows={() => copyRows(registrations)} />
+            </div>
             {registrations.map((user) => (
                 <div key={user.user_id} className="cg-list-row flex flex-col gap-2">
                     <div className="flex items-start justify-between gap-2">
@@ -28,7 +49,9 @@ export default function OrganizerRegistrationList({
                         </div>
                         <div className="flex items-center gap-1.5 flex-wrap justify-end">
                             <StatusBadge active={user.is_competing} label="Competing" />
-                            <StatusBadge active={user.has_paid} label="Paid" />
+                            {/* An amount, so the badge says how much rather than
+                                just yes/no; grey until anything has been paid. */}
+                            <StatusBadge active={user.amt_paid > 0} label={`Paid $${user.amt_paid}`} />
                             <StatusBadge active={user.proof_of_reg} label="Proof" />
                             {onEdit && (
                                 <button className="btn btn-ghost btn-xs" onClick={() => onEdit(user)}>Edit</button>

@@ -20,7 +20,9 @@ export {
   getOrganizerGroupsets, getOrganizerGroupset, createOrganizerGroupset,
   updateOrganizerGroupset, deleteOrganizerGroupset,
 } from "./organizer-groupsets";
-export { getOrganizerOrder, saveOrder, setOrderPublic, getPublicOrder } from "./order";
+export { getOrganizerOrder, saveOrder, setOrderPublic, getPublicOrder, exportSheetTabs } from "./order";
+export { getLiveScores } from "./scoring";
+export type { LiveScoresResult, LiveScoresStatus } from "./scoring";
 export { createSettings, createSchoolAccount } from "./admin";
 // DISABLED 2026-08-02 — Jira bug report. Uncomment when asked to fix that code;
 // see the header note in functions/actions/bug-report.ts for the other places.

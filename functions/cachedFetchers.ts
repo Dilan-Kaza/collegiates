@@ -43,18 +43,8 @@ async function cached<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
 
 // ---------- the read path components actually use ----------
 
-// Binds a server-rendered value to its cache entry.
-//
-// `initial` is what the page fetched server-side for this render, so first paint
-// is the server's data — there is no mount-time fetch and no loading state. The
-// cache is kept in step with it, and the fetcher only runs when a mutation has
-// dropped the key (every clearSessionCache call site), which is the case the old
-// write-only cache never handled: the component re-reads instead of showing a
-// stale copy until the next navigation.
-//
-// Note the returned value is the cache's superjson round-trip of `initial`, not
-// `initial` itself, so it changes identity once just after mount. Dates survive
-// the trip; consumers that memoize on it recompute one extra time.
+// Binds a server-rendered value to its cache entry: `initial` is first paint, and the fetcher only
+// runs once a mutation drops the key. Returns superjson's round-trip, so identity changes once.
 export function useCachedResource<T>(key: string, fetcher: () => Promise<T>, initial: T): T {
   const cached = useSessionCache<T>(key);
 
@@ -63,9 +53,8 @@ export function useCachedResource<T>(key: string, fetcher: () => Promise<T>, ini
   const fetcherRef = useRef(fetcher);
   fetcherRef.current = fetcher;
 
-  // Compared by identity, not value: a new object means the server sent a new
-  // payload for this route, and the server's copy always wins over whatever an
-  // earlier visit left in sessionStorage.
+  // Compared by identity, not value: a new object means the server sent a new payload for this
+  // route, and the server's copy always wins over what an earlier visit left in sessionStorage.
   const seededFrom = useRef<T | undefined>(undefined);
 
   useEffect(() => {

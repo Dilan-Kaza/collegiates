@@ -2,11 +2,8 @@
 
 import { useEffect } from "react";
 
-// Last-resort boundary. app/error.tsx cannot catch a throw from the root layout
-// itself, and the layout reads the session (auth() + getCurrentUser()) before it
-// renders anything — so a failure there would otherwise be Next's bare default
-// page. This replaces the whole document, hence its own <html>/<body>, and it
-// cannot rely on the app's CSS or the Notif toast being mounted.
+// Last-resort boundary: app/error.tsx cannot catch a throw from the root layout, which reads
+// the session. Replaces the document, so it owns <html>/<body> and can't rely on app CSS.
 export default function GlobalError({
   error,
   reset,
