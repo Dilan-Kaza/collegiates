@@ -1,5 +1,3 @@
-"use client";
-
 import { ImgHeader, CardCarousel } from "@components";
 import {
   OfficialRules,
@@ -31,7 +29,16 @@ const rules = [
   { id: "disqualification",  title: "11. Disqualification",       content: <Disqualification /> },
 ];
 
-export default function Rules() {
+// `?section=<id>` opens straight to one rule, so pages that ask a competitor to
+// self-report something rule-bound (profile setup) can link to the rule itself.
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ section?: string | string[] }>;
+}) {
+  const { section } = await searchParams;
+  const initialId = Array.isArray(section) ? section[0] : section;
+
   return (
     <div className="bg-off-white sm:min-h-screen relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0 z-0">
@@ -47,7 +54,7 @@ export default function Rules() {
       </div>
       <div className="relative z-10">
         <div className="hidden sm:block"><ImgHeader /></div>
-        <CardCarousel cards={rules} />
+        <CardCarousel cards={rules} initialId={initialId} />
         <div className="hidden sm:block px-1 text-primary/20 text-xs pb-2">this page is vibecoded, pls take your complaints to dilan for now</div>
       </div>
     </div>

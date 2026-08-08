@@ -7,12 +7,8 @@ import { SessionProvider } from "@functions/sessionContext";
 import { NavigationProvider } from "@components/NavigationProvider";
 import store from "@/store";
 
-// Client providers: a server-seeded SessionProvider (auth state read via
-// useSession from the server-resolved session, so there's no loading flash and
-// no /api/auth/session round-trip) wrapping the Redux store, which now only
-// holds transient UI state (success/error notifications and the blog filter).
-// A single shared store instance is used so the axios interceptors (which
-// import `@/store` directly) dispatch into the same store the UI reads from.
+// Client providers: server-seeded SessionProvider (no loading flash) around the
+// Redux store, which holds only transient UI state. One shared store instance.
 export default function Providers({
   children,
   session,

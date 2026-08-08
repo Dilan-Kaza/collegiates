@@ -1,4 +1,5 @@
 export {
+  useCachedResource,
   fetchMe,
   fetchCompetitorEvents,
   fetchRegistrations,
@@ -15,5 +16,6 @@ export {
   fetchOrganizerOrder,
 } from "./cachedFetchers";
 export { default as CacheSeed } from "./CacheSeed";
-export { cacheKeys } from "./cacheKeys";
-export { useForwardIfNotOrganizer } from "./forwardHooks";
+export { cacheKeys, organizerRegistrationsKey } from "./cacheKeys";
+export { useForwardDashboard } from "./forwardHooks";
+export { errorMessage, runAction } from "./actionErrors";

@@ -1,14 +1,13 @@
-"use client"
+"use client";
 
 import { clearNotif } from "@slices";
-import { useDispatch } from "react-redux";
-import { useAppSelector } from "@/store/hooks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
 // Single toast notification. Reads the one `notif` slice; `isError` selects the
 // success vs error styling.
 function Notif() {
 
-    const dispatch = useDispatch();
+    const dispatch = useAppDispatch();
     const { message, isError } = useAppSelector(state => state.notif);
 
     if (!message) return null;

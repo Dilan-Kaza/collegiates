@@ -2,13 +2,27 @@
 
 import { MtHeader, GroupsetList } from "@components";
 import { useNavigate } from "@/routerCompat";
+import { useCachedResource, cacheKeys, fetchOrganizerGroupsets } from "@functions";
 import type { OrganizerGroupsetDTO } from "@/lib/api";
 
 // The group set list is resolved on the server and passed in; this client
 // component only owns the back-navigation UI.
-export default function GroupsetPage({ groupsets = [] }: { groupsets?: OrganizerGroupsetDTO[] }) {
+export default function GroupsetPage({
+    groupsets: initialGroupsets = [],
+}: {
+    groupsets?: OrganizerGroupsetDTO[];
+}) {
 
     const nav = useNavigate();
+
+    // Detail pages under this route save through updateOrganizerGroupset and
+    // drop this key, so coming back here shows the rename rather than the list
+    // as it was when this page last rendered.
+    const groupsets = useCachedResource(
+        cacheKeys.organizerGroupsets,
+        fetchOrganizerGroupsets,
+        initialGroupsets,
+    );
 
     return (
         <>

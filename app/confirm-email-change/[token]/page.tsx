@@ -37,8 +37,8 @@ export default function ConfirmEmailChange() {
             <div className="text-center text-primary font-medium">
               Your email has been updated.
             </div>
-            <button type="button" className="btn btn-primary" onClick={() => nav("/dashboard")}>
-              Back to Dashboard
+            <button type="button" className="btn btn-primary" onClick={() => nav("/")}>
+              Back to Home
             </button>
           </div>
         )}

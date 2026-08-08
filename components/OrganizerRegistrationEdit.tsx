@@ -2,26 +2,16 @@
 
 import { useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
-import { useDispatch } from "react-redux";
+import { useAppDispatch } from "@/store/hooks";
 import { setErrorMsg, setSuccessMsg } from "@slices";
 import { clearSessionCache } from "@functions/sessionCache";
+import { cacheKeys } from "@functions";
 import { findUserByEmail, updateOrganizerRegistration } from "@functions/actions";
+import { errorMessage, runAction } from "@functions/actionErrors";
 import { Dropdown } from "@components";
 import type { RegEventItem } from "@/types";
+import { GENDER_CHOICES, SKILL_LEVEL_CHOICES, STUDENT_TYPE_CHOICES } from "@/lib/api";
 import type { EventDTO, OrganizerRegistrationDTO } from "@/lib/api";
-
-// choices mirror the enums defined in models.py (same as the sign-up flow)
-const GENDER_CHOICES = { Male: "M", Female: "F" };
-const SKILL_LEVELS = { Beginner: "B", Intermediate: "I", Advanced: "A" };
-const STUDENT_TYPES = {
-    "Full/Part-Time Undergraduate Student": "1",
-    "Full-Time Graduate/Professional School Student": "2",
-    "Early Graduate Of Current Year": "3",
-    "Non-Enrolled Student": "4",
-    "One Year Alumni": "5",
-    "Part-Time Graduate Student": "6",
-    "International Student": "7",
-};
 
 // The editable profile fields pulled off an athlete DTO into form strings.
 interface ProfileForm {
@@ -38,13 +28,8 @@ const profileFrom = (a: OrganizerRegistrationDTO | null): ProfileForm => ({
     school: a?.school_id ?? "",
 });
 
-// Organizer tool for building or amending a competitor's registration. The
-// organizer either arrives with an athlete already selected (edited straight
-// from the By Athlete list via `initialAthlete`) or searches for one by email,
-// then adds/removes any event from the full catalogue (competitor gender/level
-// gates don't apply here) and edits nandu codes before saving via
-// updateOrganizerRegistration. `allEvents` (the full catalogue) is resolved on
-// the server and passed in (was fetched on mount).
+// Builds or amends a competitor's registration, from `initialAthlete` or an email
+// search. `allEvents` is the full catalogue, resolved on the server.
 export default function OrganizerRegistrationEdit({
     allEvents = [],
     colleges = {},
@@ -55,7 +40,7 @@ export default function OrganizerRegistrationEdit({
     initialAthlete?: OrganizerRegistrationDTO | null;
 }) {
 
-    const dispatch = useDispatch();
+    const dispatch = useAppDispatch();
 
     const [email, setEmail] = useState("");
     const [searching, setSearching] = useState(false);
@@ -78,10 +63,8 @@ export default function OrganizerRegistrationEdit({
 
     const getEvent = (code: string) => allEvents.find((e) => e.event_code === code);
     const selectedCodes = new Set(events.map((e) => e.event_code));
-    // Only offer events that match the (in-progress) profile gender/skill level
-    // — the same gates the competitor-facing flow applies — and aren't already
-    // selected. Following the live profile form lets the organizer set
-    // gender/level first and immediately see the matching events.
+    // Only unselected events matching the in-progress profile's gender/skill —
+    // following the live form, so setting those first reveals the matches.
     const remainingEvents = allEvents.filter(
         (e) =>
             !selectedCodes.has(e.event_code) &&
@@ -92,15 +75,22 @@ export default function OrganizerRegistrationEdit({
     const handleSearch = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setSearching(true);
-        const user = await findUserByEmail(email);
-        if (user) {
-            setAthlete(user);
-            setProfile(profileFrom(user));
-            setEvents(user.registration.map((r) => ({ event_code: r.event_code, nandu_str: r.nandu_str ?? "" })));
-        } else {
-            dispatch(setErrorMsg("User not found"));
+        try {
+            const user = await findUserByEmail(email);
+            if (user) {
+                setAthlete(user);
+                setProfile(profileFrom(user));
+                setEvents(user.registration.map((r) => ({ event_code: r.event_code, nandu_str: r.nandu_str ?? "" })));
+            } else {
+                dispatch(setErrorMsg("User not found"));
+            }
+        } catch (err) {
+            // A thrown lookup is not the same as "no such competitor".
+            console.error("[findUserByEmail]", err);
+            dispatch(setErrorMsg("Could not search for that user. Please try again."));
+        } finally {
+            setSearching(false);
         }
-        setSearching(false);
     };
 
     const onAdd = () => {
@@ -129,25 +119,33 @@ export default function OrganizerRegistrationEdit({
     const onSave = async () => {
         if (!athlete) return;
         setSaving(true);
-        const result = await updateOrganizerRegistration(athlete.user_id, {
-            registration_input: events.map((e) => ({ event: e.event_code, nandu_str: e.nandu_str ?? "" })),
-            gender: profile.gender,
-            skill_level: profile.skill_level,
-            student_type: profile.student_type,
-            school: profile.school,
-        });
-        setSaving(false);
-        if (result.error) {
-            dispatch(setErrorMsg(Object.values(result.error)[0] ?? "Could not save registration"));
-            return;
+        const fallback = "Could not save registration";
+        try {
+            const result = await runAction(
+                () => updateOrganizerRegistration(athlete.user_id, {
+                    registration_input: events.map((e) => ({ event: e.event_code, nandu_str: e.nandu_str ?? "" })),
+                    gender: profile.gender,
+                    skill_level: profile.skill_level,
+                    student_type: profile.student_type,
+                    school: profile.school,
+                }),
+                fallback,
+            );
+            if (result.error || !result.data) {
+                dispatch(setErrorMsg(errorMessage(result.error, fallback)));
+                return;
+            }
+            // Invalidate the cached organizer registration list so the other tabs
+            // refetch this athlete's updated registration on next view.
+            clearSessionCache(cacheKeys.organizerRegistrations);
+            clearSessionCache(cacheKeys.organizerRegistration(athlete.user_id));
+            dispatch(setSuccessMsg(`Registration saved for ${athlete.name}`));
+            setAthlete(result.data);
+            setProfile(profileFrom(result.data));
+            setEvents(result.data.registration.map((r) => ({ event_code: r.event_code, nandu_str: r.nandu_str ?? "" })));
+        } finally {
+            setSaving(false);
         }
-        // Invalidate the cached organizer registration list so the other tabs
-        // refetch this athlete's updated registration on next view.
-        clearSessionCache("organizerRegistrations");
-        dispatch(setSuccessMsg(`Registration saved for ${athlete.name}`));
-        setAthlete(result.data);
-        setProfile(profileFrom(result.data));
-        setEvents(result.data.registration.map((r) => ({ event_code: r.event_code, nandu_str: r.nandu_str ?? "" })));
     };
 
     if (!athlete) {
@@ -185,9 +183,9 @@ export default function OrganizerRegistrationEdit({
                 <div className="text-sm font-medium text-dark">Profile</div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Dropdown name="gender" label="Gender" options={GENDER_CHOICES} value={profile.gender} onChange={onProfileChange} />
-                    <Dropdown name="skill_level" label="Experience Level" options={SKILL_LEVELS} value={profile.skill_level} onChange={onProfileChange} />
+                    <Dropdown name="skill_level" label="Experience Level" options={SKILL_LEVEL_CHOICES} value={profile.skill_level} onChange={onProfileChange} />
                     <Dropdown name="school" label="College" options={colleges} value={profile.school} onChange={onProfileChange} />
-                    <Dropdown name="student_type" label="Student Type" options={STUDENT_TYPES} value={profile.student_type} onChange={onProfileChange} />
+                    <Dropdown name="student_type" label="Student Type" options={STUDENT_TYPE_CHOICES} value={profile.student_type} onChange={onProfileChange} />
                 </div>
             </div>
 

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Link, useNavigate } from "@/routerCompat";
 import { useSession } from "@functions/sessionContext";
 
@@ -11,8 +12,9 @@ function NavBar({ firstName = "" }: { firstName?: string }) {
 
   const { data: session } = useSession();
   const username = firstName;
-  const isOrganizer = session?.user?.user_type === "O";
-  const accountHref = isOrganizer ? "/organizer" : "/dashboard";
+  const userType = session?.user?.user_type;
+  const accountHref =
+    userType === "Admin" ? "/admin" : userType === "School" ? "/organizer" : "/competitor";
 
   const nav = useNavigate();
 
@@ -21,12 +23,17 @@ function NavBar({ firstName = "" }: { firstName?: string }) {
       <div className="justify-between flex w-full">
         <div className="flex gap-10 items-center">
 
-          <Link to="/"><img
+          {/* width/height are the source PNG's intrinsic 1382x511 so the full
+              logo renders uncropped; CSS pins the height and lets the width
+              follow the aspect ratio. next/image still serves it downscaled
+              rather than shipping the whole 656KB original. */}
+          <Link to="/" className="shrink-0"><Image
                     src="/wushu_logo.png"
                     alt="logo"
-                    width={100}
-                    height={100}
-                    className="object-cover rounded-[2rem]"
+                    width={1382}
+                    height={511}
+                    priority
+                    className="h-10 w-auto rounded-lg"
                   /></Link>
           {tabs.map((tab) => (
             <Link to={`/${tab.toLowerCase().replace(/\s/g, "")}`} key={tab}>
@@ -36,7 +43,7 @@ function NavBar({ firstName = "" }: { firstName?: string }) {
         </div>
         {username ?
           <button className="btn btn-outline [--btn-color:var(--color-off-white)]" onClick={()=>nav(accountHref)}>{username}</button> :
-          <button className="btn btn-outline [--btn-color:var(--color-off-white)]" onClick={()=>nav('/signin')}>Sign In</button>
+          <button className="btn btn-outline [--btn-color:var(--color-off-white)]" onClick={()=>nav("/signin")}>Sign In</button>
         }
       </div>
     </div>

@@ -3,14 +3,10 @@
 import { useSyncExternalStore } from "react";
 import superjson from "superjson";
 
-// sessionStorage-backed replacement for the old Redux `sessionCache` slice.
-// Data lives in the browser's per-tab sessionStorage (cleared when the tab
-// closes) instead of in-memory Redux state. A small subscription layer makes
-// reads reactive so components still re-render when a cached value changes,
-// via `useSessionCache` (built on useSyncExternalStore).
+// Per-tab sessionStorage cache replacing the old Redux `sessionCache` slice.
+// A subscription layer keeps reads reactive via `useSessionCache`.
 
-// All keys are namespaced so clearAll() only touches our own entries and never
-// stomps unrelated sessionStorage keys.
+// Namespaced so clearAll() never stomps unrelated sessionStorage keys.
 const PREFIX = "sc:";
 
 const namespaced = (key: string) => PREFIX + key;
@@ -18,14 +14,12 @@ const namespaced = (key: string) => PREFIX + key;
 type Listener = () => void;
 const listeners = new Map<string, Set<Listener>>();
 
-// useSyncExternalStore requires a referentially stable snapshot when the value
-// is unchanged, otherwise React re-renders forever. We cache the parsed value
-// per key and only re-parse when the underlying raw string differs.
+// useSyncExternalStore needs a referentially stable snapshot or React loops, so
+// the parsed value is cached per key and re-parsed only when the raw differs.
 const snapshots = new Map<string, { raw: string | null; value: unknown }>();
 
-// Serialize with superjson (not JSON) so rich types in the cached DTOs survive
-// the sessionStorage round-trip — most importantly the Date fields on Settings,
-// Order, and Blog, which plain JSON would flatten to strings.
+// superjson, not JSON, so the DTOs' Date fields survive the round-trip instead
+// of flattening to strings.
 function safeParse<T>(raw: string): T | undefined {
   try {
     return superjson.parse<T>(raw);
@@ -111,9 +105,8 @@ function subscribe(key: string, listener: Listener): () => void {
   };
 }
 
-// Reactive read: re-renders the component whenever `key`'s cached value changes
-// (same tab or cross-tab). Returns undefined during SSR and when the key is
-// absent, matching the previous Redux selector semantics.
+// Reactive read: re-renders whenever `key` changes (same tab or cross-tab).
+// Returns undefined during SSR and when the key is absent.
 export function useSessionCache<T>(key: string): T | undefined {
   return useSyncExternalStore(
     (listener) => subscribe(key, listener),

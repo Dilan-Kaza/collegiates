@@ -1,18 +1,25 @@
 "use client";
 
 import { MtHeader, OrganizerFindUser } from "@components";
-import { setErrorMsg } from "@slices";
+import { setErrorMsg, setSuccessMsg } from "@slices";
 import { clearSessionCache } from "@functions/sessionCache";
 import { updateOrganizerGroupset } from "@functions/actions";
+import { errorMessage, runAction } from "@functions/actionErrors";
+import { useCachedResource, cacheKeys, fetchOrganizerGroupset } from "@functions";
 import { useNavigate } from "@/routerCompat";
-import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
-import { useDispatch } from "react-redux";
+import { useState } from "react";
+import { useAppDispatch } from "@/store/hooks";
 import type { OrganizerGroupsetDTO, OrganizerMemberDTO } from "@/lib/api";
 // organizer groupset detail/edit page
 
-// The group set is resolved on the server (by uuid) and passed in; after a save
-// we call router.refresh() to re-run the server page and pull the updated data.
+// The group set arrives from the server by uuid. A save applies what
+// updateOrganizerGroupset returns rather than re-running the page.
+//
+// The edit fields are seeded from the server copy once, at mount. They used to be
+// re-synced from an effect keyed on the `groupset` prop, which meant every RSC
+// re-render of this route — a server action's updateTag, a router.refresh —
+// silently threw away an in-progress rename or roster change. The page keys this
+// component on the uuid, so navigating to a different group set still remounts.
 export default function GroupsetDetail({
     uuid,
     groupset,
@@ -22,22 +29,24 @@ export default function GroupsetDetail({
 }) {
 
     const nav = useNavigate();
-    const router = useRouter();
-    const dispatch = useDispatch();
+    const dispatch = useAppDispatch();
+
+    // Read-only view of the group set, kept in step with its cache entry.
+    const server = useCachedResource(
+        cacheKeys.organizerGroupset(uuid),
+        () => fetchOrganizerGroupset(uuid),
+        groupset,
+    );
+
+    // The displayed group set: the server's copy until a save replaces it.
+    const [saved, setSaved] = useState<OrganizerGroupsetDTO | null>(null);
+    const current = saved ?? server ?? groupset;
 
     const [editing, setEditing] = useState(false);
     const [teamName, setTeamName] = useState(groupset.team_name ?? "");
     const [leaderId, setLeaderId] = useState(groupset.leader?.user_id ?? "");
     const [members, setMembers] = useState<OrganizerMemberDTO[]>(groupset.members ?? []);
     const [loading, setLoading] = useState(false);
-
-    // Re-sync the editable fields whenever the server data changes (e.g. after
-    // router.refresh() following a save).
-    useEffect(() => {
-        setTeamName(groupset.team_name ?? "");
-        setLeaderId(groupset.leader?.user_id ?? "");
-        setMembers(groupset.members ?? []);
-    }, [groupset]);
 
     const handleAdd = (user_id: string, name: string) => {
         if (members.some(m => m.user_id === user_id)) return;
@@ -51,21 +60,36 @@ export default function GroupsetDetail({
 
     const handleSave = async () => {
         setLoading(true);
-        const { error } = await updateOrganizerGroupset(uuid, {
-            team_name: teamName,
-            leader: leaderId,
-            school: groupset.school?.school_id,
-            members: members.map(m => m.user_id),
-        });
-        if (error) {
-            dispatch(setErrorMsg(error.detail ?? "Failed to save"));
-        } else {
-            clearSessionCache(`groupset_${uuid}`);
-            clearSessionCache("organizerGroupsets");
+        const fallback = "Failed to save";
+        try {
+            const { data, error } = await runAction(
+                () => updateOrganizerGroupset(uuid, {
+                    team_name: teamName,
+                    leader: leaderId,
+                    school: current.school?.school_id,
+                    members: members.map(m => m.user_id),
+                }),
+                fallback,
+            );
+            if (error || !data) {
+                // The action reports roster problems under `groupset`, not
+                // `detail`, so reading only `detail` lost them.
+                dispatch(setErrorMsg(errorMessage(error, fallback)));
+                // Stay in edit mode: the pending changes are still unsaved.
+                return;
+            }
+            clearSessionCache(cacheKeys.organizerGroupset(uuid));
+            clearSessionCache(cacheKeys.organizerGroupsets);
             setEditing(false);
-            router.refresh();
+            // The action returns the saved group set, so adopt it directly.
+            setSaved(data);
+            setTeamName(data.team_name ?? "");
+            setLeaderId(data.leader?.user_id ?? "");
+            setMembers(data.members ?? []);
+            dispatch(setSuccessMsg("Group set saved"));
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     return (
@@ -87,8 +111,8 @@ export default function GroupsetDetail({
                             onChange={(e) => setTeamName(e.target.value)}
                             placeholder="Team Name"
                         />
-                        {groupset.school && (
-                            <div className="text-sm text-gray-400">{groupset.school.school_name}</div>
+                        {current.school && (
+                            <div className="text-sm text-gray-400">{current.school.school_name}</div>
                         )}
                         <div className="cg-card-bordered">
                             <div className="text-xl font-semibold text-primary border-b border-gray-200 pb-2">Members</div>
@@ -124,18 +148,18 @@ export default function GroupsetDetail({
                     </>
                 ) : (
                     <>
-                        <div className="text-3xl text-secondary font-semibold">{groupset.team_name ?? "Group Set"}</div>
-                        {groupset.school && (
-                            <div className="text-sm text-gray-400">{groupset.school.school_name}</div>
+                        <div className="text-3xl text-secondary font-semibold">{current.team_name ?? "Group Set"}</div>
+                        {current.school && (
+                            <div className="text-sm text-gray-400">{current.school.school_name}</div>
                         )}
                         <div className="cg-card-bordered">
                             <div className="text-xl font-semibold text-primary border-b border-gray-200 pb-2">Members</div>
-                            {(groupset.members?.length ?? 0) > 0 ? (
+                            {(current.members?.length ?? 0) > 0 ? (
                                 <div className="flex flex-col gap-2">
-                                    {groupset.members?.map((m) => (
+                                    {current.members?.map((m) => (
                                         <div key={m.user_id} className="flex items-center gap-2 text-sm text-dark">
                                             <span>{m.name}</span>
-                                            {m.user_id === groupset.leader?.user_id && <span className="text-secondary text-xs">(leader)</span>}
+                                            {m.user_id === current.leader?.user_id && <span className="text-secondary text-xs">(leader)</span>}
                                         </div>
                                     ))}
                                 </div>

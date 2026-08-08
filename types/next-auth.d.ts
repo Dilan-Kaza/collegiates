@@ -17,9 +17,8 @@ declare module "next-auth" {
   }
 }
 
-// The JWT interface lives in @auth/core/jwt and is only re-exported by
-// next-auth/jwt, so the augmentation must target @auth/core/jwt to actually
-// merge (augmenting next-auth/jwt would create a separate, ignored interface).
+// JWT lives in @auth/core/jwt and is only re-exported by next-auth/jwt, so the
+// augmentation must target @auth/core/jwt or it creates an ignored interface.
 declare module "@auth/core/jwt" {
   interface JWT {
     user_id?: string;

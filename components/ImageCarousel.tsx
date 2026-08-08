@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 function Carousel({ imgs }: { imgs: string[] }) {
   return (
     <>
@@ -19,11 +21,17 @@ function Carousel({ imgs }: { imgs: string[] }) {
 function CarouselSquare({ src }: { src: string }) {
   return (
     <>
+      {/* next/image serves this at the size the square actually renders. The
+          sources are full-resolution camera files (one is 5472px wide, ~7MB) and
+          were being sent to the browser untouched for an 18rem box. `sizes` tells
+          the optimizer which width to generate for each breakpoint. */}
       <div className="bg-gray-400 h-[2rem] w-[2rem] sm:h-[18rem] sm:w-[18rem] sm:rounded-[2rem] relative">
-        <img
+        <Image
           src={`/${src}`}
           alt="Carousel image"
-          className="h-full w-full object-cover sm:rounded-[2rem]"
+          fill
+          sizes="(min-width: 640px) 288px, 32px"
+          className="object-cover sm:rounded-[2rem]"
         />
       </div>
     </>

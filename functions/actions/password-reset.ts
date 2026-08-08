@@ -6,7 +6,7 @@
 import prisma from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
 import { sendEmail } from "@/lib/email";
-import { passwordResetEmail } from "@/lib/email-templates";
+import { passwordResetEmail, passwordChangedNotificationEmail } from "@/lib/email-templates";
 import { issueToken, consumeToken } from "@/lib/tokens";
 import { appUrl } from "./shared";
 import type { Mutation } from "./shared";
@@ -31,6 +31,15 @@ export async function resetPassword(
   const ok = await consumeToken(uid, token, "P");
   if (!ok) return { error: { detail: "This reset link is invalid or has expired." } };
 
-  await prisma.user.update({ where: { user_id: uid }, data: { password: hashPassword(password) } });
+  // Bumping token_version invalidates any session issued before this reset —
+  // see lib/auth.ts's getCurrentUser(), which compares it against the value
+  // embedded in the caller's own session on every request. Matches
+  // changePassword's behavior in profile-security.ts: a password reset should
+  // revoke stolen sessions just as effectively as an in-app password change.
+  const user = await prisma.user.update({
+    where: { user_id: uid },
+    data: { password: hashPassword(password), token_version: { increment: 1 } },
+  });
+  await sendEmail(user.email, passwordChangedNotificationEmail());
   return { data: { detail: "Password updated." } };
 }

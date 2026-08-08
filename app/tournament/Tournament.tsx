@@ -1,6 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import { Link } from "@/routerCompat";
+import { formatSettingsDate } from "@/lib/dates";
+import type { SettingsDateField } from "@/lib/dates";
 import type { SettingsDTO } from "@/lib/api";
 
 // tournament info page
@@ -10,28 +13,24 @@ export default function Tournament({ settings = {} }: { settings?: TournamentSet
 
   const compData = settings;
 
-  const dateToStr = (date: Date | null | undefined) => {
-    if (!date) return "";
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  }
+  // Dates are shown on the competition's clock (Pacific), not the reader's.
+  const dateToStr = (field: SettingsDateField, date: Date | null | undefined) =>
+    formatSettingsDate(field, date);
 
   return (
     <>
       <div className="relative overflow-hidden">
-        <img src="JB.jpg" className="w-full opacity-70"/>
+        {/* Leading slash matters: the old relative "JB.jpg" only resolved to
+            /JB.jpg because /tournament happens to sit at the root. */}
+        <Image src="/JB.jpg" alt="" width={2048} height={1365} priority className="w-full opacity-70"/>
 
         <div className="absolute inset-[5%] flex flex-col text-off-white pt-10 md:pt-24">
           <div className="text-2xl md:text-6xl">
             Tournament
           </div>
           <div className="text-lg md:text-2xl md:pt-10">
-            Host: {compData.host}<br/>
-            Date: {dateToStr(compData.comp_date)}<br/>
+            Host: {compData.host_school ?? "TBD"}<br/>
+            Date: {dateToStr("comp_date", compData.comp_date)}<br/>
           </div>
           <div className="text-lg md:text-2xl font-bold pt-10 hidden md:block">
               Registration Instructions
@@ -56,14 +55,14 @@ export default function Tournament({ settings = {} }: { settings?: TournamentSet
           Registration
         </div>
         <div className="text-primary text-sm md:text-base pt-5 md:pt-15 px-[5%]">
-          Early Registration Deadline: {dateToStr(compData.reg_start)}<br/>
-          - Registration fees: ${compData.early_reg_cost_first} for the first event + ${compData.early_reg_cost_extra} per additional event<br/>
+          Early Registration Deadline: {dateToStr("reg_start", compData.reg_start)}<br/>
+          - Registration fees: ${compData.early_reg_cost_base} base + ${compData.early_reg_cost_event} per event<br/>
           <br/>
-          Late Registration Deadline: {dateToStr(compData.reg_end)}<br/>
-          - Registration fees: ${compData.reg_cost_first} for the first event + ${compData.reg_cost_extra} per additional event<br/>
+          Late Registration Deadline: {dateToStr("reg_end", compData.reg_end)}<br/>
+          - Registration fees: ${compData.reg_cost_base} base + ${compData.reg_cost_event} per event<br/>
           <br/>
           <br/>
-          **Base registration fee includes the cost of one event.
+          **The base registration fee is charged once; every event you enter is charged on top of it.
         </div>
       </div>
       <div className="bg-primary text-secondary py-5 md:py-20">
@@ -80,7 +79,7 @@ export default function Tournament({ settings = {} }: { settings?: TournamentSet
           Proof of Enrollment
         </div>
         <div className="text-primary text-sm md:text-base pt-5 md:pt-15 px-[5%]">
-          Remember to prepare documentation for <a className="font-bold italic">Proof of Enrollment</a>! This is due <a className="font-bold">{dateToStr(compData.enrollDate)}</a><br/>
+          Remember to prepare documentation for <a className="font-bold italic">Proof of Enrollment</a>! This is due <a className="font-bold">{dateToStr("due_date", compData.enrollDate ?? compData.due_date)}</a><br/>
           <br className="hidden md:block"/>
           <br className="hidden md:block"/>
           <br/>

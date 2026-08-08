@@ -2,64 +2,72 @@
 
 // Organizer server actions for competition settings and the event catalogue.
 
-import { unstable_cache, revalidateTag } from "next/cache";
+import { unstable_cache, updateTag } from "next/cache";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { loadSettings } from "@/lib/settings";
-import { shapeSettings, shapeEvent } from "@/lib/api";
+import { isAdmin } from "@/lib/auth";
+import { shapeSettings, shapeEvent, SETTINGS_INCLUDE } from "@/lib/api";
 import type { SettingsDTO, EventDTO } from "@/lib/api";
-import { READ_CACHE_TTL, TAG_EVENTS, requireOrganizer } from "./shared";
+import {
+  READ_CACHE_TTL, TAG_EVENTS, organizerGate, settingsWritable, settingsDateErrors, actionError,
+} from "./shared";
 import type { Mutation, SettingsBody } from "./shared";
 
-function settingsWritable(body: SettingsBody): Prisma.SettingsUncheckedUpdateInput {
-  return {
-    reg_year: body.reg_year,
-    early_reg_start: body.early_reg_start ? new Date(body.early_reg_start) : null,
-    early_reg_cost_first: body.early_reg_cost_first ?? null,
-    early_reg_cost_extra: body.early_reg_cost_extra ?? null,
-    reg_start: body.reg_start ? new Date(body.reg_start) : undefined,
-    reg_end: body.reg_end ? new Date(body.reg_end) : undefined,
-    reg_cost_first: body.reg_cost_first,
-    reg_cost_extra: body.reg_cost_extra,
-    comp_date: body.comp_date ? new Date(body.comp_date) : null,
-    contact_email: body.contact_email,
-    order_public: body.order_public,
-  };
-}
-
 export async function saveSettings(body: SettingsBody): Promise<Mutation<SettingsDTO | null>> {
-  const { error } = await requireOrganizer();
+  const { user, error } = await organizerGate();
   if (error) return { error };
 
-  let school_id: string | undefined;
-  if (body.host !== undefined) {
-    const college = await prisma.college.findUnique({ where: { college_name: body.host } });
-    if (!college) return { error: { host: "College not found." } };
-    school_id = college.college_id;
+  // host_id is what organizerGate resolves organizer access from, so writing it
+  // is a permission grant, not a setting: only an admin may. An organizer host
+  // could otherwise hand its own console to any account, or take it from itself.
+  // The organizer settings form never submits `host` — the admin console does.
+  if (body.host !== undefined && !isAdmin(user)) {
+    return { error: { host: "Only an admin can change the settings host." } };
   }
 
-  const existing = await loadSettings();
-  let s;
-  if (existing) {
-    const data = settingsWritable(body);
-    if (school_id) data.school_id = school_id;
-    (Object.keys(data) as (keyof typeof data)[]).forEach((k) => {
-      if (data[k] === undefined) delete data[k];
-    });
-    s = await prisma.settings.update({ where: { id: existing.id }, data, include: { host: true } });
-  } else {
-    if (!school_id) return { error: { host: "College not found." } };
-    s = await prisma.settings.create({
-      data: { ...settingsWritable(body), school_id } as Prisma.SettingsUncheckedCreateInput,
-      include: { host: true },
-    });
+  const dateErrors = settingsDateErrors(body);
+  if (dateErrors) return { error: dateErrors };
+
+  try {
+    // The host lookup and the current settings row are independent, so they go out
+    // together rather than one after the other.
+    const [host, existing] = await Promise.all([
+      body.host !== undefined
+        ? prisma.user.findUnique({ where: { email: body.host }, select: { user_id: true } })
+        : null,
+      loadSettings(),
+    ]);
+    let host_id: string | undefined;
+    if (body.host !== undefined) {
+      if (!host) return { error: { host: "Host user not found." } };
+      host_id = host.user_id;
+    }
+
+    let s;
+    if (existing) {
+      const data = settingsWritable(body);
+      if (host_id) data.host_id = host_id;
+      (Object.keys(data) as (keyof typeof data)[]).forEach((k) => {
+        if (data[k] === undefined) delete data[k];
+      });
+      s = await prisma.settings.update({ where: { id: existing.id }, data, include: SETTINGS_INCLUDE });
+    } else {
+      if (!host_id) return { error: { host: "Host user not found." } };
+      s = await prisma.settings.create({
+        data: { ...settingsWritable(body), host_id } as Prisma.SettingsUncheckedCreateInput,
+        include: SETTINGS_INCLUDE,
+      });
+    }
+    updateTag("settings");
+    return { data: shapeSettings(s) };
+  } catch (err) {
+    return { error: actionError("saveSettings", err, "Could not save the settings.") };
   }
-  revalidateTag("settings");
-  return { data: shapeSettings(s) };
 }
 
 export async function getOrganizerEvents(): Promise<EventDTO[]> {
-  const { error } = await requireOrganizer();
+  const { error } = await organizerGate();
   if (error) return [];
   return unstable_cache(
     async (): Promise<EventDTO[]> => {

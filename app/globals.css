@@ -79,12 +79,6 @@
     @apply border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-primary;
   }
 
-  /* Focus-within field wrapper (for multi-element fields) */
-  .cg-field {
-    @apply relative flex flex-col gap-2 border border-gray-300 rounded-md py-[10px] px-2
-      transition-[outline] ease-in-out duration-200 focus-within:outline-2 focus-within:outline-primary;
-  }
-
   /* Dashed chip / draggable tag */
   .cg-chip {
     @apply rounded border border-dashed border-gray-300 bg-gray-50 px-3 py-2
@@ -98,15 +92,6 @@
   .cg-eyebrow-muted {
     @apply text-xs uppercase tracking-wide text-gray-400;
   }
-}
-
-input:focus {
-  outline: none;
-  border: none;
-}
-
-select {
-  outline: none; /* Remove the outline when focused */
 }
 
 /* @keyframes scroll {

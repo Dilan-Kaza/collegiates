@@ -4,23 +4,22 @@ import { useSession } from "@functions/sessionContext";
 import { useNavigate } from "@/routerCompat";
 import { useEffect } from "react";
 
-// Redirect hook driven by the Auth.js session (via useSession) instead of the
-// old Redux loginStatus slice. SessionProvider is seeded server-side, so the
-// session is already resolved on first render.
+// Redirect hook driven by useSession. SessionProvider is server-seeded, so
+// `status` is resolved on first render — never a transient "loading".
 //
-// (The equivalent "forward if already signed in" case for /signin and /signup
-// is handled server-side by requireGuest() in lib/auth.ts instead of a client
-// hook like this one — see app/signin/page.tsx and app/signup/page.tsx.)
+// There is deliberately no client-side organizer/admin gate here: every route
+// under /organizer and /admin is gated on the server by requireOrganizer /
+// requireAdmin, which redirects before any markup renders.
 
-function useForwardIfNotOrganizer() {
-  const { data } = useSession();
+// Forwards an already-signed-in visitor off an auth page. enabled=false suspends
+// it, so the sign-in page can pick its own destination after signing someone in.
+function useForwardDashboard(enabled = true) {
+  const { status } = useSession();
   const nav = useNavigate();
 
   useEffect(() => {
-    // The session is server-seeded, so `data` is already resolved on first
-    // render — no "loading" state to wait through before redirecting.
-    if (data?.user?.user_type !== "O") nav("/");
-  }, [data]);
+    if (enabled && status === "authenticated") nav("/competitor");
+  }, [status, enabled, nav]);
 }
 
-export { useForwardIfNotOrganizer };
+export { useForwardDashboard };

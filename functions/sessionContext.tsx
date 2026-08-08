@@ -1,13 +1,12 @@
 "use client";
 
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import type { Session } from "next-auth";
+import { verifySession } from "@functions/actions";
 
-// Server-seeded session context replacing next-auth/react's SessionProvider /
-// useSession. The root layout resolves the session with auth() and passes it in;
-// the login/logout server actions plus router.refresh() re-run the layout, so
-// this value flips authenticated <-> unauthenticated without any client-side
-// /api/auth/session fetch. Shape mirrors useSession() so consumers are unchanged.
+// Server-seeded replacement for next-auth/react's SessionProvider: the root
+// layout passes auth()'s result in, so no client /api/auth/session fetch runs.
 
 type SessionStatus = "authenticated" | "unauthenticated";
 
@@ -28,11 +27,70 @@ export function SessionProvider({
   session: Session | null;
   children: ReactNode;
 }) {
-  const value: SessionValue = {
-    data: session,
-    status: session ? "authenticated" : "unauthenticated",
-  };
+  // Memoized on `session`: a fresh object here re-renders every useSession()
+  // consumer — the nav bar, the dock, the forward hooks — on every render of
+  // this provider, which sits at the root of the tree.
+  const value = useMemo<SessionValue>(
+    () => ({ data: session, status: session ? "authenticated" : "unauthenticated" }),
+    [session],
+  );
+
+  useSessionRevalidator(value.status);
+
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
+}
+
+// Shortest gap between two server-side session checks. Matches the 60s TTL the
+// server-side user-data cache uses.
+const SESSION_RECHECK_MS = 60_000;
+
+// The JWT can expire mid-session, so re-verify on focus and re-render the tree
+// as signed out once the server disagrees. Throttled because alt-tab fires
+// `focus` and `visibilitychange` together.
+function useSessionRevalidator(status: SessionStatus) {
+  const router = useRouter();
+  const lastChecked = useRef(0);
+  const inFlight = useRef(false);
+
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    let cancelled = false;
+
+    const revalidate = async () => {
+      if (inFlight.current) return;
+      if (Date.now() - lastChecked.current < SESSION_RECHECK_MS) return;
+      inFlight.current = true;
+      try {
+        const { authenticated } = await verifySession();
+        if (cancelled || authenticated) return;
+        router.refresh();
+      } catch (err) {
+        // A failed check means "couldn't tell", not "signed out", so the session
+        // is left alone. Caught rather than left to reject: these run as event
+        // listeners, where a rejection escapes as an unhandled rejection.
+        console.error("[verifySession]", err);
+      } finally {
+        // Stamped whatever the outcome. Advancing it only on success meant a
+        // failing check never armed the throttle, so every later tab switch
+        // fired another request — indefinitely, once the first one failed.
+        lastChecked.current = Date.now();
+        inFlight.current = false;
+      }
+    };
+
+    const onFocus = () => void revalidate();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") void revalidate();
+    };
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [status, router]);
 }
 
 export function useSession(): SessionValue {

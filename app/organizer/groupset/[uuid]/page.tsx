@@ -1,8 +1,6 @@
 import GroupsetDetail from "./GroupsetDetail";
 import { getOrganizerGroupset } from "@functions/actions";
 import { requireOrganizer } from "@/lib/auth";
-import CacheSeed from "@functions/CacheSeed";
-import { cacheKeys } from "@functions/cacheKeys";
 
 export default async function Page({ params }: { params: Promise<{ uuid: string }> }) {
   // Gate to organizers and resolve the group set (by uuid) on the server.
@@ -16,8 +14,10 @@ export default async function Page({ params }: { params: Promise<{ uuid: string 
 
   return (
     <>
-      <CacheSeed entries={{ [cacheKeys.organizerGroupset(uuid)]: groupset }} />
-      <GroupsetDetail uuid={uuid} groupset={groupset} />
+      {/* Keyed on the uuid: the detail component seeds its edit fields at mount
+          and no longer re-syncs them from props, so moving to a different group
+          set has to remount it. A refresh of the same one must not. */}
+      <GroupsetDetail key={uuid} uuid={uuid} groupset={groupset} />
     </>
   );
 }

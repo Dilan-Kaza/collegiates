@@ -23,15 +23,9 @@ export default async function Page() {
   ]);
   return (
     <>
-      <CacheSeed
-        entries={{
-          [cacheKeys.settings]: settings,
-          [cacheKeys.organizerRegistrations]: registrations,
-          [cacheKeys.organizerGroupsets]: groupsets,
-          [cacheKeys.organizerOrder]: order,
-          [cacheKeys.organizerBlogPosts]: blogPosts,
-        }}
-      />
+      {/* Each panel's list is seeded by its own binding in <Organizer>; only
+          `settings`, which has no client fetcher, is seeded here. */}
+      <CacheSeed entries={{ [cacheKeys.settings]: settings }} />
       <Organizer
         settings={settings ?? {}}
         registrations={registrations}

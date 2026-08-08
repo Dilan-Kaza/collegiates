@@ -6,9 +6,8 @@ import CacheSeed from "@functions/CacheSeed";
 import { cacheKeys } from "@functions/cacheKeys";
 
 export default async function Page() {
-  // Gate to organizers and resolve the registration list, saved order, and
-  // settings on the server so the builder ships populated. Publicity of the
-  // order now lives on Settings (order_public), so it's read from there.
+  // Gate to organizers and resolve registrations, order, and settings server-side
+  // so the builder ships populated. Publish state comes from settings.order_public.
   await requireOrganizer();
   const [registrations, order, settings] = await Promise.all([
     getOrganizerRegistrations(),
@@ -17,6 +16,9 @@ export default async function Page() {
   ]);
   return (
     <>
+      {/* The builder owns unsaved ring state, so it deliberately does not bind to
+          the registration/order cache — a mid-edit refetch must not reach it.
+          Both are still seeded here for the console to read on the way back. */}
       <CacheSeed
         entries={{
           [cacheKeys.organizerRegistrations]: registrations,

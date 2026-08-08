@@ -1,22 +1,29 @@
 "use client";
 
 import { MtHeader, OrganizerBlogList } from "@components";
-import { setErrorMsg } from "@slices";
+import { setErrorMsg, setSuccessMsg } from "@slices";
 import { createBlogPost } from "@functions/actions";
+import { errorMessage, runAction } from "@functions/actionErrors";
+import { cacheKeys, useCachedResource, fetchOrganizerBlogPosts } from "@functions";
+import { clearSessionCache } from "@functions/sessionCache";
 import { useState } from "react";
 import { useNavigate } from "@/routerCompat";
-import { useRouter } from "next/navigation";
-import { useDispatch } from "react-redux";
+import { useAppDispatch } from "@/store/hooks";
 import type { BlogDTO } from "@/lib/api";
 
-// The post list is resolved on the server and passed in as `posts`. After a
-// successful create we call router.refresh() to re-run the server page and pull
-// the updated list (replacing the old remount-and-refetch approach).
-export default function BlogManager({ posts = [] }: { posts?: BlogDTO[] }) {
+// `posts` arrives from the server for first paint, then follows its cache entry.
+// A create drops that entry, and createBlogPost has already dropped the server's
+// "blog" tag, so the refetch returns the new post — no local prepend to keep in
+// sync, and no router.refresh() RSC round trip.
+export default function BlogManager({ posts: initialPosts = [] }: { posts?: BlogDTO[] }) {
 
     const nav = useNavigate();
-    const router = useRouter();
-    const dispatch = useDispatch();
+    const dispatch = useAppDispatch();
+    const posts = useCachedResource(
+        cacheKeys.organizerBlogPosts,
+        fetchOrganizerBlogPosts,
+        initialPosts,
+    );
     const [title, setTitle] = useState("");
     const [blog_content, setBlogContent] = useState("");
     const [author, setAuthor] = useState("");
@@ -26,17 +33,33 @@ export default function BlogManager({ posts = [] }: { posts?: BlogDTO[] }) {
     const handlePost = async () => {
         if (!title.trim() || !blog_content.trim() || !category) return;
         setLoading(true);
-        const { error } = await createBlogPost({ title, blog_content, author, category });
-        if (error) {
-            dispatch(setErrorMsg(error.detail ?? "Failed to post blog"));
-        } else {
+        const fallback = "Failed to post blog";
+        try {
+            const { error } = await runAction(
+                () => createBlogPost({ title, blog_content, author, category }),
+                fallback,
+            );
+            if (error) {
+                // createBlogPost reports missing content under `title` /
+                // `blog_content`, so errorMessage has to look past `detail`.
+                dispatch(setErrorMsg(errorMessage(error, fallback)));
+                // The draft stays in the form — clearing it would lose the post.
+                return;
+            }
             setTitle("");
             setBlogContent("");
             setAuthor("");
             setCategory("");
-            router.refresh(); // re-run the server page to pull the new post
+            // Dropping the list entry is what adds the post to the view: the hook
+            // above refills it from getOrganizerBlogPosts, whose "blog" tag
+            // createBlogPost just invalidated. blogPosts is the public list, read
+            // by other routes.
+            clearSessionCache(cacheKeys.organizerBlogPosts);
+            clearSessionCache(cacheKeys.blogPosts);
+            dispatch(setSuccessMsg("Post published"));
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     return (

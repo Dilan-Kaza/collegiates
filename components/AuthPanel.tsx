@@ -10,13 +10,14 @@ interface AuthPanelProps {
   children?: ReactNode;
   bottomLabel?: ReactNode;
   bottomLink: string;
-  // Accepted as a prop by call sites (e.g. the sign-up layouts). Note the
-  // component reads its second positional arg for the form handler, so this
-  // prop is declared for type-compatibility with existing usage.
   onSubmit?: FormEventHandler<HTMLFormElement>;
 }
 
-function AuthPanel(props: AuthPanelProps, onSubmit?: FormEventHandler<HTMLFormElement>) {
+// `onSubmit` used to be declared as a second positional parameter. React calls a
+// function component with `(props)` only, so it was always undefined and the
+// <form> below had no handler at all — submission worked solely because the
+// SubmitButton's own onClick calls preventDefault. It now reads the prop.
+function AuthPanel({ onSubmit, ...props }: AuthPanelProps) {
   return (
     <>
       <div className="flex items-center justify-center">
@@ -56,7 +57,7 @@ function AuthPanel(props: AuthPanelProps, onSubmit?: FormEventHandler<HTMLFormEl
   );
 }
 
-function AuthPanelWide(props: AuthPanelProps, onSubmit?: FormEventHandler<HTMLFormElement>) {
+function AuthPanelWide({ onSubmit, ...props }: AuthPanelProps) {
   return (
     <>
       <div className="flex items-center justify-center">

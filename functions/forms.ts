@@ -6,83 +6,81 @@ import type {
   Dispatch,
   SetStateAction,
 } from "react";
+// form validation + change/blur handler factories
 
 type FormControl = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 type FormErrors = Record<string, string>;
 type FormData = Record<string, string>;
 
 const validate = (name: string, value: string, formData: { password?: string } = {}): string => {
-    switch(name) {
-      case "email":
-        if (!value) return "Email is required";
-        if (!/\S+@\S+\.\S+/.test(value)) return "Invalid email address";
-        return "";
-      case "password":
-        if (!value) return "Password is required";
-        if (value.length < 8) return "Password must be at least 8 characters";
-        return "";
-      case "old_password":
-        if (!value) return "Current password is required";
-        return "";
-      case "re_password":
-        if (!value) return "Please confirm your password";
-        if (value != formData.password) return "Passwords do not match";
-        return "";
-      case "first_name":
-        if (!value) return "Required";
-        return "";
-      case "last_name":
-        if (!value) return "Required";
-        return "";
-      case "school":
-        if (!value) return "Please select a college";
-        return "";
-      case "skill_level":
-        if (!value) return "Please select an experience level";
-        return "";
-      case "gender":
-        if (!value) return "Please select a gender";
-        return "";
-      case "student_type":
-        if (!value) return "Please select a student type";
-        return "";
-
-      default:
-        return "";
-    }
-}
+  switch (name) {
+    case "email":
+      if (!value) return "Email is required";
+      if (!/\S+@\S+\.\S+/.test(value)) return "Invalid email address";
+      return "";
+    case "password":
+      if (!value) return "Password is required";
+      if (value.length < 8) return "Password must be at least 8 characters";
+      return "";
+    case "old_password":
+      if (!value) return "Current password is required";
+      return "";
+    case "re_password":
+      if (!value) return "Please confirm your password";
+      if (value !== formData.password) return "Passwords do not match";
+      return "";
+    case "first_name":
+      if (!value) return "Required";
+      return "";
+    case "last_name":
+      if (!value) return "Required";
+      return "";
+    case "school":
+      if (!value) return "Please select a college";
+      return "";
+    case "skill_level":
+      if (!value) return "Please select an experience level";
+      return "";
+    case "gender":
+      if (!value) return "Please select a gender";
+      return "";
+    case "student_type":
+      if (!value) return "Please select a class eligibility";
+      return "";
+    default:
+      return "";
+  }
+};
 
 function handleFormChange(
   setData: Dispatch<SetStateAction<FormData>>,
   setErrors: Dispatch<SetStateAction<FormErrors>>,
 ): ChangeEventHandler<FormControl> {
-    return (e) => {
-        const { name, value } = e.target;
-        setData((prevData) => ({
-          ...prevData,
-          [name]: value,
-        }));
+  return (e) => {
+    const { name, value } = e.target;
+    setData((prevData) => ({
+      ...prevData,
+      [name]: value,
+    }));
 
-        setErrors((prevErrors) => ({
-            ...prevErrors,
-            [name]: "",
-        }));
-    };
+    setErrors((prevErrors) => ({
+      ...prevErrors,
+      [name]: "",
+    }));
+  };
 }
 
 function handleFormBlur(
   setErrors: Dispatch<SetStateAction<FormErrors>>,
   formData: { password?: string } = { password: "" },
 ): FocusEventHandler<FormControl> {
-    return (e) => {
-        const { name, value } = e.target;
-        setErrors((prevErrors) => ({
-            ...prevErrors,
-            [name]: validate(name, value, formData),
-        }));
-    };
+  return (e) => {
+    const { name, value } = e.target;
+    setErrors((prevErrors) => ({
+      ...prevErrors,
+      [name]: validate(name, value, formData),
+    }));
+  };
 }
 
 export { validate, handleFormChange, handleFormBlur };
-// form validation + change/blur handler factories
-

@@ -10,8 +10,9 @@ export default function NavDock({ firstName = "" }: { firstName?: string }){
     const { data: session } = useSession();
     const nav = useNavigate();
     const username = firstName;
+    const userType = session?.user?.user_type;
     const accountHref = username
-        ? (session?.user?.user_type === "O" ? "/organizer" : "/dashboard")
+        ? (userType === "Admin" ? "/admin" : userType === "School" ? "/organizer" : "/competitor")
         : "/signin";
 
     return (
