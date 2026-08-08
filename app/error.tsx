@@ -3,10 +3,8 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-// Route-level error boundary. The read actions (getMe, getOrganizerRegistrations,
-// …) deliberately don't swallow database failures — catching them into their
-// empty value would render an empty dashboard for an outage — so a failed read
-// lands here, where it can say what happened and offer a retry.
+// Route-level error boundary. The read actions deliberately don't swallow database failures
+// — an outage would render an empty dashboard — so a failed read lands here, with a retry.
 export default function Error({
   error,
   reset,

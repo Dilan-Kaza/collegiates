@@ -70,6 +70,7 @@ export default function Admin({
           due_date: settings.due_date || null,
           comp_date: settings.comp_date || null,
           contact_email: settings.contact_email,
+          scoring_url: settings.scoring_url || null,
           host: settings.host,
           order_public: settings.order_public === "true",
         }),
@@ -130,6 +131,7 @@ export default function Admin({
             <ShortAnswer label="Early base cost (optional)" type="number" value={settings.early_reg_cost_base ?? ""} onChange={(e) => settingsChange("early_reg_cost_base", e.target.value)} />
             <ShortAnswer label="Early per-event cost (optional)" type="number" value={settings.early_reg_cost_event ?? ""} onChange={(e) => settingsChange("early_reg_cost_event", e.target.value)} />
             <ShortAnswer label="Contact email" type="email" value={settings.contact_email ?? ""} onChange={(e) => settingsChange("contact_email", e.target.value)} />
+            <ShortAnswer label="Scoring link (optional)" type="url" value={settings.scoring_url ?? ""} onChange={(e) => settingsChange("scoring_url", e.target.value)} />
             <Dropdown label="Publish event order" options={{ No: "false", Yes: "true" }} value={settings.order_public ?? "false"} onChange={(e) => settingsChange("order_public", e.target.value)} />
           </div>
           <div className="flex justify-end">

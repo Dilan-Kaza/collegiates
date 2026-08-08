@@ -10,9 +10,8 @@ import type { BlogDTO } from "@/lib/api";
 import { READ_CACHE_TTL, organizerGate, reBlog, actionError } from "./shared";
 import type { Mutation, BlogBody } from "./shared";
 
-// The organizer console's post list. Blog content is public (see data.ts's
-// getBlogPosts), but this is the management view, so it takes the same gate as
-// the writes below rather than being callable by anyone.
+// The organizer console's post list. Blog content is public (see data.ts's getBlogPosts), but
+// this is the management view, so it takes the same gate as the writes below.
 export async function getOrganizerBlogPosts(): Promise<BlogDTO[]> {
   const { error } = await organizerGate();
   if (error) return [];

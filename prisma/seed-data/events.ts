@@ -8,10 +8,8 @@ export interface EventSeed {
   event_level: string;
   gender_category: string;
   is_nandu: boolean;
-  // Changquan ("Longfist") and Nanquan ("Southern Fist"), nandu variants
-  // included — the only events that fill the External All-Around's first
-  // requirement (rules 4.I). Stated per row like is_nandu, so the app reads the
-  // discipline off the column instead of inferring it from names or codes.
+  // Changquan and Nanquan, nandu variants included — the only events that fill the External
+  // All-Around's first requirement (rules 4.I). Stated per row so the app reads it off the column.
   is_cq_nq: boolean;
 }
 

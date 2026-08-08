@@ -5,6 +5,7 @@ import { updateTag } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { getCurrentUser, canAccessOrganizer, isAdmin, isCompetitor } from "@/lib/auth";
 import { parseSettingsDate } from "@/lib/dates";
+import type { Cell } from "@/lib/sheetGrid";
 import type { CurrentUser } from "@/lib/auth";
 import type { User } from "@prisma/client";
 import type {
@@ -19,14 +20,11 @@ export type Mutation<T> = { data: T; error?: undefined } | { data?: undefined; e
 
 // ---------- failure handling ----------
 
-// A mutation that throws is useless to the client: Next replaces the message
-// with an opaque digest in production, and the caller's `await` rejects instead
-// of yielding the { error } shape every call site is written against. So each
-// mutation catches, and unexpected failures come back through `actionError`.
+// A mutation that throws is useless to the client: Next replaces the message with an opaque digest
+// and the caller's `await` rejects instead of yielding { error }. So each mutation catches.
 
-// Prisma failures a correct caller can still plausibly hit — a race against the
-// pre-check, or a row deleted in another tab. Anything not listed is a bug or an
-// outage: it gets the generic message and is logged rather than shown.
+// Prisma failures a correct caller can still plausibly hit — a race against the pre-check, a row
+// deleted in another tab. Anything not listed is a bug or an outage: generic message, logged.
 const PRISMA_MESSAGES: Record<string, string> = {
   P2002: "That value is already taken.",
   P2003: "That change conflicts with a related record.",
@@ -59,10 +57,8 @@ export function actionError(
   return { detail: fallback };
 }
 
-// Read actions are deliberately NOT wrapped. They already return [] / null for a
-// denied read, so catching a database failure into that same empty value would
-// render an empty dashboard for an outage. They run in Server Components, so a
-// throw reaches app/error.tsx, which says so and offers a retry.
+// Read actions are deliberately NOT wrapped: they return [] / null for a denied read, so catching a
+// database failure into that would render an empty dashboard. A throw reaches app/error.tsx.
 
 // Sign-up only creates the account; the competitor profile is filled in
 // afterward via createCompetitorProfile — see CompetitorProfileBody.
@@ -103,6 +99,7 @@ export interface SettingsBody {
   due_date?: string | null;
   comp_date?: string | null;
   contact_email?: string;
+  scoring_url?: string | null;
   host?: string;
   order_public?: boolean;
 }
@@ -124,7 +121,9 @@ export interface CreateSchoolAccountBody {
 }
 
 export interface OrganizerRegFilters {
-  has_paid?: boolean;
+  // true keeps competitors who have paid something, false those who have paid
+  // nothing at all — amt_paid is an amount, but this filter is still a yes/no.
+  paid?: boolean;
   proof_of_reg?: boolean;
   is_competing?: boolean;
   school?: string;
@@ -137,7 +136,9 @@ export interface RegistrationInputItem {
 
 export interface UpdateOrganizerRegBody {
   registration_input?: RegistrationInputItem[];
-  has_paid?: boolean;
+  // Whole dollars received in total, not a delta — the organizer types the
+  // figure they have on record and it replaces whatever was there.
+  amt_paid?: number;
   proof_of_reg?: boolean;
   is_competing?: boolean;
   // Profile edits from the registrations view. Unlike the competitor-facing
@@ -148,11 +149,14 @@ export interface UpdateOrganizerRegBody {
   skill_level?: string;
 }
 
+// `override` confirms a save the member rules warned about. Without it, a roster that breaks an
+// eligibility rule comes back under `confirm` — see memberProblems in organizer-groupsets.ts.
 export interface CreateOrganizerGroupsetBody {
   team_name: string;
   school: string;
   leader?: string;
   members?: string[];
+  override?: boolean;
 }
 
 export interface UpdateOrganizerGroupsetBody {
@@ -160,6 +164,7 @@ export interface UpdateOrganizerGroupsetBody {
   school?: string;
   leader?: string;
   members?: string[];
+  override?: boolean;
 }
 
 // Event-order write payload. A ring item is either an event (event_id +
@@ -184,6 +189,17 @@ export interface OrderBody {
   ring1?: EventOrderInput[];
   ring2?: EventOrderInput[];
   ring3?: EventOrderInput[];
+}
+
+// Google Sheets export for both the event order and the scoring sheets: the browser sends finished
+// cells, so the action re-derives nothing. Still validated at the boundary — see cleanTabs in ./order.
+export interface SheetTabInput {
+  title?: string;
+  rows?: Cell[][];
+}
+
+export interface SheetExportBody {
+  tabs?: SheetTabInput[];
 }
 
 // ---------- session-tied user-data cache ----------
@@ -279,9 +295,8 @@ export async function competitorGate(): Promise<CompetitorGate> {
   return { user };
 }
 
-// parseSettingsDate maps an unparseable day to null, which settingsWritable then
-// treats the same as "not supplied" — so a malformed date would be dropped in
-// silence. Check the supplied ones up front and report them on their own fields.
+// parseSettingsDate maps an unparseable day to null, which settingsWritable then treats as "not
+// supplied" — so check the supplied ones up front and report them on their own fields.
 const SETTINGS_DATE_FIELDS = [
   "early_reg_start", "reg_start", "reg_end", "due_date", "comp_date",
 ] as const;
@@ -298,10 +313,8 @@ export function settingsDateErrors(body: SettingsBody): FieldErrors | null {
   return Object.keys(errors).length ? errors : null;
 }
 
-// Writable Settings columns from a request body, shared by the organizer save
-// and admin create paths. Optional fields -> null, required missing -> undefined.
-// The dates arrive as yyyy-mm-dd and are anchored to Pacific by parseSettingsDate
-// — a bare new Date(...) would read them as UTC and land a day early out west.
+// Writable Settings columns from a request body, shared by the organizer save and admin create.
+// Dates arrive as yyyy-mm-dd and are Pacific-anchored — a bare new Date() would land a day early.
 export function settingsWritable(body: SettingsBody): Prisma.SettingsUncheckedUpdateInput {
   return {
     reg_year: body.reg_year,
@@ -315,6 +328,7 @@ export function settingsWritable(body: SettingsBody): Prisma.SettingsUncheckedUp
     due_date: parseSettingsDate("due_date", body.due_date),
     comp_date: parseSettingsDate("comp_date", body.comp_date),
     contact_email: body.contact_email,
+    scoring_url: body.scoring_url,
     order_public: body.order_public,
   };
 }

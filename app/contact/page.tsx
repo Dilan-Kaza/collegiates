@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { ImgHeader } from "@components";
-// DISABLED 2026-08-02 — Jira bug report. Uncomment this and the "Report a Bug"
-// band below when asked to fix that code; see the header note in
-// app/contact/BugReportForm.tsx for the other places to re-enable.
+// DISABLED 2026-08-02 — Jira bug report. Uncomment this and the "Report a Bug" band below
+// when fixing that code; see the header note in app/contact/BugReportForm.tsx.
 // import BugReportForm from "./BugReportForm";
 
 export const metadata: Metadata = {

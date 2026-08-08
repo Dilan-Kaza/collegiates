@@ -6,9 +6,9 @@ import { useSession } from "@functions/sessionContext";
 
 const tabs = ["Tournament", "Rules", "About", "News", "Multimedia"];
 
-// `firstName` is resolved on the server by the root layout and passed in, so the
-// signed-in user's name renders immediately with no client fetch.
-function NavBar({ firstName = "" }: { firstName?: string }) {
+// `firstName` and `liveScores` are resolved by the root layout on the server, so both render
+// with no client fetch. Live is listed first, and only when the viewer can actually open it.
+function NavBar({ firstName = "", liveScores = false }: { firstName?: string; liveScores?: boolean }) {
 
   const { data: session } = useSession();
   const username = firstName;
@@ -35,7 +35,7 @@ function NavBar({ firstName = "" }: { firstName?: string }) {
                     priority
                     className="h-10 w-auto rounded-lg"
                   /></Link>
-          {tabs.map((tab) => (
+          {(liveScores ? ["Live", ...tabs] : tabs).map((tab) => (
             <Link to={`/${tab.toLowerCase().replace(/\s/g, "")}`} key={tab}>
               {tab}
             </Link>

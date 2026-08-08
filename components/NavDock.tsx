@@ -3,9 +3,9 @@
 import { useNavigate } from "@/routerCompat";
 import { useSession } from "@functions/sessionContext";
 
-// `firstName` is resolved on the server by the root layout and passed in, so the
-// dock's account label renders immediately with no client fetch.
-export default function NavDock({ firstName = "" }: { firstName?: string }){
+// `firstName` and `liveScores` are resolved by the root layout on the server, so the account
+// label and Live button render with no client fetch. Live shows only when openable — see NavBar.
+export default function NavDock({ firstName = "", liveScores = false }: { firstName?: string; liveScores?: boolean }){
 
     const { data: session } = useSession();
     const nav = useNavigate();
@@ -31,6 +31,13 @@ export default function NavDock({ firstName = "" }: { firstName?: string }){
                 <i className="bi bi-bank"></i>
                 <span className="dock-label">Tournament</span>
             </button>
+
+            {liveScores && (
+                <button onClick={()=>nav("/live")}>
+                    <i className="bi bi-broadcast"></i>
+                    <span className="dock-label">Live</span>
+                </button>
+            )}
 
             <button onClick={()=>nav(accountHref)}>
                 <i className="bi bi-person-circle"></i>

@@ -4,72 +4,18 @@ import { useMemo } from "react";
 import { MtHeader, LogoutButton, AllAroundStatus } from "@components";
 import { useNavigate } from "@/routerCompat";
 import { useCachedResource, fetchMe, cacheKeys } from "@functions";
-import type { SettingsDTO, RegistrationDTO, GroupsetDTO, CompetitorDTO } from "@/lib/api";
+import type { SettingsDTO, CompetitorDTO } from "@/lib/api";
 import { studentTypeLabel } from "@/lib/api";
+// Pricing lives in lib/fees so the organizer payments screen bills identically.
+import { computeTotalOwed } from "@/lib/fees";
 // competitor dashboard
 
-function isEarlyRegistration(dateCreated: Date | string, settings: SettingsDTO): boolean {
-    return !!settings.early_reg_start
-        && settings.early_reg_cost_base != null
-        && new Date(dateCreated).getTime() < new Date(settings.reg_start).getTime();
-}
-
-// Registration opens at early_reg_start when an early window is configured,
-// otherwise at reg_start — the same boundary regActive() uses on the server.
-// Dates arrive JSON-serialized from the server component, so rebuild them.
+// Registration opens at early_reg_start when configured, else reg_start — the same
+// boundary regActive() uses server-side. Dates arrive JSON-serialized, so rebuild them.
 function registrationStarted(settings: Partial<SettingsDTO>): boolean {
     const opens = settings.early_reg_start ?? settings.reg_start;
     if (!opens) return true;
     return new Date().getTime() >= new Date(opens).getTime();
-}
-
-interface CostSummary {
-    total: number;
-    count: number;
-    earlyCount: number;
-    hasGroupset: boolean;
-}
-
-// Pure and synchronous. This was `async` with an `await` per registration, run
-// from an effect — which bought nothing but an extra render and a "calculating…"
-// flash on every mount, since none of the work is actually asynchronous.
-function computeTotalOwed(
-    registrations: RegistrationDTO[] | undefined,
-    settings: SettingsDTO,
-    groupset: GroupsetDTO | undefined,
-): CostSummary | null {
-    if (!registrations?.length || settings.reg_cost_base == null) return null;
-
-    // The team competition is entered by registering for the groupset event, so
-    // that registration is what bills it. A team row only adds a charge of its
-    // own when the registration is missing — otherwise both would be counted.
-    const groupsetRegistered = registrations.some((reg) => reg.event_category === "G");
-
-    // Everything that carries a per-event charge: each registration, plus a group
-    // set with no groupset-event registration behind it.
-    const billed: (Date | string)[] = registrations.map((reg) => reg.date_created);
-    if (groupset?.date_created && !groupsetRegistered) billed.push(groupset.date_created);
-    billed.sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
-
-    // The base fee is charged once, at the tier the earliest registration falls
-    // under; each event is then charged on top, priced by its own create date.
-    const baseEarly = isEarlyRegistration(billed[0], settings);
-    let total = baseEarly ? (settings.early_reg_cost_base ?? 0) : settings.reg_cost_base;
-    let earlyCount = 0;
-    for (const dateCreated of billed) {
-        const early = isEarlyRegistration(dateCreated, settings);
-        if (early) earlyCount += 1;
-        total += early ? (settings.early_reg_cost_event ?? 0) : settings.reg_cost_event;
-    }
-
-    // `count` is the individual events only; the team competition is reported
-    // separately, so a groupset registration must not show up in both.
-    return {
-        total,
-        count: registrations.filter((reg) => reg.event_category !== "G").length,
-        earlyCount,
-        hasGroupset: groupsetRegistered || !!groupset,
-    };
 }
 
 // First-load data arrives as props from the server, so this renders populated
@@ -84,24 +30,22 @@ export default function Dashboard ({
 
     const nav = useNavigate();
 
-    // Server data for first paint, then the cache entry — so the profile,
-    // registrations and group set here re-read after a save on any other page
-    // clears `currentUser`, instead of showing the old copy until a navigation.
+    // Server data for first paint, then the cache entry — so a save on another page that
+    // clears `currentUser` is re-read here instead of showing a stale copy.
     const me = useCachedResource(cacheKeys.currentUser, fetchMe, userinfo);
 
     // The group set now loads bundled with the current user (like registrations).
     const myTeam = me?.groupset ?? undefined;
 
-    // The team competition is entered by registering for the groupset event, so
-    // the join/create button only appears once that registration exists. An
-    // existing team still shows below regardless.
+    // The team competition is entered by registering for the groupset event, so join/create
+    // only appears once that registration exists. An existing team still shows regardless.
     const inGroupsetEvent = (me?.registrations ?? []).some((reg) => reg.event_category === "G");
 
     // `null` = nothing owed, a CostSummary = show the total. Derived during
     // render, so the figure is on screen at first paint.
     const cost = useMemo(
-        () => computeTotalOwed(me?.registrations, settings as SettingsDTO, myTeam),
-        [me?.registrations, settings, myTeam],
+        () => computeTotalOwed(me?.registrations, settings as SettingsDTO, myTeam?.date_created),
+        [me?.registrations, settings, myTeam?.date_created],
     );
 
     // Whether the event order is published lives on settings (order_public); the
@@ -148,11 +92,8 @@ export default function Dashboard ({
                             ))}
                         </div>
                     ) : regStarted ? (
-                        // Registering starts at the profile, which is where gender, level
-                        // and class — the things that decide event eligibility — get
-                        // confirmed; saving it continues on to event selection. The button
-                        // only shows with zero registrations, so /competitor/profile never
-                        // bounces back here.
+                        // Registering starts at the profile, where gender, level and class — which decide event
+                        // eligibility — are confirmed; saving continues on to event selection.
                         <button className="btn btn-primary" onClick={() => nav("/competitor/profile")}>Register</button>
                     ) : (
                         <button className="btn btn-primary" disabled>Registration is not open</button>

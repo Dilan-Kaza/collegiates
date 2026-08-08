@@ -1,14 +1,5 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// DISABLED 2026-08-02 — Jira bug-report integration, commented out on request.
-// UNCOMMENT THIS WHOLE FILE when asked to fix the Jira bug report code.
-// The feature spans four places; re-enable them together:
-//   1. lib/jira.ts                     (this file's sibling — Jira REST client)
-//   2. functions/actions/bug-report.ts (submitBugReport server action)
-//   3. app/contact/BugReportForm.tsx   (the form)
-//   4. functions/actions/index.ts      (submitBugReport exports)
-//   5. app/contact/page.tsx            (the "Report a Bug" band)
-// Also set JIRA_BASE_URL / JIRA_USER_EMAIL / JIRA_API_TOKEN / JIRA_PROJECT_KEY.
-// ─────────────────────────────────────────────────────────────────────────────
+// DISABLED 2026-08-02 — Jira bug reports. Re-enable together: lib/jira.ts,
+// functions/actions/{bug-report,index}.ts, app/contact/{BugReportForm,page}.tsx; set JIRA_* env.
 
 // // Jira Cloud issue creation for the public bug-report form.
 // //

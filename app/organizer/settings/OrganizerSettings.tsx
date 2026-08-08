@@ -14,9 +14,8 @@ import type { SettingsDTO } from "@/lib/api";
 
 // organizer settings edit page
 
-// The editable slice of SettingsDTO. host is admin-only (saveSettings rejects it
-// from an organizer), and host_school/reg_open/created_at are derived, so those
-// are shown read-only instead of being posted back.
+// The editable slice of SettingsDTO. host is admin-only (saveSettings rejects it from an
+// organizer) and host_school/reg_open/created_at are derived, so those are shown read-only.
 type EditableField =
     | "reg_year"
     | "reg_start"
@@ -29,6 +28,7 @@ type EditableField =
     | "due_date"
     | "comp_date"
     | "contact_email"
+    | "scoring_url"
     | "order_public";
 
 // Controls are all string-valued; handleSave converts back to the body's types.
@@ -51,6 +51,7 @@ const formFrom = (settings: Partial<SettingsDTO>): SettingsForm => ({
     due_date: settingsDateInput("due_date", settings.due_date),
     comp_date: settingsDateInput("comp_date", settings.comp_date),
     contact_email: toText(settings.contact_email),
+    scoring_url: toText(settings.scoring_url),
     order_public: settings.order_public ? "true" : "false",
 });
 
@@ -65,11 +66,8 @@ export default function OrganizerSettings({ settings = {} }: { settings?: Partia
     const nav = useNavigate();
     const dispatch = useAppDispatch();
 
-    // Seeded once, from the settings this page was rendered with. It used to be
-    // re-synced from an effect keyed on the `settings` prop — but that prop is a
-    // fresh object on every RSC render of this route, so any refresh (a server
-    // action's updateTag, the session revalidator's router.refresh) reset the
-    // form under the organizer and discarded whatever they had typed.
+    // Seeded once, from the settings this page was rendered with. Re-syncing from the `settings`
+    // prop reset the form on every RSC render, discarding whatever the organizer had typed.
     const [form, setForm] = useState<SettingsForm>(() => formFrom(settings));
     const [loading, setLoading] = useState(false);
 
@@ -94,20 +92,19 @@ export default function OrganizerSettings({ settings = {} }: { settings?: Partia
                     due_date: textOrNull(form.due_date),
                     comp_date: textOrNull(form.comp_date),
                     contact_email: form.contact_email,
+                    scoring_url: textOrNull(form.scoring_url),
                     order_public: form.order_public === "true",
                 }),
                 fallback,
             );
             if (error) {
-                // saveSettings reports per-field ("Enter a valid date." on
-                // reg_start, "Host user not found." on host), so errorMessage
-                // falls through to those rather than only reading `detail`.
+                // saveSettings reports per-field ("Enter a valid date." on reg_start, "Host user not found."
+                // on host), so errorMessage falls through to those rather than only reading `detail`.
                 dispatch(setErrorMsg(errorMessage(error, fallback)));
                 return;
             }
-            // saveSettings revalidates the "settings" cache tag, so /organizer
-            // re-fetches fresh data on navigation — but the per-tab copy is
-            // separate and has to be dropped here.
+            // saveSettings revalidates the "settings" cache tag so /organizer re-fetches on navigation,
+            // but the per-tab copy is separate and has to be dropped here.
             clearSessionCache(cacheKeys.settings);
             dispatch(setSuccessMsg("Settings saved"));
             nav("/organizer");
@@ -221,6 +218,12 @@ export default function OrganizerSettings({ settings = {} }: { settings?: Partia
                             options={{ No: "false", Yes: "true" }}
                             value={form.order_public}
                             onChange={(e) => handleChange("order_public", e.target.value)}
+                        />
+                        <ShortAnswer
+                            label="Scoring link (optional)"
+                            type="url"
+                            value={form.scoring_url}
+                            onChange={(e) => handleChange("scoring_url", e.target.value)}
                         />
                     </div>
                 </section>

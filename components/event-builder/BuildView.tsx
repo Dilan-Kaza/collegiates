@@ -1,15 +1,18 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { saveOrder, setOrderPublic } from "@functions/actions";
+import { saveOrder, setOrderPublic, exportSheetTabs } from "@functions/actions";
 import { errorMessage, runAction } from "@functions/actionErrors";
 import { clearSessionCache } from "@functions/sessionCache";
 import { cacheKeys } from "@functions";
 import { useAppDispatch } from "@/store/hooks";
 import { setErrorMsg, setSuccessMsg } from "@slices";
 import type { OrganizerRegistrationDTO } from "@/lib/api";
+import { isGroupsetCategory } from "@/lib/teams";
 import SortableRing from "./SortableRing";
 import BreakPanel from "./BreakPanel";
+import { buildOrderSheetTabs } from "./sheetExport";
+import { buildScoringSheetTabs } from "./scoringExport";
 import { eventRank, eventSeconds, toHrMin, buildIdToName, computeConflicts } from "./utils";
 import { isEventItem } from "./types";
 import type { BreakItem, Competitor, EventItem, OrderData, RingEvent, RingKey, Rings } from "./types";
@@ -20,10 +23,13 @@ export default function BuildView({
     rawRegistrations = [],
     initialOrder = null,
     orderPublic = false,
+    regYear = null,
 }: {
     rawRegistrations?: OrganizerRegistrationDTO[];
     initialOrder?: OrderData | null;
     orderPublic?: boolean;
+    // Only labels the exported sheet's tabs, so it is optional.
+    regYear?: number | null;
 }) {
 
     const allEvents = useMemo<EventItem[]>(() => {
@@ -37,9 +43,10 @@ export default function BuildView({
                         event_level: reg.event_level,
                         is_nandu: reg.is_nandu,
                         competitors: [],
+                        is_groupset: isGroupsetCategory(reg.event_category),
                     });
                 }
-                eventMap.get(reg.event_code)!.competitors.push({ id: user.user_id, name: user.name, email: user.email, nandu_str: reg.nandu_str });
+                eventMap.get(reg.event_code)!.competitors.push({ id: user.user_id, name: user.name, email: user.email, nandu_str: reg.nandu_str, team: user.team });
             }
         }
         return [...eventMap.values()].sort((a, b) => eventRank(a.event_name) - eventRank(b.event_name));
@@ -65,11 +72,8 @@ export default function BuildView({
         const ring3 = reconstruct(orderData.ring3);
 
         const placedIds = new Set([...ring1, ...ring2, ...ring3].filter(isEventItem).map((ev) => ev.id));
-        // Copied, not pushed by reference: `allEvents` is memoized and its items
-        // are the same objects `eventMap` hands back, so putting them straight
-        // into ring state made setCompetitors' edits and the memo's cache share
-        // one object. `competitors` is copied too — it is the array that gets
-        // reordered by the drag handlers.
+        // Copied, not pushed by reference: `allEvents` is memoized and hands back the same objects as
+        // `eventMap`, so ring state would share one object with the memo's cache. `competitors` too.
         const unplaced = allEvents
             .filter((ev) => !placedIds.has(ev.id))
             .map((ev) => ({ ...ev, competitors: [...ev.competitors] }));
@@ -85,6 +89,9 @@ export default function BuildView({
     const [isPublic, setIsPublic] = useState(orderPublic); // publicity now lives on Settings
     const [saving, setSaving] = useState(false);
     const [publishing, setPublishing] = useState(false);
+    // Which export is in flight, so both buttons can show their own progress and
+    // neither can be fired while the other is writing to the same spreadsheet.
+    const [exporting, setExporting] = useState<"" | "order" | "scoring">("");
     // Sits with the conflict banners rather than only in the toast: a failed save
     // has to stay visible while the organizer decides what to do about it.
     const [saveError, setSaveError] = useState("");
@@ -124,10 +131,8 @@ export default function BuildView({
             : { ...base, event_id: item.id, name: item.event_name, competitor_list: item.competitors.map((c, i) => ({ id: c.id, order: i })) };
     });
 
-    // Persist all three rings for the current year, then re-hydrate from the saved
-    // order so each slot picks up its server-assigned orderId for the next save.
-    // A silent failure here is the costly one: the organizer walks away believing
-    // a whole day's schedule is stored, so the error has to be loud.
+    // Persist all three rings for the year, then re-hydrate so each slot picks up its server-assigned
+    // orderId. A silent failure is the costly one — the organizer would believe a day is stored.
     const handleSave = async () => {
         if (saving) return;
         setSaving(true);
@@ -182,6 +187,44 @@ export default function BuildView({
             setPublishing(false);
         }
     };
+
+    // Push a grid built here into the configured Sheet; both exports go through this, so the action
+    // only forwards finished cells. Exports what is displayed, saved or not — useful mid-edit.
+    const runExport = async (
+        kind: "order" | "scoring",
+        buildTabs: () => ReturnType<typeof buildOrderSheetTabs>,
+        success: string,
+    ) => {
+        if (exporting) return;
+        const tabs = buildTabs();
+        if (tabs.length === 0) {
+            dispatch(setErrorMsg("There is nothing to export yet."));
+            return;
+        }
+        setExporting(kind);
+        const fallback = "Could not export to Google Sheets.";
+        try {
+            const res = await runAction(() => exportSheetTabs({ tabs }), fallback);
+            if (res.error || !res.data) {
+                dispatch(setErrorMsg(errorMessage(res.error, fallback)));
+                return;
+            }
+            // Opening the sheet is the point of the export, but a blocked popup
+            // must not read as a failure — the toast confirms the write either way.
+            window.open(res.data.url, "_blank", "noopener,noreferrer");
+            dispatch(setSuccessMsg(success));
+        } finally {
+            setExporting("");
+        }
+    };
+
+    const handleExportOrder = () =>
+        runExport("order", () => buildOrderSheetTabs(rings, regYear), "Event order exported to Google Sheets");
+
+    // Separate tabs in the same spreadsheet, so the schedule and the sheets the
+    // judges score on stay one document per year.
+    const handleExportScoring = () =>
+        runExport("scoring", () => buildScoringSheetTabs(rings, regYear), "Scoring sheets exported to Google Sheets");
 
     const setRing = (key: RingKey) => (list: RingEvent[]) => setRings((prev) => ({ ...prev, [key]: list }));
 
@@ -268,6 +311,22 @@ export default function BuildView({
                         title={!existingOrder ? "Save the order before publishing" : undefined}
                     >
                         {publishing ? "..." : isPublic ? "Unpublish" : "Publish"}
+                    </button>
+                    <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={handleExportOrder}
+                        disabled={!!exporting}
+                        title="Write the schedule on screen to the Google Sheet"
+                    >
+                        {exporting === "order" ? "Exporting..." : "Export to Sheet"}
+                    </button>
+                    <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={handleExportScoring}
+                        disabled={!!exporting}
+                        title="Write judge scoring sheets for this schedule to the Google Sheet"
+                    >
+                        {exporting === "scoring" ? "Exporting..." : "Export Scoring"}
                     </button>
                 </div>
 

@@ -1,7 +1,5 @@
-// Prisma schema mirroring the Django `collegiates_app` database, so it maps onto
-// a copy of the existing Postgres data: @@map/@map match Django's db_table and
-// db_column, and enum members @map to the varchar codes already stored in rows.
-// Django framework tables (auth_*, django_*, token_blacklist_*) are omitted.
+// Prisma schema mirroring the Django `collegiates_app` database: @@map/@map match db_table and
+// db_column, and enum members @map to the stored codes. Django framework tables are omitted.
 
 generator client {
   provider = "prisma-client-js"
@@ -11,9 +9,8 @@ datasource db {
   provider = "postgresql"
 }
 
-// Each enum mirrors a Django CharField(choices). Prisma Client reads and writes
-// the member NAMES, so lib/api.ts translates member <-> code at the server
-// boundary, keeping DTOs and forms on the original codes.
+// Each enum mirrors a Django CharField(choices). Prisma Client reads and writes member NAMES, so
+// lib/api.ts translates member <-> code at the boundary, keeping DTOs and forms on the codes.
 
 enum Gender {
   Male   @map("M")
@@ -30,9 +27,8 @@ enum SkillLevel {
   @@map("skill_level")
 }
 
-// External/Internal are the legacy Django split; Groupset is its own category
-// because the team event is neither, and it is entered through a groupset rather
-// than individual registration.
+// External/Internal are the legacy Django split; Groupset is its own category because the team
+// event is neither, and it is entered through a groupset rather than individual registration.
 enum EventCategory {
   External @map("E")
   Internal @map("I")
@@ -89,11 +85,8 @@ model Event {
   event_category  EventCategory?
   gender_category Gender?
   is_nandu        Boolean?
-  // Marks the Changquan ("Longfist") and Nanquan ("Southern Fist") disciplines,
-  // nandu variants included. The External All-Around's first requirement is
-  // scored on it (rules 4.I) and nothing else about an event identifies them:
-  // external + barehand also catches Traditional Open Barehand. New field with
-  // no legacy data, hence nullable.
+  // Marks the Changquan and Nanquan disciplines, nandu variants included — the External
+  // All-Around's first requirement (rules 4.I). Nothing else identifies them; new field, nullable.
   is_cq_nq        Boolean?
   weapon_type     WeaponType?
 
@@ -138,7 +131,9 @@ model CompetitorProfile {
   school_id     String?      @db.Uuid
   student_type  StudentType?
   is_competing  Boolean      @default(false)
-  has_paid      Boolean      @default(false)
+  // Whole dollars received so far, checked against the fee lib/fees.ts computes.
+  // 0 is "nothing paid"; a part payment is recorded as the amount that arrived.
+  amt_paid      Int          @default(0)
   proof_of_reg  Boolean      @default(false)
   // Last Settings.reg_year confirmed under; re-runs /competitor/profile on a new year.
   last_reg_year Int?
@@ -245,11 +240,18 @@ model Settings {
   due_date             DateTime? @db.Date
   comp_date            DateTime? @db.Date
   contact_email        String    @db.VarChar(254)
+  // Where live scores are published for this competition; blank until there is one.
+  scoring_url          String?   @db.VarChar(500)
   // Whether this year's event order is visible to competitors.
   order_public         Boolean   @default(false)
+  // The event order used to be its own per-year `order` table; its rings now hang off the year's
+  // Settings row. Null until an order has first been saved, which reads as "no order yet".
+  order_updated_at     DateTime? @db.Timestamptz(6)
   host                 User      @relation(fields: [host_id], references: [user_id], onDelete: Cascade)
   host_id              String    @db.Uuid
   created_at           DateTime  @default(now()) @db.Timestamptz(6)
+
+  rings                Ring[]
 
   @@map("settings")
 }
@@ -285,26 +287,16 @@ model CompetitorOrder {
   @@map("collegiates_app_competitororder")
 }
 
-// One saved order per competition year (comp_year is the PK), owning up to three Rings.
-model Order {
-  comp_year  Int      @id
-  updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(6)
-
-  rings Ring[]
-
-  @@map("order")
-}
-
-// One ring of an Order (ring_number 1/2/3), owning its slots via EventOrder.ring_id
-// and sequencing them by EventOrder.order.
+// One ring (ring_number 1/2/3) of a year's saved order, owning its slots via EventOrder.ring_id and
+// sequencing them by EventOrder.order. Hangs off Settings: the order is per competition year.
 model Ring {
-  id          String @id @default(uuid()) @db.Uuid
+  id          String   @id @default(uuid()) @db.Uuid
   ring_number Int
-  order       Order  @relation(fields: [order_id], references: [comp_year], onDelete: Cascade)
-  order_id    Int
+  settings    Settings @relation(fields: [settings_id], references: [id], onDelete: Cascade)
+  settings_id String   @db.Uuid
 
   event_orders EventOrder[]
 
-  @@unique([order_id, ring_number])
+  @@unique([settings_id, ring_number])
   @@map("ring")
 }

@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Providers from "./providers";
 import { auth } from "@/auth";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, canViewLiveScores } from "@/lib/auth";
 import { NavBar, NavDock, BackgroundShapes, Notif, LoadingOverlay, Footer } from "@components";
 // root layout + metadata
 
@@ -19,6 +19,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   // immediately, with no client fetch or auth-status flash.
   const currentUser = rawSession ? await getCurrentUser() : null;
   const firstName = currentUser?.first_name ?? "";
+  // Whether to offer the Live tab, resolved here so no client decides what day it is. Both
+  // reads it needs are Data-Cache backed, so this is not a query per page render.
+  const { allowed: liveScores } = await canViewLiveScores(currentUser);
   // Seed as authenticated only when a real user row backs the JWT — a JWT can
   // outlive its user, and seeding raw would loop dashboard<->signin forever.
   const session = currentUser ? rawSession : null;
@@ -42,7 +45,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           <BackgroundShapes />
 
           <div className="hidden md:block">
-            <NavBar firstName={firstName} />
+            <NavBar firstName={firstName} liveScores={liveScores} />
           </div>
 
           <div className="antialiased text-dark font-grotesk lg:w-[80%] lg:translate-x-[12.5%] my-2">
@@ -56,8 +59,13 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           <div className="hidden sm:block">
             <Notif />
           </div>
-          <div className="md:hidden pt-14">
-            <NavDock firstName={firstName} />
+          {/* The dock is `position: fixed`, so it contributes no height to the
+              document. This spacer reserves exactly the dock's own height
+              (daisyUI: 4rem + the bottom safe-area inset) at the end of the
+              page so content scrolls to a stop above the dock instead of
+              disappearing behind it. */}
+          <div className="md:hidden h-[calc(4rem+env(safe-area-inset-bottom))]">
+            <NavDock firstName={firstName} liveScores={liveScores} />
           </div>
           <LoadingOverlay />
         </body>

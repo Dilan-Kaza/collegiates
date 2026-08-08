@@ -15,16 +15,18 @@ import {
 } from "./shared";
 import type { Mutation, OrganizerRegFilters, UpdateOrganizerRegBody } from "./shared";
 
-// Returns the un-awaited PrismaPromise so callers can either await it directly
-// or append it to a $transaction batch (see updateOrganizerRegistration).
-// Scoped to Competitor accounts: these views manage competitors, so a School or
-// Admin user_id must not resolve here — not for reading, not for writing.
+// Returns the un-awaited PrismaPromise so callers can await it or append it to a $transaction
+// batch. Scoped to Competitor accounts: a School or Admin user_id must not resolve here.
 function loadOrganizerUser(userId: string, year: number) {
   return prisma.user.findFirst({
     where: { user_id: userId, user_type: "Competitor" },
     include: {
       competitor_profile: {
-        include: { school: true, registration: { where: { comp_year: year }, include: { event: true } } },
+        include: {
+          school: true,
+          registration: { where: { comp_year: year }, include: { event: true } },
+          groupset_member: { include: { groupset: true } },
+        },
       },
     },
   });
@@ -39,7 +41,7 @@ export async function getOrganizerRegistrations(filters: OrganizerRegFilters = {
 
   // Each distinct filter combination is a distinct result set, so it gets its
   // own cache entry keyed by the (stable) filter signature.
-  const filterKey = `${filters.has_paid ?? ""}|${filters.proof_of_reg ?? ""}|${filters.is_competing ?? ""}|${filters.school ?? ""}`;
+  const filterKey = `${filters.paid ?? ""}|${filters.proof_of_reg ?? ""}|${filters.is_competing ?? ""}|${filters.school ?? ""}`;
   const users = await unstable_cache(
     async (): Promise<OrganizerRegistrationDTO[]> => {
       // Registrations and the competing/paid/proof/school filters all live on the
@@ -47,7 +49,8 @@ export async function getOrganizerRegistrations(filters: OrganizerRegFilters = {
       const profileFilter: Prisma.CompetitorProfileWhereInput = {
         registration: { some: { comp_year: year } },
       };
-      if (filters.has_paid !== undefined) profileFilter.has_paid = filters.has_paid;
+      // amt_paid is an amount, so "paid" is anything above zero.
+      if (filters.paid !== undefined) profileFilter.amt_paid = filters.paid ? { gt: 0 } : { lte: 0 };
       if (filters.proof_of_reg !== undefined) profileFilter.proof_of_reg = filters.proof_of_reg;
       if (filters.is_competing !== undefined) profileFilter.is_competing = filters.is_competing;
       if (filters.school) profileFilter.school_id = filters.school;
@@ -56,11 +59,15 @@ export async function getOrganizerRegistrations(filters: OrganizerRegFilters = {
         where: { ...where, user_type: "Competitor" },
         include: {
           competitor_profile: {
-            include: { school: true, registration: { where: { comp_year: year }, include: { event: true } } },
+            include: {
+              school: true,
+              registration: { where: { comp_year: year }, include: { event: true } },
+              groupset_member: { include: { groupset: true } },
+            },
           },
         },
       });
-      return rows.map(shapeOrganizerRegistration);
+      return rows.map((row) => shapeOrganizerRegistration(row, year));
     },
     ["organizer-registrations", String(year), filterKey],
     { tags: [TAG_REGISTRATIONS], revalidate: READ_CACHE_TTL },
@@ -79,7 +86,7 @@ export async function getOrganizerRegistration(uuid: string): Promise<OrganizerR
   const target = await unstable_cache(
     async (): Promise<OrganizerRegistrationDTO | null> => {
       const t = await loadOrganizerUser(uuid, year);
-      return t ? shapeOrganizerRegistration(t) : null;
+      return t ? shapeOrganizerRegistration(t, year) : null;
     },
     ["organizer-registration", uuid, String(year)],
     { tags: [userDataTag(uuid), TAG_REGISTRATIONS], revalidate: READ_CACHE_TTL },
@@ -98,9 +105,8 @@ export async function updateOrganizerRegistration(
   const year = settings.reg_year;
 
   try {
-    // Resolve the target before any write: this action edits competitor rows, so a
-    // School or Admin user_id must be rejected rather than have a competitor
-    // profile written onto it.
+    // Resolve the target before any write: this action edits competitor rows, so a School or Admin
+    // user_id must be rejected rather than have a competitor profile written onto it.
     const isCompetitorTarget = await prisma.user.findFirst({
       where: { user_id: uuid, user_type: "Competitor" },
       select: { user_id: true },
@@ -114,7 +120,7 @@ export async function updateOrganizerRegistration(
     // explicit is_competing overrides the implicit true that registering sets.
     const profileData: {
       is_competing?: boolean;
-      has_paid?: boolean;
+      amt_paid?: number;
       proof_of_reg?: boolean;
       gender?: Gender | null;
       skill_level?: SkillLevel | null;
@@ -140,9 +146,9 @@ export async function updateOrganizerRegistration(
       profileData.is_competing = true;
     }
 
-    // These flags live on the profile; the upsert below means a competitor without
-    // one still gets it created when an organizer sets a flag.
-    if (body.has_paid !== undefined) profileData.has_paid = body.has_paid;
+    // These live on the profile; the upsert below creates one for a competitor without it when an
+    // organizer records a payment or sets a flag. A negative amount is a typo, so it floors at zero.
+    if (body.amt_paid !== undefined) profileData.amt_paid = Math.max(0, Math.round(body.amt_paid));
     if (body.proof_of_reg !== undefined) profileData.proof_of_reg = body.proof_of_reg;
     if (body.is_competing !== undefined) profileData.is_competing = body.is_competing;
 
@@ -178,7 +184,7 @@ export async function updateOrganizerRegistration(
     revalidateUserData(uuid);
     updateTag(TAG_REGISTRATIONS); // and the organizer registration lists
     if (!target) return { error: { detail: "User not found." } };
-    return { data: shapeOrganizerRegistration(target) };
+    return { data: shapeOrganizerRegistration(target, year) };
   } catch (err) {
     // An event_code the catalogue no longer has, or a school_id that was removed,
     // both arrive here as P2003 rather than being caught by a check above.
@@ -204,9 +210,12 @@ export async function findUserByEmail(email: string): Promise<OrganizerRegistrat
           school: true,
           registration:
             year != null ? { where: { comp_year: year }, include: { event: true } } : { include: { event: true } },
+          groupset_member: { include: { groupset: true } },
         },
       },
     },
   });
-  return target ? shapeOrganizerRegistration(target) : null;
+  // `year` is undefined here when no settings exist yet, which teamForYear reads
+  // as "no year to match" and answers with their most recent team.
+  return target ? shapeOrganizerRegistration(target, year) : null;
 }

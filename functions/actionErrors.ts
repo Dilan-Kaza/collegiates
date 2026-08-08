@@ -1,23 +1,21 @@
 "use client";
 
-// Client-side handling of the { data } | { error } shape every mutation action
-// returns. Two problems these solve at every call site:
-//
-//  1. `error.detail` alone drops field-keyed errors. An action reports "You are
-//     already in a groupset" as { groupset: ... } and "Host user not found." as
-//     { host: ... }; reading only `detail` turns both into a generic fallback.
-//  2. An action can still reject — a network drop between the browser and the
-//     server action, or a bug outside the action's own try/catch. `await`ing one
-//     bare leaves the caller's `loading` flag stuck on forever.
+// Client-side handling of the { data } | { error } shape every mutation returns: `error.detail`
+// alone drops field-keyed errors, and a bare `await` on a rejection strands `loading` forever.
 
 import type { FieldErrors } from "@functions/actions";
 
-// The message to show for a returned { error }. Prefers `detail` (the general
-// message) and otherwise falls back to the first field message, so nothing an
-// action reports goes unseen.
+// The message to show for a returned { error }. Prefers `detail` (the general message) and
+// otherwise falls back to the first field message, so nothing an action reports goes unseen.
 export function errorMessage(error: FieldErrors | undefined, fallback: string): string {
   if (!error) return fallback;
   return error.detail || Object.values(error).find(Boolean) || fallback;
+}
+
+// An error keyed `confirm` is a rule the action will write past if the user says so — the UI
+// offers "Save anyway" and re-submits with `override: true`. A key, not a flag, so it still shows.
+export function confirmMessage(error: FieldErrors | undefined): string | undefined {
+  return error?.confirm || undefined;
 }
 
 // Runs a mutation and normalizes a rejection into the same { error } shape the

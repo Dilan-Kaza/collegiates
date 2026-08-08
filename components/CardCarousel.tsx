@@ -11,9 +11,8 @@ export interface CarouselCard {
   content: ReactNode;
 }
 
-// `initialId` opens the carousel on the card with that `id` — how pages elsewhere
-// link straight to one rule instead of dropping the reader on card one. An id
-// that matches nothing (stale or hand-typed link) falls back to the first card.
+// `initialId` opens the carousel on the card with that `id`, so pages can link straight to one
+// rule. An id matching nothing (a stale or hand-typed link) falls back to the first card.
 export default function CardCarousel({ cards, initialId }: { cards: CarouselCard[]; initialId?: string }) {
   const linkedIndex = initialId ? cards.findIndex((c) => c.id === initialId) : -1;
 

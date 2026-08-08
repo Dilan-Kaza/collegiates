@@ -25,10 +25,8 @@ export interface ProfileInitial {
   skill_level: string;
 }
 
-// Experience level and class eligibility are self-reported here but bind the competitor
-// for the whole tournament (and misreporting is grounds for disqualification), so
-// each field states the rule and links to the section it comes from. New tab: the
-// rest of the form is unsaved.
+// Level and class are self-reported but bind the competitor all tournament, so each field
+// states its rule and links to the source in a new tab (the rest of the form is unsaved).
 function RuleHint({ section, children }: { section: string; children: ReactNode }) {
   return (
     <p className="-mt-1 text-xs leading-snug text-gray-600">
@@ -107,9 +105,8 @@ export default function ProfileSetup({
       clearSessionCache(cacheKeys.currentUser);
       clearSessionCache(cacheKeys.competitorEvents);
       dispatch(setSuccessMsg("Profile completed"));
-      // Straight into event registration, the point of completing the profile.
-      // The register page bounces anyone who already has registrations this year
-      // to the dashboard, so the yearly re-confirmation path stays correct.
+      // Straight into event registration, the point of completing the profile. The register page
+      // bounces anyone already registered this year, so re-confirmation stays correct.
       nav("/competitor/register");
     } finally {
       setLoading(false);

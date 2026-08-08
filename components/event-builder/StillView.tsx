@@ -1,12 +1,14 @@
 "use client";
 
 import { useMemo } from "react";
+import { groupIntoTeams, isGroupsetCategory } from "@/lib/teams";
+import type { TeamRefDTO } from "@/lib/api";
 import type { OrderData, OrderItem } from "./types";
 // read-only ring layout
 
-type StillCompetitor = { id: string; name?: string; order?: number };
+type StillCompetitor = { id: string; name?: string; order?: number; team?: TeamRefDTO | null };
 type StillItem =
-    | { id: string; type?: undefined; event_name: string; competitors: StillCompetitor[] }
+    | { id: string; type?: undefined; event_name: string; competitors: StillCompetitor[]; isGroupset: boolean }
     | { id: string; type: "break"; name: string; duration: number };
 
 interface StillRings {
@@ -40,11 +42,24 @@ function StaticRing({ label, items }: { label: string; items: StillItem[] }) {
                                     .replace(/\bFemale\b/g, "F")}
                             </div>
                             <div className="flex flex-col gap-0.5 mt-1">
-                                {item.competitors.map((c) => (
-                                    <div key={c.id} className="text-xs text-gray-500 border border-gray-100 rounded px-2 py-0.5 bg-gray-50">
-                                        {c.name}
-                                    </div>
-                                ))}
+                                {/* Groupset events are listed by team, matching the builder. */}
+                                {item.isGroupset
+                                    ? groupIntoTeams(item.competitors).map((team) => (
+                                        <div
+                                            key={team.id}
+                                            className={`text-xs border rounded px-2 py-0.5 flex items-center gap-2 ${team.unassigned ? "border-amber-200 bg-amber-50 text-amber-700" : "border-gray-100 bg-gray-50 text-gray-500"}`}
+                                        >
+                                            <span className="truncate">{team.unassigned ? `⚠ ${team.name}` : team.name}</span>
+                                            <span className="ml-auto shrink-0 opacity-60">
+                                                {team.unassigned ? "No team" : team.members.length}
+                                            </span>
+                                        </div>
+                                    ))
+                                    : item.competitors.map((c) => (
+                                        <div key={c.id} className="text-xs text-gray-500 border border-gray-100 rounded px-2 py-0.5 bg-gray-50">
+                                            {c.name}
+                                        </div>
+                                    ))}
                             </div>
                         </div>
                     )
@@ -68,6 +83,7 @@ export default function StillView({ order = null }: { order?: OrderData | null }
                         id: item.id,
                         event_name: item.name ?? item.event_id,
                         competitors: [...(item.competitor_list ?? [])].sort((a, b) => a.order - b.order),
+                        isGroupset: isGroupsetCategory(item.event_category),
                     }
                     : { id: item.id, type: "break", name: item.name ?? "", duration: item.break_length ?? 0 });
         return {

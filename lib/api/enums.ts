@@ -87,39 +87,28 @@ export function studentTypeLabel(code: string | null | undefined): string {
 
 // ---------- competitor class eligibility ----------
 
-// The class is self-reported (rules I), so eligibility is read straight off the
-// profile. Organizers still verify it from the proof of enrollment — nothing
-// here decides the undergraduate 5-for-4 limit.
-//
-// Class 1 gates the team competition: teams must be made up solely of Class 1
-// competitors, so a Class 2 student type cannot create or join a group set.
+// The class is self-reported (rules I) so eligibility reads off the profile; organizers verify it
+// from proof of enrollment. Class 1 gates the team competition — Class 2 cannot join a group set.
 export function isClassOne(value: StudentType | null | undefined): boolean {
   return value === "ClassOne";
 }
 
 // ---------- profile dropdown choices ----------
 
-// Display label -> code, the shape <Dropdown options> takes. One source for every
-// profile dropdown, so the competitor-facing profile setup and the organizer's
-// registration editor can't drift apart or from the labels used above.
-// For gender the Prisma member names double as the display labels, so the
-// member -> code map is already exactly this shape.
+// Display label -> code, the shape <Dropdown options> takes. One source for every profile
+// dropdown, so the competitor-facing form and the organizer's editor can't drift apart.
 export const GENDER_CHOICES: Record<string, string> = GENDER_CODE_BY_MEMBER;
 
-// Skill level carries its year range in the label: the level is self-reported and
-// the ranges (rules 3.I) are the whole basis for picking one, so they belong in
-// the dropdown rather than only in the surrounding help text. Abbreviated to keep
-// the <select> from outgrowing its column.
+// Skill level carries its year range in the label: the level is self-reported and the ranges
+// (rules 3.I) are the basis for picking one. Abbreviated to fit the <select> in its column.
 export const SKILL_LEVEL_CHOICES: Record<string, string> = {
   "Beginner (0–1 yrs)": SKILL_LEVEL_CODE_BY_MEMBER.Beginner,
   "Intermediate (1–3 yrs)": SKILL_LEVEL_CODE_BY_MEMBER.Intermediate,
   "Advanced (3+ yrs)": SKILL_LEVEL_CODE_BY_MEMBER.Advanced,
 };
 
-// The form restrictions each level carries (rules 3.II), keyed by the codes
-// SKILL_LEVEL_CHOICES yields so a form can show the picked level's limits inline.
-// Deviating costs 0.3 per occurrence, which is why this belongs next to the choice
-// rather than only in the rules page.
+// The form restrictions each level carries (rules 3.II), keyed by SKILL_LEVEL_CHOICES' codes so
+// a form can show the picked level's limits inline. Deviating costs 0.3 per occurrence.
 export const SKILL_LEVEL_RESTRICTIONS: Record<string, string> = {
   [SKILL_LEVEL_CODE_BY_MEMBER.Beginner]:
     "Linear forms only. No aerials, splits, or other B-level moves. At most two jumping kicks (front, inside or outside crescent), and you may not land on the jumping leg.",

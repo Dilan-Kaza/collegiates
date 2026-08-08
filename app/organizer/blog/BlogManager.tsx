@@ -11,10 +11,8 @@ import { useNavigate } from "@/routerCompat";
 import { useAppDispatch } from "@/store/hooks";
 import type { BlogDTO } from "@/lib/api";
 
-// `posts` arrives from the server for first paint, then follows its cache entry.
-// A create drops that entry, and createBlogPost has already dropped the server's
-// "blog" tag, so the refetch returns the new post — no local prepend to keep in
-// sync, and no router.refresh() RSC round trip.
+// `posts` arrives from the server for first paint, then follows its cache entry. A create
+// drops that entry and the server's "blog" tag, so the refetch returns the new post.
 export default function BlogManager({ posts: initialPosts = [] }: { posts?: BlogDTO[] }) {
 
     const nav = useNavigate();
@@ -50,10 +48,8 @@ export default function BlogManager({ posts: initialPosts = [] }: { posts?: Blog
             setBlogContent("");
             setAuthor("");
             setCategory("");
-            // Dropping the list entry is what adds the post to the view: the hook
-            // above refills it from getOrganizerBlogPosts, whose "blog" tag
-            // createBlogPost just invalidated. blogPosts is the public list, read
-            // by other routes.
+            // Dropping the list entry is what adds the post to the view: the hook above refills it from
+            // getOrganizerBlogPosts, whose "blog" tag createBlogPost just invalidated.
             clearSessionCache(cacheKeys.organizerBlogPosts);
             clearSessionCache(cacheKeys.blogPosts);
             dispatch(setSuccessMsg("Post published"));

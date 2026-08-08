@@ -8,153 +8,185 @@ import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { getCurrentUser, isCompetitor } from "@/lib/auth";
 import { loadSettings } from "@/lib/settings";
-import { shapeSettings, shapeOrder, ORDER_INCLUDE, SETTINGS_INCLUDE } from "@/lib/api";
-import type { SettingsDTO, OrderDTO } from "@/lib/api";
-import { getOrderByYear } from "../data";
+import { shapeOrder, ORDER_INCLUDE } from "@/lib/api";
+import type { OrderDTO } from "@/lib/api";
+import { sheetsCredentials, spreadsheetIdFromUrl, writeSheetTabs } from "@/lib/sheets";
+import { isFormulaCell } from "@/lib/sheetGrid";
+import type { Cell, SheetTabData } from "@/lib/sheetGrid";
+import { getOrderForSettings, orderTag } from "../data";
 import { organizerGate, actionError } from "./shared";
-import type { Mutation, OrderBody, RingKey, EventOrderInput, EventOrderCompetitorInput } from "./shared";
+import type { Mutation, OrderBody, SheetExportBody, RingKey, EventOrderInput, EventOrderCompetitorInput } from "./shared";
 
-// One slot's competitor list, resolved to the EventOrder id it belongs to.
-interface CompetitorSlot {
-  eventOrderId: string;
-  comps: EventOrderCompetitorInput[];
+// The stored columns a save may change. Read back with the create-vs-update lookup the save
+// already does, since the rewrite writes every column — an omitted field is merged from here.
+const SLOT_SELECT = {
+  id: true,
+  comp_year: true,
+  event_id: true,
+  name: true,
+  break_length: true,
+  order: true,
+} satisfies Prisma.EventOrderSelect;
+
+interface SlotFields {
+  comp_year: number;
+  event_id: string | null;
+  name: string | null;
+  break_length: number;
+  order: number;
 }
 
-// _sync_competitors batched across a ring: delete the rewritten slots' rows, then
-// re-insert in one statement. Safe — a row's surrogate id never reaches the client.
-async function syncRingCompetitors(
-  tx: Prisma.TransactionClient,
-  slots: CompetitorSlot[],
-): Promise<void> {
-  if (slots.length === 0) return;
+type SlotRow = SlotFields & { id: string; ring_id: string };
 
-  // Only the slots whose competitor list was actually provided are rewritten;
-  // a slot that omitted `competitor_list` keeps whatever it had.
-  await tx.competitorOrder.deleteMany({
-    where: { event_order_id: { in: slots.map((s) => s.eventOrderId) } },
-  });
+// Where a slot's competitor list comes from: the one the payload supplied, or the
+// rows already stored against it when the payload omitted one.
+type RosterSource = EventOrderCompetitorInput[] | "stored";
 
-  // Keyed by (slot, competitor) so a competitor listed twice in one slot
-  // collapses to a single row, matching the old update_or_create behaviour.
+interface SavePlan {
+  slots: SlotRow[];
+  rosters: Map<string, RosterSource>;
+}
+
+// A field the payload did not mention keeps what the row already held, and falls
+// back to the column default only when there is no row yet.
+function pick<T>(supplied: T | undefined, stored: T | undefined, fallback: T): T {
+  if (supplied !== undefined) return supplied;
+  return stored !== undefined ? stored : fallback;
+}
+
+// to_internal_value for every ring in the body. Every listed slot becomes a row, stamped with the
+// ring it was listed under so cross-ring drags follow. Pure — `stored` is read by the caller.
+function planSave(
+  rings: { ringId: string; items: EventOrderInput[] }[],
+  stored: Map<string, SlotFields>,
+  year: number,
+): SavePlan {
+  // Keyed by id, so an id listed twice in one payload collapses to a single row instead of failing
+  // the whole save on a duplicate key. Later listings merge over earlier: last listing wins.
+  const slots = new Map<string, SlotRow>();
+  const rosters = new Map<string, RosterSource>();
+
+  for (const { ringId, items } of rings) {
+    for (const item of items) {
+      const id = item.id ?? crypto.randomUUID();
+      const previous: SlotFields | undefined = slots.get(id) ?? stored.get(id);
+
+      slots.set(id, {
+        id,
+        ring_id: ringId,
+        // Never reassigned by a save: a slot belongs to the year of the settings
+        // row whose rings it hangs off.
+        comp_year: previous?.comp_year ?? year,
+        event_id: pick(item.event_id, previous?.event_id, null),
+        name: pick(item.name, previous?.name, null),
+        break_length: pick(item.break_length, previous?.break_length, 0),
+        order: pick(item.order, previous?.order, 0),
+      });
+
+      if (item.competitor_list !== undefined) {
+        rosters.set(id, item.competitor_list);
+      } else if (!rosters.has(id)) {
+        // An omitted roster is not a request to clear one: an existing slot keeps its rows and a
+        // new slot starts empty. It must not override a list an earlier listing supplied.
+        rosters.set(id, stored.has(id) ? "stored" : []);
+      }
+    }
+  }
+
+  return { slots: [...slots.values()], rosters };
+}
+
+// The competitor rows for every slot being written, resolved against the rosters carried over from
+// storage. Keyed by (slot, competitor), matching the old update_or_create behaviour.
+function competitorRows(
+  plan: SavePlan,
+  carried: Map<string, EventOrderCompetitorInput[]>,
+): Prisma.CompetitorOrderCreateManyInput[] {
   const rows = new Map<string, Prisma.CompetitorOrderCreateManyInput>();
-  for (const slot of slots) {
-    for (const comp of slot.comps) {
+  for (const [eventOrderId, source] of plan.rosters) {
+    const comps = source === "stored" ? carried.get(eventOrderId) ?? [] : source;
+    for (const comp of comps) {
       if (!comp.id) continue;
-      rows.set(`${slot.eventOrderId}:${comp.id}`, {
-        event_order_id: slot.eventOrderId,
+      rows.set(`${eventOrderId}:${comp.id}`, {
+        event_order_id: eventOrderId,
         competitor_id: comp.id,
         order: comp.order ?? 0,
       });
     }
   }
-  if (rows.size) await tx.competitorOrder.createMany({ data: [...rows.values()] });
+  return [...rows.values()];
 }
 
-// to_internal_value for a whole ring: an existing `id` updates in place, anything
-// else is created. All slots are owned by `ringId`, so cross-ring drags follow.
-async function persistRing(
+// The stored rosters of slots whose payload entry omitted one. Must run before the
+// delete below, which cascades those rows away.
+async function carryRosters(
   tx: Prisma.TransactionClient,
-  items: EventOrderInput[],
-  year: number,
-  ringId: string,
-): Promise<string[]> {
-  const suppliedIds = items.map((i) => i.id).filter((id): id is string => !!id);
-  const existing = suppliedIds.length
-    ? new Set(
-        (
-          await tx.eventOrder.findMany({
-            where: { id: { in: suppliedIds } },
-            select: { id: true },
-          })
-        ).map((r) => r.id),
-      )
-    : new Set<string>();
+  plan: SavePlan,
+): Promise<Map<string, EventOrderCompetitorInput[]>> {
+  const ids = [...plan.rosters].filter(([, source]) => source === "stored").map(([id]) => id);
+  const carried = new Map<string, EventOrderCompetitorInput[]>();
+  if (ids.length === 0) return carried;
 
-  const ids: string[] = [];
-  const toCreate: Prisma.EventOrderCreateManyInput[] = [];
-  const toUpdate: { id: string; data: Prisma.EventOrderUncheckedUpdateInput }[] = [];
-  const compSlots: CompetitorSlot[] = [];
-
-  for (const item of items) {
-    const id = item.id ?? crypto.randomUUID();
-    ids.push(id);
-
-    if (item.id && existing.has(item.id)) {
-      const data: Prisma.EventOrderUncheckedUpdateInput = { ring_id: ringId };
-      if (item.event_id !== undefined) data.event_id = item.event_id;
-      if (item.name !== undefined) data.name = item.name;
-      if (item.break_length !== undefined) data.break_length = item.break_length;
-      if (item.order !== undefined) data.order = item.order;
-      toUpdate.push({ id, data });
-      // An existing slot only has its roster rewritten when one was provided.
-      if (item.competitor_list !== undefined) {
-        compSlots.push({ eventOrderId: id, comps: item.competitor_list });
-      }
-    } else {
-      toCreate.push({
-        id,
-        comp_year: year,
-        ring_id: ringId,
-        event_id: item.event_id ?? null,
-        break_length: item.break_length ?? 0,
-        name: item.name ?? null,
-        order: item.order ?? 0,
-      });
-      compSlots.push({ eventOrderId: id, comps: item.competitor_list ?? [] });
-    }
+  const rows = await tx.competitorOrder.findMany({
+    where: { event_order_id: { in: ids } },
+    select: { event_order_id: true, competitor_id: true, order: true },
+  });
+  for (const r of rows) {
+    const list = carried.get(r.event_order_id) ?? [];
+    list.push({ id: r.competitor_id, order: r.order });
+    carried.set(r.event_order_id, list);
   }
-
-  if (toCreate.length) await tx.eventOrder.createMany({ data: toCreate });
-  // Each surviving slot carries its own payload, so these can't be collapsed
-  // into an updateMany; there is one per slot, not one per competitor.
-  for (const { id, data } of toUpdate) await tx.eventOrder.update({ where: { id }, data });
-  await syncRingCompetitors(tx, compSlots);
-
-  return ids;
+  return carried;
 }
 
-// Each ring is a single Ring row per (order, ring_number); its slots hang off it
-// via EventOrder.ring_id.
+// Each ring is a single Ring row per (settings, ring_number); its slots hang off
+// it via EventOrder.ring_id.
 const RING_NUMBER: Record<RingKey, number> = { ring1: 1, ring2: 2, ring3: 3 };
 
-// The Ring row for this year's `ring`, created on first save.
-async function ensureRing(
+// The Ring rows for the rings being written, created on first save. One
+// createMany plus one read, rather than an upsert round trip per ring.
+async function ensureRings(
   tx: Prisma.TransactionClient,
-  ring: RingKey,
-  year: number,
-): Promise<string> {
-  const ring_number = RING_NUMBER[ring];
-  const row = await tx.ring.upsert({
-    where: { order_id_ring_number: { order_id: year, ring_number } },
-    create: { order_id: year, ring_number },
-    update: {},
-    select: { id: true },
+  ringKeys: RingKey[],
+  settingsId: string,
+): Promise<Map<RingKey, string>> {
+  const numbers = ringKeys.map((r) => RING_NUMBER[r]);
+  await tx.ring.createMany({
+    data: numbers.map((ring_number) => ({ settings_id: settingsId, ring_number })),
+    skipDuplicates: true,
   });
-  return row.id;
+  const rows = await tx.ring.findMany({
+    where: { settings_id: settingsId, ring_number: { in: numbers } },
+    select: { id: true, ring_number: true },
+  });
+  const byNumber = new Map(rows.map((r) => [r.ring_number, r.id]));
+  return new Map(ringKeys.map((r) => [r, byNumber.get(RING_NUMBER[r])!]));
 }
 
-// Drop slots no longer listed in this ring (Django M2M `.set()`); cascades clear
-// their CompetitorOrder rows. Empty `keep` clears the ring (`notIn: []` matches all).
-async function pruneRing(
+// Clear the rings being written so the createMany that follows is their whole new contents; rings
+// absent from the body keep theirs. Scoped by ring *and* id, so a cross-ring drag can't collide.
+async function clearRings(
   tx: Prisma.TransactionClient,
-  ringId: string,
-  keep: string[],
+  ringIds: string[],
+  writing: string[],
 ): Promise<void> {
-  await tx.eventOrder.deleteMany({ where: { ring_id: ringId, id: { notIn: keep } } });
+  await tx.eventOrder.deleteMany({
+    where: { OR: [{ ring_id: { in: ringIds } }, { id: { in: writing } }] },
+  });
 }
 
 // OrganizerOrderView retrieve: the saved order for the current comp_year, served
-// from the Data Cache (getOrderByYear) behind the organizer gate.
+// from the Data Cache (getOrderForSettings) behind the organizer gate.
 export async function getOrganizerOrder(): Promise<OrderDTO | null> {
   const { error } = await organizerGate();
   if (error) return null;
   const settings = await loadSettings();
   if (!settings) return null;
-  return getOrderByYear(settings.reg_year);
+  return getOrderForSettings(settings.id);
 }
 
-// OrganizerOrderView create/update: upsert the single Order for the current year
-// (comp_year is its primary key) and rewrite whichever rings were provided.
+// OrganizerOrderView create/update: stamp the current year's settings row as
+// having a saved order and rewrite whichever rings were provided.
 export async function saveOrder(body: OrderBody): Promise<Mutation<OrderDTO>> {
   const { error } = await organizerGate();
   if (error) return { error };
@@ -163,22 +195,53 @@ export async function saveOrder(body: OrderBody): Promise<Mutation<OrderDTO>> {
   const year = settings.reg_year;
   const rings: RingKey[] = ["ring1", "ring2", "ring3"];
 
-  try {
-    await prisma.$transaction(async (tx) => {
-      await tx.order.upsert({
-        where: { comp_year: year },
-        create: { comp_year: year },
-        update: {},
-      });
+  // Rings omitted from the body are left untouched.
+  const present = rings.filter((r) => body[r] !== undefined);
 
-      for (const ring of rings) {
-        const items = body[ring];
-        if (items === undefined) continue; // ring omitted → leave it untouched
-        const ringId = await ensureRing(tx, ring, year);
-        const ids = await persistRing(tx, items, year, ringId);
-        await pruneRing(tx, ringId, ids);
-      }
-    });
+  try {
+    await prisma.$transaction(
+      async (tx) => {
+        // Marks the year's order as saved — the null this clears is what the
+        // reads treat as "no order yet", the way a missing Order row used to.
+        await tx.settings.update({
+          where: { id: settings.id },
+          data: { order_updated_at: new Date() },
+        });
+        if (present.length === 0) return;
+
+        const ringIds = await ensureRings(tx, present, settings.id);
+        const listed = present.map((r) => ({ ringId: ringIds.get(r)!, items: body[r]! }));
+
+        // What the supplied slots already hold, for every ring at once — the merge
+        // in planSave needs the stored columns, not just which ids exist.
+        const suppliedIds = listed.flatMap(({ items }) =>
+          items.map((i) => i.id).filter((id): id is string => !!id),
+        );
+        const stored = new Map<string, SlotFields>(
+          suppliedIds.length
+            ? (
+                await tx.eventOrder.findMany({
+                  where: { id: { in: suppliedIds } },
+                  select: SLOT_SELECT,
+                })
+              ).map((r) => [r.id, r])
+            : [],
+        );
+
+        const plan = planSave(listed, stored, year);
+        const carried = await carryRosters(tx, plan);
+        const comps = competitorRows(plan, carried);
+
+        // The listed rings are replaced rather than reconciled row by row: per-slot updates cost
+        // round trips proportional to the schedule. Client-supplied ids survive the rewrite.
+        await clearRings(tx, [...ringIds.values()], plan.slots.map((s) => s.id));
+        if (plan.slots.length) await tx.eventOrder.createMany({ data: plan.slots });
+        if (comps.length) await tx.competitorOrder.createMany({ data: comps });
+      },
+      // A save is a fixed handful of statements whatever the schedule's size, so this is headroom
+      // rather than a budget the work grows into — the 5s default left no room for a slow link.
+      { timeout: 20_000, maxWait: 10_000 },
+    );
   } catch (err) {
     // The whole save is one transaction, so a failure here left nothing written
     // and the tag below must not be dropped — the cached order is still current.
@@ -188,10 +251,10 @@ export async function saveOrder(body: OrderBody): Promise<Mutation<OrderDTO>> {
     return { error: actionError("saveOrder", err, "Could not save the event order.") };
   }
 
-  updateTag(`order-${year}`);
+  updateTag(orderTag(settings.id));
 
   try {
-    const saved = await prisma.order.findUnique({ where: { comp_year: year }, include: ORDER_INCLUDE });
+    const saved = await prisma.settings.findUnique({ where: { id: settings.id }, include: ORDER_INCLUDE });
     if (!saved) return { error: { detail: "Failed to save order." } };
     return { data: shapeOrder(saved) };
   } catch (err) {
@@ -201,9 +264,9 @@ export async function saveOrder(body: OrderBody): Promise<Mutation<OrderDTO>> {
   }
 }
 
-// Publish / unpublish this year's order. Publicity lives on Settings
-// (order_public), so this flips that flag and returns the updated settings.
-export async function setOrderPublic(value: boolean): Promise<Mutation<SettingsDTO | null>> {
+// Publish / unpublish this year's order, a flag on Settings (order_public). Returns the flag as
+// the server stored it; no `include`, which would force an interactive transaction (WebSocket).
+export async function setOrderPublic(value: boolean): Promise<Mutation<{ order_public: boolean } | null>> {
   const { error } = await organizerGate();
   if (error) return { error };
   const existing = await loadSettings();
@@ -212,12 +275,100 @@ export async function setOrderPublic(value: boolean): Promise<Mutation<SettingsD
     const s = await prisma.settings.update({
       where: { id: existing.id },
       data: { order_public: value },
-      include: SETTINGS_INCLUDE,
+      select: { order_public: true },
     });
     updateTag("settings");
-    return { data: shapeSettings(s) };
+    return { data: s };
   } catch (err) {
     return { error: actionError("setOrderPublic", err, `Could not ${value ? "publish" : "unpublish"} the order.`) };
+  }
+}
+
+// ---------- Google Sheets export ----------
+
+// The grid comes off the client, so it is bounded here before it reaches the API. Nothing
+// legitimate approaches these — past them is a client bug or someone poking the action directly.
+const MAX_TABS = 6;
+const MAX_ROWS = 2_000;
+const MAX_COLS = 26;
+const MAX_CELL = 500;
+
+// Sheets rejects : \ / ? * [ ] in a tab title and caps it at 100 characters.
+function sheetTitle(raw: unknown, index: number): string {
+  const cleaned = typeof raw === "string" ? raw.replace(/[:\\/?*[\]]/g, " ").trim().slice(0, 80) : "";
+  return cleaned || `Ring ${index + 1}`;
+}
+
+// Two tabs with the same title would make addSheet fail on the second, and sanitising can collapse
+// two distinct titles into one, so uniqueness is enforced here rather than trusted.
+function uniqueTitle(title: string, taken: Set<string>): string {
+  if (!taken.has(title)) return title;
+  for (let n = 2; ; n++) {
+    const candidate = `${title} (${n})`;
+    if (!taken.has(candidate)) return candidate;
+  }
+}
+
+// One cell, bounded. Drops anything unusable rather than rejecting the whole export — a stray cell
+// isn't worth the schedule. A formula passes through; the cap is about payload size only.
+function cleanCell(cell: Cell): Cell {
+  if (typeof cell === "number") return Number.isFinite(cell) ? cell : "";
+  if (typeof cell === "string") return cell.slice(0, MAX_CELL);
+  if (isFormulaCell(cell)) {
+    const expression = cell.formula.slice(0, MAX_CELL);
+    return expression ? { formula: expression } : "";
+  }
+  return "";
+}
+
+function cleanTabs(body: SheetExportBody): SheetTabData[] {
+  const taken = new Set<string>();
+  return (body.tabs ?? []).slice(0, MAX_TABS).map((tab, index) => {
+    const title = uniqueTitle(sheetTitle(tab.title, index), taken);
+    taken.add(title);
+    const rows = (Array.isArray(tab.rows) ? tab.rows : [])
+      .slice(0, MAX_ROWS)
+      .map((row) => (Array.isArray(row) ? row : []).slice(0, MAX_COLS).map(cleanCell));
+    return { title, rows };
+  });
+}
+
+// Pushes a built grid into this year's spreadsheet, one tab per ring, serving both exports. Reads
+// no order rows and runs no maths — it gates, resolves the destination from Settings, and bounds.
+export async function exportSheetTabs(body: SheetExportBody): Promise<Mutation<{ url: string }>> {
+  const { error } = await organizerGate();
+  if (error) return { error };
+
+  // No service account configured is a deployment state, not a failure to log —
+  // say so plainly rather than reporting a broken export.
+  if (!sheetsCredentials()) {
+    return { error: { detail: "The Google Sheets export is not configured on this deployment." } };
+  }
+
+  // Settings.scoring_url doubles as the export target: one per-year spreadsheet link, so a new
+  // year is a Settings edit rather than a redeploy. Comes from the cached settings read.
+  const settings = await loadSettings();
+  const spreadsheetId = spreadsheetIdFromUrl(settings?.scoring_url);
+  if (!spreadsheetId) {
+    return {
+      error: {
+        detail: settings?.scoring_url
+          ? "The Scoring Link in Settings is not a Google Sheets link. Paste the sheet's normal address, not a published-to-web one."
+          : "No spreadsheet is set for this year. Paste the sheet's link into the Scoring Link field in Settings.",
+      },
+    };
+  }
+
+  const tabs = cleanTabs(body).filter((tab) => tab.rows.length > 0);
+  if (tabs.length === 0) return { error: { detail: "There is nothing to export yet." } };
+
+  try {
+    const url = await writeSheetTabs(spreadsheetId, tabs);
+    return { data: { url } };
+  } catch (err) {
+    // A partial write is possible — tabs are added, cleared, then filled — so the
+    // message points the organizer at the sheet instead of implying nothing moved.
+    return { error: actionError("exportSheetTabs", err, "Could not write to Google Sheets. Check the sheet before re-exporting.") };
   }
 }
 
@@ -228,6 +379,6 @@ export async function getPublicOrder(): Promise<OrderDTO | null> {
   if (!user || !isCompetitor(user)) return null;
   const settings = await loadSettings();
   if (!settings || !settings.order_public) return null;
-  const order = await getOrderByYear(settings.reg_year);
+  const order = await getOrderForSettings(settings.id);
   return order ?? null;
 }

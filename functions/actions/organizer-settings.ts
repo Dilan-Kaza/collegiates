@@ -7,21 +7,21 @@ import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { loadSettings } from "@/lib/settings";
 import { isAdmin } from "@/lib/auth";
-import { shapeSettings, shapeEvent, SETTINGS_INCLUDE } from "@/lib/api";
-import type { SettingsDTO, EventDTO } from "@/lib/api";
+import { shapeEvent } from "@/lib/api";
+import type { EventDTO } from "@/lib/api";
 import {
   READ_CACHE_TTL, TAG_EVENTS, organizerGate, settingsWritable, settingsDateErrors, actionError,
 } from "./shared";
 import type { Mutation, SettingsBody } from "./shared";
 
-export async function saveSettings(body: SettingsBody): Promise<Mutation<SettingsDTO | null>> {
+// Returns no row: the caller only reads `error`, and the "settings" tag updated below refreshes the
+// page. An `include` would force an interactive transaction, served over a WebSocket.
+export async function saveSettings(body: SettingsBody): Promise<Mutation<null>> {
   const { user, error } = await organizerGate();
   if (error) return { error };
 
-  // host_id is what organizerGate resolves organizer access from, so writing it
-  // is a permission grant, not a setting: only an admin may. An organizer host
-  // could otherwise hand its own console to any account, or take it from itself.
-  // The organizer settings form never submits `host` — the admin console does.
+  // host_id is what organizerGate resolves organizer access from, so writing it is a permission
+  // grant, not a setting: admin only. The organizer settings form never submits `host`.
   if (body.host !== undefined && !isAdmin(user)) {
     return { error: { host: "Only an admin can change the settings host." } };
   }
@@ -44,23 +44,21 @@ export async function saveSettings(body: SettingsBody): Promise<Mutation<Setting
       host_id = host.user_id;
     }
 
-    let s;
     if (existing) {
       const data = settingsWritable(body);
       if (host_id) data.host_id = host_id;
       (Object.keys(data) as (keyof typeof data)[]).forEach((k) => {
         if (data[k] === undefined) delete data[k];
       });
-      s = await prisma.settings.update({ where: { id: existing.id }, data, include: SETTINGS_INCLUDE });
+      await prisma.settings.update({ where: { id: existing.id }, data });
     } else {
       if (!host_id) return { error: { host: "Host user not found." } };
-      s = await prisma.settings.create({
+      await prisma.settings.create({
         data: { ...settingsWritable(body), host_id } as Prisma.SettingsUncheckedCreateInput,
-        include: SETTINGS_INCLUDE,
       });
     }
     updateTag("settings");
-    return { data: shapeSettings(s) };
+    return { data: null };
   } catch (err) {
     return { error: actionError("saveSettings", err, "Could not save the settings.") };
   }

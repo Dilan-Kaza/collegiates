@@ -1,6 +1,12 @@
 "use client";
 
-import { MtHeader, OrganizerRegistrationList, OrganizerRegistrationByEvent, OrganizerRegistrationEdit } from "@components";
+import {
+    MtHeader,
+    OrganizerRegistrationList,
+    OrganizerRegistrationByEvent,
+    OrganizerRegistrationEdit,
+    OrganizerPayments,
+} from "@components";
 import { useNavigate } from "@/routerCompat";
 import { useState } from "react";
 import {
@@ -9,25 +15,26 @@ import {
     fetchOrganizerRegistrations,
     fetchOrganizerEvents,
 } from "@functions";
-import type { OrganizerRegistrationDTO, EventDTO } from "@/lib/api";
+import type { OrganizerRegistrationDTO, EventDTO, SettingsDTO } from "@/lib/api";
 
-// The registration list and full event catalogue are resolved on the server and
-// passed in; this client component only owns the view-switching UI.
+// The registration list and event catalogue are resolved on the server; this component owns
+// only the view-switching UI. `settings` carries the fee schedule Payments prices against.
 export default function Registrations({
     registrations: initialRegistrations = [],
     allEvents: initialEvents = [],
     colleges = {},
+    settings = {},
 }: {
     registrations?: OrganizerRegistrationDTO[];
     allEvents?: EventDTO[];
     colleges?: Record<string, string>;
+    settings?: Partial<SettingsDTO>;
 }) {
 
     const nav = useNavigate();
 
-    // The Create/Edit tab below saves through OrganizerRegistrationEdit, which
-    // drops this key — so switching back to a list tab shows the edit rather
-    // than the copy this page was rendered with.
+    // The Create/Edit tab below saves through OrganizerRegistrationEdit, which drops this key —
+    // so switching back to a list tab shows the edit, not this page's render-time copy.
     const registrations = useCachedResource(
         cacheKeys.organizerRegistrations,
         fetchOrganizerRegistrations,
@@ -70,6 +77,12 @@ export default function Registrations({
                         By Event
                     </button>
                     <button
+                        className={`btn btn-sm ${view === "payments" ? "btn-primary" : "btn-ghost"}`}
+                        onClick={() => setView("payments")}
+                    >
+                        Payments
+                    </button>
+                    <button
                         className={`btn btn-sm ${view === "edit" ? "btn-primary" : "btn-ghost"}`}
                         onClick={() => { setEditAthlete(null); setView("edit"); }}
                     >
@@ -79,6 +92,7 @@ export default function Registrations({
                 <div className="cg-card">
                     {view === "athlete" && <OrganizerRegistrationList registrations={registrations} onEdit={openEdit} />}
                     {view === "event" && <OrganizerRegistrationByEvent registrations={registrations} />}
+                    {view === "payments" && <OrganizerPayments registrations={registrations} settings={settings} />}
                     {view === "edit" && (
                         <OrganizerRegistrationEdit
                             key={editAthlete?.user_id ?? "new"}
