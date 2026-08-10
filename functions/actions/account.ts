@@ -1,7 +1,8 @@
 "use server";
 
 // Account server actions: email check, registration, and the current user's
-// own profile (read/update/delete) plus activation.
+// own profile (read/update/delete) plus activation. The college list lives here
+// too — it is the option source for the profile's `school` field.
 
 import { unstable_cache, updateTag } from "next/cache";
 import { Prisma, type StudentType, type Gender, type SkillLevel } from "@prisma/client";
@@ -9,6 +10,7 @@ import prisma from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
 import { getCurrentUser } from "@/lib/auth";
 import { loadSettings } from "@/lib/settings";
+import { getColleges } from "@functions/data";
 import { shapeCompetitor, toStudentType, toGender, toSkillLevel } from "@/lib/api";
 import type { CompetitorDTO } from "@/lib/api";
 import { sendEmail } from "@/lib/email";
@@ -19,6 +21,16 @@ import {
   revalidateUserData, rehydrateCompetitor, competitorGate, actionError, appUrl,
 } from "./shared";
 import type { Mutation, RegisterBody, CompetitorProfileBody, UpdateMeBody } from "./shared";
+
+// The { college_name: college_id } dropdown source, client-callable. data.ts's copy is
+// `server-only` and reaches the browser only as props, so a component that binds the `colleges`
+// cache entry needs this to refill it. Signed-in only: every screen with a college picker — the
+// competitor profile, the admin console, the organizer group-set and registration views — is
+// already behind a gate. `{}` on a denied read, matching the other reads' [] / null.
+export async function getSharedColleges(): Promise<Record<string, string>> {
+  if (!(await getCurrentUser())) return {};
+  return getColleges();
+}
 
 export async function checkEmail(email: string): Promise<{ exists: boolean }> {
   const user = await prisma.user.findFirst({

@@ -14,6 +14,6 @@ export default async function Page() {
     getJoinableGroupsets(),
     getMyGroupset(),
   ]);
-  // No CacheSeed: Groupset binds both lists to their cache entries itself.
+  // Both lists are seeded by <Groupset>'s own cache bindings.
   return <Groupset groupSetMembers={groupSetMembers} myGroupSet={myGroupSet} classOne={classOne} />;
 }

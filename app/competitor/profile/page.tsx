@@ -6,8 +6,6 @@ import { requireCompetitor } from "@/lib/auth";
 import { fromGender, fromSkillLevel, fromStudentType } from "@/lib/api";
 import { loadSettings } from "@/lib/settings";
 import prisma from "@/lib/prisma";
-import CacheSeed from "@functions/CacheSeed";
-import { cacheKeys } from "@functions/cacheKeys";
 // competitor profile setup page (server component) — onboarding + yearly renewal
 
 export default async function Page() {
@@ -37,10 +35,6 @@ export default async function Page() {
     skill_level: fromSkillLevel(profile?.skill_level) ?? "",
   };
 
-  return (
-    <>
-      <CacheSeed entries={{ [cacheKeys.colleges]: colleges }} />
-      <ProfileSetup colleges={colleges} initial={initial} />
-    </>
-  );
+  // <ProfileSetup> binds the college list to its cache entry, which is what seeds it.
+  return <ProfileSetup colleges={colleges} initial={initial} />;
 }

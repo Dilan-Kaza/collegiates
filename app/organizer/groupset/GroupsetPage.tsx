@@ -2,7 +2,7 @@
 
 import { MtHeader, GroupsetList } from "@components";
 import { useNavigate } from "@/routerCompat";
-import { useCachedResource, cacheKeys, fetchOrganizerGroupsets } from "@functions";
+import { useCachedResource, cacheKeys, fetchOrganizerGroupsets, fetchColleges } from "@functions";
 import GroupsetCreate from "./GroupsetCreate";
 import type { OrganizerGroupsetDTO } from "@/lib/api";
 
@@ -10,7 +10,7 @@ import type { OrganizerGroupsetDTO } from "@/lib/api";
 // the create form. `colleges` is the { name: id } map its school picker needs.
 export default function GroupsetPage({
     groupsets: initialGroupsets = [],
-    colleges = {},
+    colleges: initialColleges = {},
 }: {
     groupsets?: OrganizerGroupsetDTO[];
     colleges?: Record<string, string>;
@@ -25,6 +25,8 @@ export default function GroupsetPage({
         fetchOrganizerGroupsets,
         initialGroupsets,
     );
+    // The create form's school picker, on the shared `colleges` entry.
+    const colleges = useCachedResource(cacheKeys.colleges, fetchColleges, initialColleges);
 
     return (
         <>

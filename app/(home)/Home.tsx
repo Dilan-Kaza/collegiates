@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Carousel, Timeline, Heading, CWCReps, BlogPosts } from "@components";
 import { Link } from "@/routerCompat";
+import { useCachedResource, cacheKeys, fetchSettings, fetchBlogPosts } from "@functions";
 import type { SettingsDTO, BlogDTO } from "@/lib/api";
 // home landing content
 
@@ -30,7 +31,18 @@ function shuffled(imgs: readonly string[]) {
   return out;
 }
 
-export default function Home({ settings = {}, posts = [] }: { settings?: Partial<SettingsDTO>; posts?: BlogDTO[] }) {
+export default function Home({
+  settings: initialSettings = {},
+  posts: initialPosts = [],
+}: {
+  settings?: Partial<SettingsDTO>;
+  posts?: BlogDTO[];
+}) {
+  // Server data for first paint, then the cache entry — an organizer's settings save or a blog
+  // edit in another tab drops these keys, and the timeline and post list re-read them.
+  const settings = useCachedResource(cacheKeys.settings, fetchSettings, initialSettings);
+  const posts = useCachedResource(cacheKeys.blogPosts, fetchBlogPosts, initialPosts);
+
   // The first client render has to match the server HTML, so the order is
   // scrambled right after hydration instead of during render. Same nine files
   // either way, so the reorder costs no extra image requests.

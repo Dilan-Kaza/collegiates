@@ -3,15 +3,22 @@
 import Image from "next/image";
 import { Link } from "@/routerCompat";
 import { formatSettingsDate } from "@/lib/dates";
+import { useCachedResource, cacheKeys, fetchSettings } from "@functions";
 import type { SettingsDateField } from "@/lib/dates";
 import type { SettingsDTO } from "@/lib/api";
 
 // tournament info page
 type TournamentSettings = Partial<SettingsDTO> & { enrollDate?: Date | null };
 
-export default function Tournament({ settings = {} }: { settings?: TournamentSettings }) {
+export default function Tournament({ settings: initialSettings = {} }: { settings?: TournamentSettings }) {
 
-  const compData = settings;
+  // Server data for first paint, then the cache entry — a settings save in
+  // another tab drops the key and the host and date below re-read it.
+  const compData: TournamentSettings = useCachedResource(
+    cacheKeys.settings,
+    fetchSettings,
+    initialSettings,
+  );
 
   // Dates are shown on the competition's clock (Pacific), not the reader's.
   const dateToStr = (field: SettingsDateField, date: Date | null | undefined) =>

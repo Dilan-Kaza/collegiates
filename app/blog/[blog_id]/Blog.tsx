@@ -2,7 +2,7 @@
 
 import { MtHeader, BlogList } from "@components";
 import { Link, useParams } from "@/routerCompat";
-import { useCachedResource, cacheKeys, fetchBlogPostById } from "@functions";
+import { useCachedResource, cacheKeys, fetchBlogPostById, fetchBlogPosts } from "@functions";
 import type { BlogDTO } from "@/lib/api";
 // public blog post view
 
@@ -18,7 +18,7 @@ function renderContent(content: string) {
 
 export default function Blog({
     post: initialPost = null,
-    posts = [],
+    posts: initialPosts = [],
 }: {
     post?: BlogDTO | null;
     posts?: BlogDTO[];
@@ -33,6 +33,10 @@ export default function Blog({
         () => fetchBlogPostById(blog_id ?? ""),
         initialPost,
     );
+
+    // The sidebar list follows the shared `blogPosts` entry, which the same save drops —
+    // a retitled post is relabelled here too, not just in the body above.
+    const posts = useCachedResource(cacheKeys.blogPosts, fetchBlogPosts, initialPosts);
 
     const category = post?.category ?? null;
     const categoryPath = category === "Multimedia" ? "/multimedia" : "/news";

@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { MtHeader, LogoutButton, AllAroundStatus } from "@components";
 import { useNavigate } from "@/routerCompat";
-import { useCachedResource, fetchMe, cacheKeys } from "@functions";
+import { useCachedResource, fetchMe, fetchSettings, fetchRegistrations, cacheKeys } from "@functions";
 import type { SettingsDTO, CompetitorDTO } from "@/lib/api";
 import { studentTypeLabel } from "@/lib/api";
 // Pricing lives in lib/fees so the organizer payments screen bills identically.
@@ -21,7 +21,7 @@ function registrationStarted(settings: Partial<SettingsDTO>): boolean {
 // First-load data arrives as props from the server, so this renders populated
 // with no client fetch. Publish state is read off settings.order_public.
 export default function Dashboard ({
-    settings = {},
+    settings: initialSettings = {},
     userinfo = null,
 }: {
     settings?: Partial<SettingsDTO>;
@@ -34,18 +34,31 @@ export default function Dashboard ({
     // clears `currentUser` is re-read here instead of showing a stale copy.
     const me = useCachedResource(cacheKeys.currentUser, fetchMe, userinfo);
 
-    // The group set now loads bundled with the current user (like registrations).
+    // Same binding for the fee schedule: an organizer editing settings in another tab drops
+    // this key, and the "Total Owed" figure below re-prices rather than staying stale.
+    const settings = useCachedResource(cacheKeys.settings, fetchSettings, initialSettings);
+
+    // The registered-event list has its own entry as well as travelling inside `currentUser`.
+    // Both are dropped together on every path that changes them (see Register.tsx), so this
+    // reads the dedicated key and `me` is left to the profile fields.
+    const registrations = useCachedResource(
+        cacheKeys.registrations,
+        fetchRegistrations,
+        userinfo?.registrations ?? [],
+    );
+
+    // The group set loads bundled with the current user.
     const myTeam = me?.groupset ?? undefined;
 
     // The team competition is entered by registering for the groupset event, so join/create
     // only appears once that registration exists. An existing team still shows regardless.
-    const inGroupsetEvent = (me?.registrations ?? []).some((reg) => reg.event_category === "G");
+    const inGroupsetEvent = registrations.some((reg) => reg.event_category === "G");
 
     // `null` = nothing owed, a CostSummary = show the total. Derived during
     // render, so the figure is on screen at first paint.
     const cost = useMemo(
-        () => computeTotalOwed(me?.registrations, settings as SettingsDTO, myTeam?.date_created),
-        [me?.registrations, settings, myTeam?.date_created],
+        () => computeTotalOwed(registrations, settings as SettingsDTO, myTeam?.date_created),
+        [registrations, settings, myTeam?.date_created],
     );
 
     // Whether the event order is published lives on settings (order_public); the
@@ -81,10 +94,10 @@ export default function Dashboard ({
                     </div>
                 </div>
                 <div className="p-1 content-center flex flex-col items-center gap-2 w-full">
-                    {(me?.registrations?.length ?? 0) > 0 ? (
+                    {registrations.length > 0 ? (
                         <div className="space-y-2 flex flex-col items-center w-full">
                             <div className="text-lg font-semibold mb-2">Registered Events</div>
-                            {me?.registrations?.map((reg, i) => (
+                            {registrations.map((reg, i) => (
                                 <div key={i} className="border border-gray-200 rounded-lg px-4 py-2 text-sm w-full text-center">
                                     <div className="font-medium">{reg.event_name}</div>
                                     {reg.nandu_str && <div className="text-gray-500">Nandu: {reg.nandu_str}</div>}
@@ -114,7 +127,7 @@ export default function Dashboard ({
                 {/* Scored over the events actually registered, so it reads as a
                     standing rather than the running count the picker shows. */}
                 <AllAroundStatus
-                    events={me?.registrations ?? []}
+                    events={registrations}
                     studentType={me?.student_type}
                     skillLevel={me?.skill_level}
                     className="col-span-2 cg-list-row mt-4"

@@ -1,14 +1,8 @@
 import Tournament from "./Tournament";
 import { getSettings } from "@functions/data";
-import CacheSeed from "@functions/CacheSeed";
-import { cacheKeys } from "@functions/cacheKeys";
 
 export default async function Page() {
   const settings = await getSettings();
-  return (
-    <>
-      <CacheSeed entries={{ [cacheKeys.settings]: settings }} />
-      <Tournament settings={settings ?? {}} />
-    </>
-  );
+  // <Tournament> binds settings to its cache entry, which is what seeds it.
+  return <Tournament settings={settings ?? {}} />;
 }

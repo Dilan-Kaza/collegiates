@@ -5,7 +5,7 @@ import { setErrorMsg, setSuccessMsg } from "@slices";
 import { saveSettings } from "@functions/actions";
 import { errorMessage, runAction } from "@functions/actionErrors";
 import { clearSessionCache } from "@functions/sessionCache";
-import { cacheKeys } from "@functions";
+import { cacheKeys, useCachedResource, fetchSettings } from "@functions";
 import { useNavigate } from "@/routerCompat";
 import { useState } from "react";
 import { useAppDispatch } from "@/store/hooks";
@@ -59,16 +59,24 @@ const num = (value: string): number | undefined => (value.trim() === "" ? undefi
 const numOrNull = (value: string): number | null => (value.trim() === "" ? null : Number(value));
 const textOrNull = (value: string): string | null => (value.trim() === "" ? null : value);
 
-export default function OrganizerSettings({ settings = {} }: { settings?: Partial<SettingsDTO> }) {
+export default function OrganizerSettings({
+    settings: initialSettings = {},
+}: {
+    settings?: Partial<SettingsDTO>;
+}) {
 
     // Access is gated server-side by the page (requireOrganizer), so there is no
     // client-side redirect here.
     const nav = useNavigate();
     const dispatch = useAppDispatch();
 
+    // Bound like every other cached payload. Only the read-only host fields below follow it —
+    // the form is a one-time copy, see the note on the state.
+    const settings = useCachedResource(cacheKeys.settings, fetchSettings, initialSettings);
+
     // Seeded once, from the settings this page was rendered with. Re-syncing from the `settings`
     // prop reset the form on every RSC render, discarding whatever the organizer had typed.
-    const [form, setForm] = useState<SettingsForm>(() => formFrom(settings));
+    const [form, setForm] = useState<SettingsForm>(() => formFrom(initialSettings));
     const [loading, setLoading] = useState(false);
 
     const handleChange = (key: EditableField, value: string) => {

@@ -7,6 +7,7 @@ import { useState } from "react";
 import {
     useCachedResource,
     cacheKeys,
+    fetchSettings,
     fetchOrganizerRegistrations,
     fetchOrganizerGroupsets,
     fetchOrganizerOrder,
@@ -20,7 +21,7 @@ import type { SettingsDTO, OrganizerRegistrationDTO, OrganizerGroupsetDTO, Order
 // Every panel's data arrives from the server, which also gates to organizers,
 // so this renders fully populated with no client fetch.
 export default function Organizer({
-    settings = {},
+    settings: initialSettings = {},
     registrations: initialRegistrations = [],
     groupsets: initialGroupsets = [],
     order: initialOrder = null,
@@ -35,6 +36,7 @@ export default function Organizer({
 
     // Each panel renders the server's copy first, then follows its cache entry — so an edit made
     // on any other organizer page drops the matching key and these re-read it.
+    const settings = useCachedResource(cacheKeys.settings, fetchSettings, initialSettings);
     const registrations = useCachedResource(
         cacheKeys.organizerRegistrations,
         fetchOrganizerRegistrations,

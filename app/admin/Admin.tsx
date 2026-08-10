@@ -5,6 +5,7 @@ import { MtHeader, ShortAnswer, DatePicker, Dropdown, LogoutButton } from "@comp
 import { createSettings, createSchoolAccount } from "@functions/actions";
 import { errorMessage, runAction } from "@functions/actionErrors";
 import { setErrorMsg, setSuccessMsg } from "@slices";
+import { useCachedResource, cacheKeys, fetchColleges } from "@functions";
 import { useAppDispatch } from "@/store/hooks";
 // admin console: create new competition settings and school accounts.
 // Access is enforced server-side (requireAdmin on the page + both actions).
@@ -12,13 +13,17 @@ import { useAppDispatch } from "@/store/hooks";
 type Form = Record<string, string>;
 
 export default function Admin({
-  colleges = {},
+  colleges: initialColleges = {},
   schools = {},
 }: {
   colleges?: Record<string, string>;
   schools?: Record<string, string>;
 }) {
   const dispatch = useAppDispatch();
+
+  // The new school account's college picker, bound to the shared `colleges` entry.
+  // `schools` stays a plain prop — nothing else reads it and nothing invalidates it.
+  const colleges = useCachedResource(cacheKeys.colleges, fetchColleges, initialColleges);
 
   const [school, setSchool] = useState<Form>({});
   const [settings, setSettings] = useState<Form>({});

@@ -7,7 +7,7 @@ import { Link } from "@/routerCompat";
 import { saveCompetitorProfile } from "@functions/actions";
 import { runAction } from "@functions/actionErrors";
 import { clearSessionCache } from "@functions/sessionCache";
-import { cacheKeys } from "@functions";
+import { cacheKeys, useCachedResource, fetchColleges } from "@functions";
 import { useNavigate } from "@/routerCompat";
 import { useAppDispatch } from "@/store/hooks";
 import { setSuccessMsg } from "@slices";
@@ -24,6 +24,11 @@ export interface ProfileInitial {
   student_type: string;
   skill_level: string;
 }
+
+// The college dropdown's trailing "Other" choice, for a competitor whose university is not
+// on the list yet. It is a UI-only value: nothing is seeded for it, and the profile saves
+// with no school (school_id null) until the organizer adds the university for real.
+const OTHER_SCHOOL = "other";
 
 // Level and class are self-reported but bind the competitor all tournament, so each field
 // states its rule and links to the source in a new tab (the rest of the form is unsaved).
@@ -45,7 +50,7 @@ function RuleHint({ section, children }: { section: string; children: ReactNode 
 }
 
 export default function ProfileSetup({
-  colleges = {},
+  colleges: initialColleges = {},
   initial,
 }: {
   colleges?: Record<string, string>;
@@ -53,6 +58,13 @@ export default function ProfileSetup({
 }) {
   const nav = useNavigate();
   const dispatch = useAppDispatch();
+
+  // The school dropdown's options, bound to the shared `colleges` entry so this
+  // reads the same list every other screen with a college picker does.
+  const colleges = useCachedResource(cacheKeys.colleges, fetchColleges, initialColleges);
+  // "Other" trails the list: the spread keeps the cached entry itself untouched, so every
+  // other college picker still offers real schools only.
+  const collegeOptions = { ...colleges, Other: OTHER_SCHOOL };
 
   const [formData, setFormData] = useState<Record<string, string>>(initial ? { ...initial } : {});
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -83,7 +95,8 @@ export default function ProfileSetup({
       const { error: fieldErrors } = await runAction(
         () => saveCompetitorProfile({
           skill_level: formData.skill_level,
-          school: formData.school,
+          // "Other" is not a college id — it goes down as no school at all.
+          school: formData.school === OTHER_SCHOOL ? "" : formData.school,
           gender: formData.gender,
           student_type: formData.student_type,
         }),
@@ -147,7 +160,27 @@ export default function ProfileSetup({
                   <Field {...fieldProps} as={Dropdown} name="gender" label="Gender*" options={GENDER_CHOICES} labelClass="min-w-[11rem] sm:min-w-0" errorClass="mt-1" required />
                 </div>
               </div>
-              <Field {...fieldProps} as={Dropdown} name="school" label="College*" options={colleges} required />
+              <div className="flex flex-col gap-2">
+                <Field {...fieldProps} as={Dropdown} name="school" label="College*" options={collegeOptions} required />
+                {/* Saving with "Other" leaves the profile without a school, so say what
+                    it takes to get one — same box style as the level restrictions. */}
+                {formData.school === OTHER_SCHOOL && (
+                  <p className="rounded-md border border-primary/20 bg-primary/5 px-2 py-1.5 text-xs leading-snug text-gray-700">
+                    Your university is not on the list yet. Email the tournament organizer to have
+                    it added, then come back and select it here — until then your profile is saved
+                    without a school.{" "}
+                    <Link
+                      to="/contact"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      prefetch={false}
+                      className="whitespace-nowrap text-primary underline hover:opacity-70"
+                    >
+                      Contact the organizer
+                    </Link>
+                  </p>
+                )}
+              </div>
               <div className="flex flex-col gap-2">
                 <Field {...fieldProps} as={Dropdown} name="student_type" label="Class Eligibility*" options={STUDENT_TYPE_CHOICES} required />
                 <RuleHint section="eligibility">

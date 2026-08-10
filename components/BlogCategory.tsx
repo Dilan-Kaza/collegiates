@@ -1,9 +1,20 @@
 "use client";
 
 import { MtHeader, BlogList } from "@components";
+import { useCachedResource, cacheKeys, fetchBlogPosts } from "@functions";
 import type { BlogDTO } from "@/lib/api";
 
-export default function BlogCategory({ category, posts = [] }: { category: string; posts?: BlogDTO[] }) {
+export default function BlogCategory({
+    category,
+    posts: initialPosts = [],
+}: {
+    category: string;
+    posts?: BlogDTO[];
+}) {
+    // Server data for first paint, then the cache entry — the organizer's editor
+    // drops this key on save, so a published edit shows without a full reload.
+    const posts = useCachedResource(cacheKeys.blogPosts, fetchBlogPosts, initialPosts);
+
     return (
         <>
             <div className="hidden md:block"><MtHeader /></div>

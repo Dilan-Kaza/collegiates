@@ -2,8 +2,6 @@ import Registrations from "./Registrations";
 import { getOrganizerRegistrations, getOrganizerEvents } from "@functions/actions";
 import { getColleges, getSettings } from "@functions/data";
 import { requireOrganizer } from "@/lib/auth";
-import CacheSeed from "@functions/CacheSeed";
-import { cacheKeys } from "@functions/cacheKeys";
 
 export default async function Page() {
   // Gate to organizers, then resolve on the server: registrations, the event catalogue, colleges
@@ -15,17 +13,13 @@ export default async function Page() {
     getColleges(),
     getSettings(),
   ]);
+  // No seeding here: <Registrations> binds all four to their cache entries.
   return (
-    <>
-      {/* The list and the catalogue are seeded by <Registrations>' own bindings;
-          `colleges` and `settings` have no client fetcher, so they stay seed-only. */}
-      <CacheSeed entries={{ [cacheKeys.colleges]: colleges, [cacheKeys.settings]: settings }} />
-      <Registrations
-        registrations={registrations}
-        allEvents={allEvents}
-        colleges={colleges}
-        settings={settings ?? {}}
-      />
-    </>
+    <Registrations
+      registrations={registrations}
+      allEvents={allEvents}
+      colleges={colleges}
+      settings={settings ?? {}}
+    />
   );
 }

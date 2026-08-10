@@ -3,16 +3,24 @@
 
 export { loginAction, logoutAction, verifySession } from "./auth";
 export type { SignedInUser } from "./auth";
+<<<<<<< Updated upstream
 export { checkEmail, registerUser, saveCompetitorProfile, getMe, updateMe, deleteMe, activate, resendActivation } from "./account";
 export { requestPasswordReset, resetPassword } from "./password-reset";
 export { changePassword, requestEmailChange, confirmEmailChange } from "./profile-security";
+=======
+export {
+  checkEmail, registerUser, saveCompetitorProfile, getMe, updateMe, deleteMe, activate,
+  getSharedColleges,
+} from "./account";
+>>>>>>> Stashed changes
 export {
   getCompetitorEvents, getRegistrations, createRegistrations,
   getMyGroupset, createGroupset, getJoinableGroupsets, joinGroupset,
 } from "./competitor";
-export { saveSettings, getOrganizerEvents } from "./organizer-settings";
+export { saveSettings, getOrganizerEvents, getSharedSettings } from "./organizer-settings";
 export {
-  getOrganizerBlogPosts, getBlogPostById, createBlogPost, updateBlogPost, deleteBlogPost,
+  getOrganizerBlogPosts, getBlogPostById, getSharedBlogPosts,
+  createBlogPost, updateBlogPost, deleteBlogPost,
 } from "./blog";
 export {
   getOrganizerRegistrations, getOrganizerRegistration,

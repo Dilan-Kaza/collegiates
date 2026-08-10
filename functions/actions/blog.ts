@@ -5,6 +5,7 @@
 import { unstable_cache, updateTag } from "next/cache";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { getBlogPosts } from "@functions/data";
 import { shapeBlog, shapeBlogListItem } from "@/lib/api";
 import type { BlogDTO } from "@/lib/api";
 import { READ_CACHE_TTL, organizerGate, reBlog, actionError } from "./shared";
@@ -37,6 +38,14 @@ export async function getBlogPostById(blogId: string): Promise<BlogDTO | null> {
     { tags: ["blog", `blog-${blogId}`], revalidate: READ_CACHE_TTL },
   )();
   return post ? reBlog(post) : null;
+}
+
+// The public post list, client-callable. data.ts's copy is `server-only` and reaches the browser
+// only as props, so a component that binds the `blogPosts` cache entry needs this to refill it
+// after an editor save drops the key. Same Data Cache entry, so a refetch hits it unless a write
+// invalidated the "blog" tag.
+export async function getSharedBlogPosts(): Promise<BlogDTO[]> {
+  return getBlogPosts();
 }
 
 export async function createBlogPost(body: BlogBody): Promise<Mutation<BlogDTO>> {

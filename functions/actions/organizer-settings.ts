@@ -1,14 +1,17 @@
 "use server";
 
-// Organizer server actions for competition settings and the event catalogue.
+// Server actions for competition settings and the event catalogue. The write and the catalogue
+// read are organizer-gated; the settings read below is not — it is the same public payload the
+// home and tournament pages already render.
 
 import { unstable_cache, updateTag } from "next/cache";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { loadSettings } from "@/lib/settings";
 import { isAdmin } from "@/lib/auth";
+import { getSettings } from "@functions/data";
 import { shapeEvent } from "@/lib/api";
-import type { EventDTO } from "@/lib/api";
+import type { EventDTO, SettingsDTO } from "@/lib/api";
 import {
   READ_CACHE_TTL, TAG_EVENTS, organizerGate, settingsWritable, settingsDateErrors, actionError,
 } from "./shared";
@@ -62,6 +65,14 @@ export async function saveSettings(body: SettingsBody): Promise<Mutation<null>> 
   } catch (err) {
     return { error: actionError("saveSettings", err, "Could not save the settings.") };
   }
+}
+
+// The competition settings, client-callable. data.ts's copy is `server-only` and reaches the
+// browser only as props, so a component that binds the `settings` cache entry needs this to
+// refill it after a save drops the key. Ungated for the same reason the home page is: this DTO
+// is already serialized to anonymous visitors. Shares the "settings" Data Cache entry.
+export async function getSharedSettings(): Promise<SettingsDTO | null> {
+  return getSettings();
 }
 
 export async function getOrganizerEvents(): Promise<EventDTO[]> {

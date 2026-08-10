@@ -10,6 +10,10 @@ import {
   getMyGroupset,
   getJoinableGroupsets,
   getBlogPostById,
+  getPublicOrder,
+  getSharedSettings,
+  getSharedColleges,
+  getSharedBlogPosts,
   getOrganizerBlogPosts,
   getOrganizerEvents,
   getOrganizerRegistrations,
@@ -17,11 +21,11 @@ import {
   getOrganizerGroupsets,
   getOrganizerGroupset,
   getOrganizerOrder,
-  getPublicOrder,
 } from "@functions/actions";
 import type {
   CompetitorDTO,
   EventDTO,
+  SettingsDTO,
   RegistrationDTO,
   GroupsetDTO,
   BlogDTO,
@@ -87,6 +91,19 @@ export function useCachedResource<T>(key: string, fetcher: () => Promise<T>, ini
 
   return cached ?? initial;
 }
+
+// ---------- shared across routes ----------
+
+// `null` (no settings row yet) is normalized to {} so this matches the
+// Partial<SettingsDTO> every page already passes its client component.
+export const fetchSettings = (): Promise<Partial<SettingsDTO>> =>
+  cached(cacheKeys.settings, async () => (await getSharedSettings()) ?? {});
+
+export const fetchColleges = (): Promise<Record<string, string>> =>
+  cached(cacheKeys.colleges, getSharedColleges);
+
+export const fetchBlogPosts = (): Promise<BlogDTO[]> =>
+  cached(cacheKeys.blogPosts, getSharedBlogPosts);
 
 // ---------- competitor / public ----------
 

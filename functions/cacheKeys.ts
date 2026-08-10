@@ -1,6 +1,18 @@
 // Single source of truth for session-cache keys, so a seed, a fetch, and an
 // invalidation can't drift. Directive-free so server components can import it.
 
+// Every key below is wired the same way, and a new one is only added with all three parts in
+// place: a fetcher in cachedFetchers.ts, and at least one component binding it with
+// useCachedResource(key, fetcher, initial) — which is what seeds the entry from the server's
+// props, reads it, and refills it after a mutation calls clearSessionCache. Nothing seeds an
+// entry except a binding, so a key nothing binds is never written and clearing it does nothing.
+//
+// One exception, `organizerRegistration` below: it has a fetcher and is cleared on save, but no
+// component binds it, because there is no per-athlete view to bind it in — the edit and payments
+// screens both work off the `organizerRegistrations` list and own their in-progress edits as
+// local state. Its clears are no-ops. Wire it up if a single-athlete route ever lands; drop it
+// with fetchOrganizerRegistration and those clears if one never does.
+
 // The filter fields getOrganizerRegistrations accepts, in a fixed order. The order is the point:
 // JSON.stringify follows insertion order, so { paid, school } and { school, paid } keyed twice.
 const ORGANIZER_REG_FILTERS = ["paid", "proof_of_reg", "is_competing", "school"] as const;

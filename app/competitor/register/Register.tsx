@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useNavigate } from "@/routerCompat";
 import { createRegistrations } from "@functions/actions";
 import { errorMessage, runAction } from "@functions/actionErrors";
-import { useCachedResource, fetchCompetitorEvents, fetchMe, cacheKeys } from "@functions";
+import { useCachedResource, fetchCompetitorEvents, fetchMe, fetchSettings, cacheKeys } from "@functions";
 import { clearSessionCache } from "@functions/sessionCache";
 import { useAppDispatch } from "@/store/hooks";
 import { setErrorMsg, setSuccessMsg } from "@slices";
@@ -16,7 +16,7 @@ import type { RegEventItem } from "@/types";
 // `catalogEvents` (what this competitor is eligible for) arrives from the server.
 // Auth and the "already registered" redirect happen on the page before this.
 export default function Register({
-    settings = {},
+    settings: initialSettings = {},
     catalogEvents = [],
     userinfo = null,
 }: {
@@ -27,6 +27,10 @@ export default function Register({
 
     const nav = useNavigate();
     const dispatch = useAppDispatch();
+
+    // The fee schedule this flow prices against — bound like the two below, so an
+    // organizer's mid-session change to the cost fields is picked up.
+    const settings = useCachedResource(cacheKeys.settings, fetchSettings, initialSettings);
 
     // Class and skill level decide whether an All-Around title is in reach, so both steps below
     // need the profile. Cache-bound like the catalogue: /competitor/profile clears it on save.

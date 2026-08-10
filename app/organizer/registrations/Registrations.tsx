@@ -12,6 +12,8 @@ import { useState } from "react";
 import {
     useCachedResource,
     cacheKeys,
+    fetchColleges,
+    fetchSettings,
     fetchOrganizerRegistrations,
     fetchOrganizerEvents,
 } from "@functions";
@@ -22,8 +24,8 @@ import type { OrganizerRegistrationDTO, EventDTO, SettingsDTO } from "@/lib/api"
 export default function Registrations({
     registrations: initialRegistrations = [],
     allEvents: initialEvents = [],
-    colleges = {},
-    settings = {},
+    colleges: initialColleges = {},
+    settings: initialSettings = {},
 }: {
     registrations?: OrganizerRegistrationDTO[];
     allEvents?: EventDTO[];
@@ -45,6 +47,10 @@ export default function Registrations({
         fetchOrganizerEvents,
         initialEvents,
     );
+    // The school dropdown in the edit view and the fee schedule Payments prices
+    // against, on the same shared entries every other screen reads them from.
+    const colleges = useCachedResource(cacheKeys.colleges, fetchColleges, initialColleges);
+    const settings = useCachedResource(cacheKeys.settings, fetchSettings, initialSettings);
     const [view, setView] = useState("athlete");
     // Athlete handed off from the By Athlete list so the edit view opens
     // pre-loaded; null when the organizer opens Create / Edit fresh.

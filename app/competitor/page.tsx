@@ -3,8 +3,6 @@ import Dashboard from "./Dashboard";
 import { getSettings } from "@functions/data";
 import { getMe } from "@functions/actions";
 import { requireCompetitor } from "@/lib/auth";
-import CacheSeed from "@functions/CacheSeed";
-import { cacheKeys } from "@functions/cacheKeys";
 // dashboard page (server component)
 
 export default async function Page() {
@@ -24,11 +22,7 @@ export default async function Page() {
   }
 
   const userinfo = await getMe();
-  return (
-    <>
-      {/* `settings` has no client fetcher, so it stays a seed-only entry. */}
-      <CacheSeed entries={{ [cacheKeys.settings]: settings }} />
-      <Dashboard settings={settings ?? {}} userinfo={userinfo} />
-    </>
-  );
+  // No seeding here: <Dashboard> binds settings, the current user, and the
+  // registration list to their cache entries, which is what seeds them.
+  return <Dashboard settings={settings ?? {}} userinfo={userinfo} />;
 }

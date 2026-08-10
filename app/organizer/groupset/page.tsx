@@ -8,6 +8,6 @@ export default async function Page() {
   // options on the server — independent reads, so they go out together.
   await requireOrganizer();
   const [groupsets, colleges] = await Promise.all([getOrganizerGroupsets(), getColleges()]);
-  // No CacheSeed: GroupsetPage binds this list to its cache entry itself.
+  // The list and the college options are seeded by <GroupsetPage>'s own cache bindings.
   return <GroupsetPage groupsets={groupsets} colleges={colleges} />;
 }

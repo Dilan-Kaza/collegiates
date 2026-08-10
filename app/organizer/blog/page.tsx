@@ -6,6 +6,6 @@ export default async function Page() {
   // Gate to organizers and resolve the post list on the server.
   await requireOrganizer();
   const posts = await getOrganizerBlogPosts();
-  // No CacheSeed: BlogManager binds this list to its cache entry itself.
+  // The list is seeded by <BlogManager>'s own cache binding.
   return <BlogManager posts={posts} />;
 }
