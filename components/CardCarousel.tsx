@@ -4,13 +4,26 @@ import { useState, useRef, useEffect } from "react";
 import type { ReactNode } from "react";
 
 export interface CarouselCard {
+  // Stable slug a deep link can name (see `initialId`). Optional so callers
+  // that only ever open on the first card don't have to invent one.
+  id?: string;
   title: string;
   content: ReactNode;
 }
 
-export default function CardCarousel({ cards }: { cards: CarouselCard[] }) {
-  const [current, setCurrent] = useState(0);
+// `initialId` opens the carousel on the card with that `id`, so pages can link straight to one
+// rule. An id matching nothing (a stale or hand-typed link) falls back to the first card.
+export default function CardCarousel({ cards, initialId }: { cards: CarouselCard[]; initialId?: string }) {
+  const linkedIndex = initialId ? cards.findIndex((c) => c.id === initialId) : -1;
+
+  const [current, setCurrent] = useState(linkedIndex >= 0 ? linkedIndex : 0);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // A link to a different section while this page is already open changes the
+  // prop, not the mounted component, so the initial state above never re-runs.
+  useEffect(() => {
+    if (linkedIndex >= 0) setCurrent(linkedIndex);
+  }, [linkedIndex]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = 0;

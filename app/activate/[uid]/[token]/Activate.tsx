@@ -2,12 +2,11 @@
 
 import { MtHeader, AuthPanel } from "@components";
 import { useState, useEffect } from "react";
-import { useNavigate } from "@/routerCompat";
+import { Link } from "@/routerCompat";
 import { activate } from "@functions/actions";
 // email confirmation — runs the activation on mount, then reports the outcome
 
 export default function Activate({ uid, token }: { uid: string; token: string }) {
-  const nav = useNavigate();
   const [status, setStatus] = useState("loading"); // loading | success | error
 
   useEffect(() => {
@@ -19,10 +18,6 @@ export default function Activate({ uid, token }: { uid: string; token: string })
   return (
     <>
       <div className="hidden sm:block"><MtHeader /></div>
-      <div
-        id="bg-component"
-        className="bg-secondary h-screen w-full skew-y-6 absolute -top-[50svh] left-0 -z-20"
-      />
       <AuthPanel
         bottomLabel="Back to "
         bottomLink="Sign In"
@@ -36,9 +31,9 @@ export default function Activate({ uid, token }: { uid: string; token: string })
             <div className="text-center text-primary font-medium">
               Your email has been confirmed! You can now sign in.
             </div>
-            <button type="button" className="btn btn-primary" onClick={() => nav("/signin")}>
+            <Link to="/signin" className="btn btn-primary">
               Sign In
-            </button>
+            </Link>
           </div>
         )}
         {status === "error" && (

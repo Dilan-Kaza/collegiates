@@ -2,5 +2,23 @@
 __pycache__
 .next
 node_modules
-migrations
 docker-compose.yaml
+
+# build artifacts
+*.tsbuildinfo
+next-env.d.ts
+/out
+/build
+.vercel
+
+# os / editor
+.DS_Store
+*.pem
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local scratch scripts
+_e2e_seed.mjs

@@ -3,30 +3,27 @@
 import { useState } from "react";
 import { MtHeader, ShortAnswer, DatePicker, Dropdown, LogoutButton } from "@components";
 import { createSettings, createSchoolAccount } from "@functions/actions";
+import { errorMessage, runAction } from "@functions/actionErrors";
 import { setErrorMsg, setSuccessMsg } from "@slices";
+import { useCachedResource, cacheKeys, fetchColleges } from "@functions";
 import { useAppDispatch } from "@/store/hooks";
 // admin console: create new competition settings and school accounts.
 // Access is enforced server-side (requireAdmin on the page + both actions).
 
 type Form = Record<string, string>;
 
-// Surfaces a { error: FieldErrors } result: prefer a general `detail`, else the
-// first field message. Returns true when an error was shown.
-function showError(dispatch: ReturnType<typeof useAppDispatch>, error?: Record<string, string>): boolean {
-  if (!error) return false;
-  const msg = error.detail ?? Object.values(error)[0] ?? "Something went wrong.";
-  dispatch(setErrorMsg(msg));
-  return true;
-}
-
 export default function Admin({
-  colleges = {},
+  colleges: initialColleges = {},
   schools = {},
 }: {
   colleges?: Record<string, string>;
   schools?: Record<string, string>;
 }) {
   const dispatch = useAppDispatch();
+
+  // The new school account's college picker, bound to the shared `colleges` entry.
+  // `schools` stays a plain prop — nothing else reads it and nothing invalidates it.
+  const colleges = useCachedResource(cacheKeys.colleges, fetchColleges, initialColleges);
 
   const [school, setSchool] = useState<Form>({});
   const [settings, setSettings] = useState<Form>({});
@@ -38,42 +35,61 @@ export default function Admin({
 
   const submitSchool = async () => {
     setSavingSchool(true);
-    const { error } = await createSchoolAccount({
-      email: school.email,
-      first_name: school.first_name,
-      last_name: school.last_name,
-      college: school.college,
-    });
-    if (!showError(dispatch, error)) {
+    const fallback = "Could not set up the school account.";
+    try {
+      const { error } = await runAction(
+        () => createSchoolAccount({
+          email: school.email,
+          first_name: school.first_name,
+          last_name: school.last_name,
+          college: school.college,
+        }),
+        fallback,
+      );
+      if (error) {
+        dispatch(setErrorMsg(errorMessage(error, fallback)));
+        return;
+      }
       dispatch(setSuccessMsg(`School account set up for ${school.email}.`));
       setSchool({});
+    } finally {
+      setSavingSchool(false);
     }
-    setSavingSchool(false);
   };
 
   const submitSettings = async () => {
     setSavingSettings(true);
     const num = (v: string | undefined) => (v ? Number(v) : undefined);
-    const { error } = await createSettings({
-      reg_year: num(settings.reg_year),
-      reg_start: settings.reg_start || undefined,
-      reg_end: settings.reg_end || undefined,
-      early_reg_start: settings.early_reg_start || null,
-      reg_cost_first: num(settings.reg_cost_first),
-      reg_cost_extra: num(settings.reg_cost_extra),
-      early_reg_cost_first: settings.early_reg_cost_first ? Number(settings.early_reg_cost_first) : null,
-      early_reg_cost_extra: settings.early_reg_cost_extra ? Number(settings.early_reg_cost_extra) : null,
-      due_date: settings.due_date || null,
-      comp_date: settings.comp_date || null,
-      contact_email: settings.contact_email,
-      host: settings.host,
-      order_public: settings.order_public === "true",
-    });
-    if (!showError(dispatch, error)) {
+    const fallback = "Could not create the settings.";
+    try {
+      const { error } = await runAction(
+        () => createSettings({
+          reg_year: num(settings.reg_year),
+          reg_start: settings.reg_start || undefined,
+          reg_end: settings.reg_end || undefined,
+          early_reg_start: settings.early_reg_start || null,
+          reg_cost_base: num(settings.reg_cost_base),
+          reg_cost_event: num(settings.reg_cost_event),
+          early_reg_cost_base: settings.early_reg_cost_base ? Number(settings.early_reg_cost_base) : null,
+          early_reg_cost_event: settings.early_reg_cost_event ? Number(settings.early_reg_cost_event) : null,
+          due_date: settings.due_date || null,
+          comp_date: settings.comp_date || null,
+          contact_email: settings.contact_email,
+          scoring_url: settings.scoring_url || null,
+          host: settings.host,
+          order_public: settings.order_public === "true",
+        }),
+        fallback,
+      );
+      if (error) {
+        dispatch(setErrorMsg(errorMessage(error, fallback)));
+        return;
+      }
       dispatch(setSuccessMsg(`Settings created for ${settings.reg_year}.`));
       setSettings({});
+    } finally {
+      setSavingSettings(false);
     }
-    setSavingSettings(false);
   };
 
   return (
@@ -115,11 +131,12 @@ export default function Admin({
             <DatePicker label="Early registration start (optional)" value={settings.early_reg_start ?? ""} onChange={(e) => settingsChange("early_reg_start", e.target.value)} />
             <DatePicker label="Payment & proof of enrollment due (optional)" value={settings.due_date ?? ""} onChange={(e) => settingsChange("due_date", e.target.value)} />
             <DatePicker label="Competition date (optional)" value={settings.comp_date ?? ""} onChange={(e) => settingsChange("comp_date", e.target.value)} />
-            <ShortAnswer label="First-event cost" type="number" value={settings.reg_cost_first ?? ""} onChange={(e) => settingsChange("reg_cost_first", e.target.value)} />
-            <ShortAnswer label="Extra-event cost" type="number" value={settings.reg_cost_extra ?? ""} onChange={(e) => settingsChange("reg_cost_extra", e.target.value)} />
-            <ShortAnswer label="Early first-event cost (optional)" type="number" value={settings.early_reg_cost_first ?? ""} onChange={(e) => settingsChange("early_reg_cost_first", e.target.value)} />
-            <ShortAnswer label="Early extra-event cost (optional)" type="number" value={settings.early_reg_cost_extra ?? ""} onChange={(e) => settingsChange("early_reg_cost_extra", e.target.value)} />
+            <ShortAnswer label="Base cost" type="number" value={settings.reg_cost_base ?? ""} onChange={(e) => settingsChange("reg_cost_base", e.target.value)} />
+            <ShortAnswer label="Per-event cost" type="number" value={settings.reg_cost_event ?? ""} onChange={(e) => settingsChange("reg_cost_event", e.target.value)} />
+            <ShortAnswer label="Early base cost (optional)" type="number" value={settings.early_reg_cost_base ?? ""} onChange={(e) => settingsChange("early_reg_cost_base", e.target.value)} />
+            <ShortAnswer label="Early per-event cost (optional)" type="number" value={settings.early_reg_cost_event ?? ""} onChange={(e) => settingsChange("early_reg_cost_event", e.target.value)} />
             <ShortAnswer label="Contact email" type="email" value={settings.contact_email ?? ""} onChange={(e) => settingsChange("contact_email", e.target.value)} />
+            <ShortAnswer label="Scoring link (optional)" type="url" value={settings.scoring_url ?? ""} onChange={(e) => settingsChange("scoring_url", e.target.value)} />
             <Dropdown label="Publish event order" options={{ No: "false", Yes: "true" }} value={settings.order_public ?? "false"} onChange={(e) => settingsChange("order_public", e.target.value)} />
           </div>
           <div className="flex justify-end">

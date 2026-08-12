@@ -2,9 +2,12 @@
 // cache tags, helpers. Deliberately not "use server" — that only allows actions.
 
 import { updateTag } from "next/cache";
+import { Prisma } from "@prisma/client";
 import { getCurrentUser, canAccessOrganizer, isAdmin, isCompetitor } from "@/lib/auth";
+import { parseSettingsDate } from "@/lib/dates";
+import type { Cell } from "@/lib/sheetGrid";
 import type { CurrentUser } from "@/lib/auth";
-import type { User, Prisma } from "@prisma/client";
+import type { User } from "@prisma/client";
 import type {
   CompetitorDTO, RegistrationDTO, BlogDTO,
   GroupsetDTO, OrganizerGroupsetDTO, OrganizerRegistrationDTO,
@@ -15,12 +18,53 @@ import type {
 export type FieldErrors = Record<string, string>;
 export type Mutation<T> = { data: T; error?: undefined } | { data?: undefined; error: FieldErrors };
 
+// ---------- failure handling ----------
+
+// A mutation that throws is useless to the client: Next replaces the message with an opaque digest
+// and the caller's `await` rejects instead of yielding { error }. So each mutation catches.
+
+// Prisma failures a correct caller can still plausibly hit — a race against the pre-check, a row
+// deleted in another tab. Anything not listed is a bug or an outage: generic message, logged.
+const PRISMA_MESSAGES: Record<string, string> = {
+  P2002: "That value is already taken.",
+  P2003: "That change conflicts with a related record.",
+  P2025: "That record no longer exists — it may have been changed elsewhere.",
+};
+
+// redirect() and notFound() are signalled by throwing; those must keep
+// propagating rather than being reported to the user as a failed save.
+function isNextControlFlow(err: unknown): boolean {
+  const digest = (err as { digest?: unknown } | null)?.digest;
+  return typeof digest === "string" && (digest === "NEXT_NOT_FOUND" || digest.startsWith("NEXT_REDIRECT"));
+}
+
+// Maps a thrown error to the FieldErrors a mutation returns. `where` identifies
+// the action in the server log; the client only ever sees the mapped message.
+export function actionError(
+  where: string,
+  err: unknown,
+  fallback = "Something went wrong. Please try again.",
+): FieldErrors {
+  if (isNextControlFlow(err)) throw err;
+  console.error(`[action:${where}]`, err);
+  if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    const message = PRISMA_MESSAGES[err.code];
+    if (message) return { detail: message };
+  }
+  if (err instanceof Prisma.PrismaClientValidationError) {
+    return { detail: "The submitted data was not valid." };
+  }
+  return { detail: fallback };
+}
+
+// Read actions are deliberately NOT wrapped: they return [] / null for a denied read, so catching a
+// database failure into that would render an empty dashboard. A throw reaches app/error.tsx.
+
 // Sign-up only creates the account; the competitor profile is filled in
 // afterward via createCompetitorProfile — see CompetitorProfileBody.
 export interface RegisterBody {
   email?: string;
   password?: string;
-  re_password?: string;
   first_name?: string;
   last_name?: string;
 }
@@ -45,15 +89,16 @@ export interface UpdateMeBody {
 export interface SettingsBody {
   reg_year?: number;
   early_reg_start?: string | null;
-  early_reg_cost_first?: number | null;
-  early_reg_cost_extra?: number | null;
+  early_reg_cost_base?: number | null;
+  early_reg_cost_event?: number | null;
   reg_start?: string;
   reg_end?: string;
-  reg_cost_first?: number;
-  reg_cost_extra?: number;
+  reg_cost_base?: number;
+  reg_cost_event?: number;
   due_date?: string | null;
   comp_date?: string | null;
   contact_email?: string;
+  scoring_url?: string | null;
   host?: string;
   order_public?: boolean;
 }
@@ -75,7 +120,9 @@ export interface CreateSchoolAccountBody {
 }
 
 export interface OrganizerRegFilters {
-  has_paid?: boolean;
+  // true keeps competitors who have paid something, false those who have paid
+  // nothing at all — amt_paid is an amount, but this filter is still a yes/no.
+  paid?: boolean;
   proof_of_reg?: boolean;
   is_competing?: boolean;
   school?: string;
@@ -88,7 +135,9 @@ export interface RegistrationInputItem {
 
 export interface UpdateOrganizerRegBody {
   registration_input?: RegistrationInputItem[];
-  has_paid?: boolean;
+  // Whole dollars received in total, not a delta — the organizer types the
+  // figure they have on record and it replaces whatever was there.
+  amt_paid?: number;
   proof_of_reg?: boolean;
   is_competing?: boolean;
   // Profile edits from the registrations view. Unlike the competitor-facing
@@ -99,11 +148,14 @@ export interface UpdateOrganizerRegBody {
   skill_level?: string;
 }
 
+// `override` confirms a save the member rules warned about. Without it, a roster that breaks an
+// eligibility rule comes back under `confirm` — see memberProblems in organizer-groupsets.ts.
 export interface CreateOrganizerGroupsetBody {
   team_name: string;
   school: string;
   leader?: string;
   members?: string[];
+  override?: boolean;
 }
 
 export interface UpdateOrganizerGroupsetBody {
@@ -111,6 +163,7 @@ export interface UpdateOrganizerGroupsetBody {
   school?: string;
   leader?: string;
   members?: string[];
+  override?: boolean;
 }
 
 // Event-order write payload. A ring item is either an event (event_id +
@@ -135,6 +188,17 @@ export interface OrderBody {
   ring1?: EventOrderInput[];
   ring2?: EventOrderInput[];
   ring3?: EventOrderInput[];
+}
+
+// Google Sheets export for both the event order and the scoring sheets: the browser sends finished
+// cells, so the action re-derives nothing. Still validated at the boundary — see cleanTabs in ./order.
+export interface SheetTabInput {
+  title?: string;
+  rows?: Cell[][];
+}
+
+export interface SheetExportBody {
+  tabs?: SheetTabInput[];
 }
 
 // ---------- session-tied user-data cache ----------
@@ -189,6 +253,16 @@ export const reOrganizerRegistration = (u: OrganizerRegistrationDTO): OrganizerR
 // those redirect, these return an { error } an action can hand back to the form.
 export type OrganizerGate = { user: User; error?: undefined } | { user?: undefined; error: FieldErrors };
 
+// ---------- email links ----------
+
+// Base URL for links embedded in transactional email (activation, password
+// reset). Must be set to the deployed origin, e.g. https://collegiates.example.com.
+export function appUrl(): string {
+  const url = process.env.NEXT_PUBLIC_APP_URL;
+  if (!url) throw new Error("NEXT_PUBLIC_APP_URL is not set.");
+  return url.replace(/\/$/, "");
+}
+
 export async function organizerGate(): Promise<OrganizerGate> {
   const user = await getCurrentUser();
   if (!user) return { error: { detail: "Not authenticated." } };
@@ -220,21 +294,40 @@ export async function competitorGate(): Promise<CompetitorGate> {
   return { user };
 }
 
-// Writable Settings columns from a request body, shared by the organizer save
-// and admin create paths. Optional fields -> null, required missing -> undefined.
+// parseSettingsDate maps an unparseable day to null, which settingsWritable then treats as "not
+// supplied" — so check the supplied ones up front and report them on their own fields.
+const SETTINGS_DATE_FIELDS = [
+  "early_reg_start", "reg_start", "reg_end", "due_date", "comp_date",
+] as const;
+
+export function settingsDateErrors(body: SettingsBody): FieldErrors | null {
+  const errors: FieldErrors = {};
+  for (const field of SETTINGS_DATE_FIELDS) {
+    const value = body[field];
+    // Absent or explicitly cleared is fine; only a non-empty unparseable value
+    // is an error.
+    if (value == null || value === "") continue;
+    if (parseSettingsDate(field, value) === null) errors[field] = "Enter a valid date.";
+  }
+  return Object.keys(errors).length ? errors : null;
+}
+
+// Writable Settings columns from a request body, shared by the organizer save and admin create.
+// Dates arrive as yyyy-mm-dd and are Pacific-anchored — a bare new Date() would land a day early.
 export function settingsWritable(body: SettingsBody): Prisma.SettingsUncheckedUpdateInput {
   return {
     reg_year: body.reg_year,
-    early_reg_start: body.early_reg_start ? new Date(body.early_reg_start) : null,
-    early_reg_cost_first: body.early_reg_cost_first ?? null,
-    early_reg_cost_extra: body.early_reg_cost_extra ?? null,
-    reg_start: body.reg_start ? new Date(body.reg_start) : undefined,
-    reg_end: body.reg_end ? new Date(body.reg_end) : undefined,
-    reg_cost_first: body.reg_cost_first,
-    reg_cost_extra: body.reg_cost_extra,
-    due_date: body.due_date ? new Date(body.due_date) : null,
-    comp_date: body.comp_date ? new Date(body.comp_date) : null,
+    early_reg_start: parseSettingsDate("early_reg_start", body.early_reg_start),
+    early_reg_cost_base: body.early_reg_cost_base ?? null,
+    early_reg_cost_event: body.early_reg_cost_event ?? null,
+    reg_start: parseSettingsDate("reg_start", body.reg_start) ?? undefined,
+    reg_end: parseSettingsDate("reg_end", body.reg_end) ?? undefined,
+    reg_cost_base: body.reg_cost_base,
+    reg_cost_event: body.reg_cost_event,
+    due_date: parseSettingsDate("due_date", body.due_date),
+    comp_date: parseSettingsDate("comp_date", body.comp_date),
     contact_email: body.contact_email,
+    scoring_url: body.scoring_url,
     order_public: body.order_public,
   };
 }

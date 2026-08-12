@@ -1,11 +1,9 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { Session } from "next-auth";
 import { verifySession } from "@functions/actions";
-import { clearAllSessionCache, getSessionCache } from "@functions/sessionCache";
-import { cacheKeys } from "@functions/cacheKeys";
 
 // Server-seeded replacement for next-auth/react's SessionProvider: the root
 // layout passes auth()'s result in, so no client /api/auth/session fetch runs.
@@ -29,12 +27,14 @@ export function SessionProvider({
   session: Session | null;
   children: ReactNode;
 }) {
-  const value: SessionValue = {
-    data: session,
-    status: session ? "authenticated" : "unauthenticated",
-  };
+  // Memoized on `session`: a fresh object re-renders every useSession() consumer — the nav bar,
+  // the dock, the forward hooks — on every render of this provider, which sits at the root.
+  const value = useMemo<SessionValue>(
+    () => ({ data: session, status: session ? "authenticated" : "unauthenticated" }),
+    [session],
+  );
 
-  useSessionCacheReconciler(value.status);
+  useSessionRevalidator(value.status);
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }
@@ -43,24 +43,13 @@ export function SessionProvider({
 // server-side user-data cache uses.
 const SESSION_RECHECK_MS = 60_000;
 
-// Drops the per-tab sessionStorage that makes the client act "logged in" once the
-// server disagrees. See the two divergence cases handled in the effects below.
-function useSessionCacheReconciler(status: SessionStatus) {
+// The JWT can expire mid-session, so re-verify on focus and re-render the tree as signed out once
+// the server disagrees. Throttled because alt-tab fires `focus` and `visibilitychange` together.
+function useSessionRevalidator(status: SessionStatus) {
   const router = useRouter();
   const lastChecked = useRef(0);
   const inFlight = useRef(false);
 
-  // Case 1 — server says unauthenticated but stale signed-in data lingers. Gated
-  // on the currentUser marker so an anonymous visitor's public cache is untouched.
-  useEffect(() => {
-    if (status !== "unauthenticated") return;
-    if (getSessionCache(cacheKeys.currentUser) !== undefined) {
-      clearAllSessionCache();
-    }
-  }, [status]);
-
-  // Case 2 — the JWT may have expired mid-session; re-verify on focus. Throttled
-  // because alt-tab fires `focus` and `visibilitychange` together.
   useEffect(() => {
     if (status !== "authenticated") return;
     let cancelled = false;
@@ -71,24 +60,30 @@ function useSessionCacheReconciler(status: SessionStatus) {
       inFlight.current = true;
       try {
         const { authenticated } = await verifySession();
-        lastChecked.current = Date.now();
         if (cancelled || authenticated) return;
-        clearAllSessionCache();
         router.refresh();
+      } catch (err) {
+        // A failed check means "couldn't tell", not "signed out", so the session is left alone.
+        // Caught rather than left to reject: as event listeners, a rejection escapes unhandled.
+        console.error("[verifySession]", err);
       } finally {
+        // Stamped whatever the outcome. Advancing it only on success meant a failing check never
+        // armed the throttle, so every later tab switch fired another request — indefinitely.
+        lastChecked.current = Date.now();
         inFlight.current = false;
       }
     };
 
+    const onFocus = () => void revalidate();
     const onVisibility = () => {
-      if (document.visibilityState === "visible") revalidate();
+      if (document.visibilityState === "visible") void revalidate();
     };
 
-    window.addEventListener("focus", revalidate);
+    window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
       cancelled = true;
-      window.removeEventListener("focus", revalidate);
+      window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [status, router]);

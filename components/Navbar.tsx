@@ -1,22 +1,20 @@
 "use client";
 
 import Image from "next/image";
-import { Link, useNavigate } from "@/routerCompat";
+import { Link } from "@/routerCompat";
 import { useSession } from "@functions/sessionContext";
 
 const tabs = ["Tournament", "Rules", "About", "News", "Multimedia"];
 
-// `firstName` is resolved on the server by the root layout and passed in, so the
-// signed-in user's name renders immediately with no client fetch.
-function NavBar({ firstName = "" }: { firstName?: string }) {
+// `firstName` and `liveScores` are resolved by the root layout on the server, so both render
+// with no client fetch. Live is listed first, and only when the viewer can actually open it.
+function NavBar({ firstName = "", liveScores = false }: { firstName?: string; liveScores?: boolean }) {
 
   const { data: session } = useSession();
   const username = firstName;
   const userType = session?.user?.user_type;
   const accountHref =
-    userType === "Admin" ? "/admin" : userType === "School" ? "/organizer" : "/dashboard";
-
-  const nav = useNavigate();
+    userType === "Admin" ? "/admin" : userType === "School" ? "/organizer" : "/competitor";
 
   return (
     <div className="fixed w-[70%] top-4 left-[15%] p-4 bg-primary text-off-white rounded-lg px-12 z-100">
@@ -35,15 +33,18 @@ function NavBar({ firstName = "" }: { firstName?: string }) {
                     priority
                     className="h-10 w-auto rounded-lg"
                   /></Link>
-          {tabs.map((tab) => (
+          {(liveScores ? ["Live", ...tabs] : tabs).map((tab) => (
             <Link to={`/${tab.toLowerCase().replace(/\s/g, "")}`} key={tab}>
               {tab}
             </Link>
           ))}
         </div>
+        {/* Links, not buttons: an `href` is what lets Next prefetch the destination
+            before the click, and it restores middle-click / open-in-new-tab. The
+            click itself still routes through NavigationProvider — see routerCompat. */}
         {username ?
-          <button className="btn btn-outline [--btn-color:var(--color-off-white)]" onClick={()=>nav(accountHref)}>{username}</button> :
-          <button className="btn btn-outline [--btn-color:var(--color-off-white)]" onClick={()=>nav("/signin")}>Sign In</button>
+          <Link to={accountHref} className="btn btn-outline [--btn-color:var(--color-off-white)]">{username}</Link> :
+          <Link to="/signin" className="btn btn-outline [--btn-color:var(--color-off-white)]">Sign In</Link>
         }
       </div>
     </div>

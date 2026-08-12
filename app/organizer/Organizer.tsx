@@ -4,17 +4,28 @@ import { MtHeader, GroupsetList, OrganizerBlogList, OrganizerRegistrationList, L
 import { StillView } from "@components/event-builder";
 import { Link } from "@/routerCompat";
 import { useState } from "react";
+import {
+    useCachedResource,
+    cacheKeys,
+    fetchSettings,
+    fetchOrganizerRegistrations,
+    fetchOrganizerGroupsets,
+    fetchOrganizerOrder,
+    fetchOrganizerBlogPosts,
+} from "@functions";
+import { formatSettingsDate } from "@/lib/dates";
+import type { SettingsDateField } from "@/lib/dates";
 import type { SettingsDTO, OrganizerRegistrationDTO, OrganizerGroupsetDTO, OrderDTO, BlogDTO } from "@/lib/api";
 // organizer dashboard
 
 // Every panel's data arrives from the server, which also gates to organizers,
 // so this renders fully populated with no client fetch.
 export default function Organizer({
-    settings = {},
-    registrations = [],
-    groupsets = [],
-    order = null,
-    blogPosts = [],
+    settings: initialSettings = {},
+    registrations: initialRegistrations = [],
+    groupsets: initialGroupsets = [],
+    order: initialOrder = null,
+    blogPosts: initialBlogPosts = [],
 }: {
     settings?: Partial<SettingsDTO>;
     registrations?: OrganizerRegistrationDTO[];
@@ -23,32 +34,58 @@ export default function Organizer({
     blogPosts?: BlogDTO[];
 }) {
 
+    // Each panel renders the server's copy first, then follows its cache entry — so an edit made
+    // on any other organizer page drops the matching key and these re-read it.
+    const settings = useCachedResource(cacheKeys.settings, fetchSettings, initialSettings);
+    const registrations = useCachedResource(
+        cacheKeys.organizerRegistrations,
+        fetchOrganizerRegistrations,
+        initialRegistrations,
+    );
+    const groupsets = useCachedResource(
+        cacheKeys.organizerGroupsets,
+        fetchOrganizerGroupsets,
+        initialGroupsets,
+    );
+    const order = useCachedResource(cacheKeys.organizerOrder, fetchOrganizerOrder, initialOrder);
+    const blogPosts = useCachedResource(
+        cacheKeys.organizerBlogPosts,
+        fetchOrganizerBlogPosts,
+        initialBlogPosts,
+    );
+
     const [registrationsOpen, setRegistrationsOpen] = useState(true);
     const [groupsetsOpen, setGroupsetsOpen] = useState(true);
     const [blogOpen, setBlogOpen] = useState(true);
     const [orderOpen, setOrderOpen] = useState(true);
 
     const dateFields = new Set(["early_reg_start", "reg_start", "reg_end", "due_date", "comp_date"]);
-    const costFields = new Set(["early_reg_cost_first", "early_reg_cost_extra", "reg_cost_first", "reg_cost_extra"]);
+    const costFields = new Set(["early_reg_cost_base", "early_reg_cost_event", "reg_cost_base", "reg_cost_event"]);
     const labels: Record<string, string> = {
         reg_year: "Year",
         early_reg_start: "Early Reg Opens",
-        early_reg_cost_first: "Early Reg Cost (1st Event)",
-        early_reg_cost_extra: "Early Reg Cost (Extra)",
+        early_reg_cost_base: "Early Reg Cost (Base)",
+        early_reg_cost_event: "Early Reg Cost (Per Event)",
         reg_start: "Reg Opens",
         reg_end: "Reg Deadline",
-        reg_cost_first: "Reg Cost (1st Event)",
-        reg_cost_extra: "Reg Cost (Extra)",
+        reg_cost_base: "Reg Cost (Base)",
+        reg_cost_event: "Reg Cost (Per Event)",
         due_date: "Payment & Enrollment Proof Due",
         comp_date: "Competition Date",
         contact_email: "Contact Email",
+        scoring_url: "Scoring Link",
         host: "Host",
     };
 
     const formatValue = (key: string, value: unknown): string => {
         if (value === null || value === undefined) return "—";
         if (dateFields.has(key)) {
-            return (value as Date).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+            return formatSettingsDate(
+                key as SettingsDateField,
+                value as Date,
+                { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' },
+                "—",
+            );
         }
         if (costFields.has(key)) {
             return `$${String(value)}`;

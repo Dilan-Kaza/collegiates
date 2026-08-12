@@ -1,7 +1,8 @@
 "use client";
 
-import { getSessionCache, setSessionCache } from "@functions/sessionCache";
-import { cacheKeys } from "@functions/cacheKeys";
+import { useEffect, useRef } from "react";
+import { getSessionCache, setSessionCache, useSessionCache } from "@functions/sessionCache";
+import { cacheKeys, organizerRegistrationsKey } from "@functions/cacheKeys";
 import {
   getMe,
   getCompetitorEvents,
@@ -9,6 +10,10 @@ import {
   getMyGroupset,
   getJoinableGroupsets,
   getBlogPostById,
+  getPublicOrder,
+  getSharedSettings,
+  getSharedColleges,
+  getSharedBlogPosts,
   getOrganizerBlogPosts,
   getOrganizerEvents,
   getOrganizerRegistrations,
@@ -16,11 +21,11 @@ import {
   getOrganizerGroupsets,
   getOrganizerGroupset,
   getOrganizerOrder,
-  getPublicOrder,
 } from "@functions/actions";
 import type {
   CompetitorDTO,
   EventDTO,
+  SettingsDTO,
   RegistrationDTO,
   GroupsetDTO,
   BlogDTO,
@@ -39,6 +44,66 @@ async function cached<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
   setSessionCache(key, data);
   return data;
 }
+
+// ---------- the read path components actually use ----------
+
+// Binds a server-rendered value to its cache entry: `initial` is first paint, and the fetcher only
+// runs once a mutation drops the key. Returns superjson's round-trip, so identity changes once.
+export function useCachedResource<T>(key: string, fetcher: () => Promise<T>, initial: T): T {
+  const cached = useSessionCache<T>(key);
+
+  // Latest-ref so a call site can pass an inline arrow (the uuid-parameterized
+  // fetchers all do) without its identity re-arming the refetch effect below.
+  const fetcherRef = useRef(fetcher);
+  fetcherRef.current = fetcher;
+
+  // Compared by identity, not value: a new object means the server sent a new payload for this
+  // route, and the server's copy always wins over what an earlier visit left in sessionStorage.
+  const seededFrom = useRef<T | undefined>(undefined);
+
+  useEffect(() => {
+    if (seededFrom.current === initial) return;
+    seededFrom.current = initial;
+    setSessionCache(key, initial);
+  }, [key, initial]);
+
+  useEffect(() => {
+    // Before the first seed there is nothing to refill — `undefined` here just
+    // means the effect above has not run yet, not that a mutation cleared it.
+    if (cached !== undefined || seededFrom.current === undefined) return;
+    let cancelled = false;
+    fetcherRef
+      .current()
+      // Stored as null rather than undefined: an undefined entry reads back as a
+      // miss, which would re-arm this effect and refetch forever.
+      .then((data) => {
+        if (!cancelled) setSessionCache(key, (data ?? null) as T);
+      })
+      .catch((err) => {
+        // Leave the key empty and fall back to `initial` — a failed refresh
+        // shows slightly stale data rather than blanking the view.
+        console.error(`[useCachedResource:${key}]`, err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [cached, key]);
+
+  return cached ?? initial;
+}
+
+// ---------- shared across routes ----------
+
+// `null` (no settings row yet) is normalized to {} so this matches the
+// Partial<SettingsDTO> every page already passes its client component.
+export const fetchSettings = (): Promise<Partial<SettingsDTO>> =>
+  cached(cacheKeys.settings, async () => (await getSharedSettings()) ?? {});
+
+export const fetchColleges = (): Promise<Record<string, string>> =>
+  cached(cacheKeys.colleges, getSharedColleges);
+
+export const fetchBlogPosts = (): Promise<BlogDTO[]> =>
+  cached(cacheKeys.blogPosts, getSharedBlogPosts);
 
 // ---------- competitor / public ----------
 
@@ -75,13 +140,8 @@ export const fetchOrganizerEvents = (): Promise<EventDTO[]> =>
 // key; a filtered query is a different result set, so it derives its own key.
 export const fetchOrganizerRegistrations = (
   filters?: Parameters<typeof getOrganizerRegistrations>[0],
-): Promise<OrganizerRegistrationDTO[]> => {
-  const hasFilters = filters && Object.keys(filters).length > 0;
-  const key = hasFilters
-    ? `${cacheKeys.organizerRegistrations}_${JSON.stringify(filters)}`
-    : cacheKeys.organizerRegistrations;
-  return cached(key, () => getOrganizerRegistrations(filters));
-};
+): Promise<OrganizerRegistrationDTO[]> =>
+  cached(organizerRegistrationsKey(filters), () => getOrganizerRegistrations(filters));
 
 export const fetchOrganizerRegistration = (
   uuid: string,

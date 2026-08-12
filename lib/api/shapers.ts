@@ -13,6 +13,7 @@ import type {
   EventOrderDTO,
   OrderDTO,
   CompetitorDTO,
+  TeamRefDTO,
 } from "./dto";
 import type {
   SettingsWithHost,
@@ -37,6 +38,7 @@ export const shapeEvent = (e: Event): EventDTO => ({
   gender_category: fromGender(e.gender_category),
   weapon_type: fromWeaponType(e.weapon_type),
   is_nandu: e.is_nandu,
+  is_cq_nq: e.is_cq_nq,
 });
 
 export const shapeBlog = (b: Blog): BlogDTO => ({
@@ -69,15 +71,16 @@ export function shapeSettings(s: SettingsWithHost | null): SettingsDTO | null {
     s && {
       reg_year: s.reg_year,
       early_reg_start: s.early_reg_start,
-      early_reg_cost_first: s.early_reg_cost_first,
-      early_reg_cost_extra: s.early_reg_cost_extra,
+      early_reg_cost_base: s.early_reg_cost_base,
+      early_reg_cost_event: s.early_reg_cost_event,
       reg_start: s.reg_start,
       reg_end: s.reg_end,
-      reg_cost_first: s.reg_cost_first,
-      reg_cost_extra: s.reg_cost_extra,
+      reg_cost_base: s.reg_cost_base,
+      reg_cost_event: s.reg_cost_event,
       due_date: s.due_date,
       comp_date: s.comp_date,
       contact_email: s.contact_email,
+      scoring_url: s.scoring_url,
       host: s.host?.email ?? null,
       host_school: s.host?.college_profile?.college?.college_name ?? null,
       reg_open: regOpen(s),
@@ -95,6 +98,9 @@ export function shapeRegistration(reg: RegistrationWithEvent): RegistrationDTO {
     event_code: reg.event.event_code,
     event_name: reg.event.event_name,
     event_level: fromSkillLevel(reg.event.event_level),
+    event_category: fromEventCategory(reg.event.event_category),
+    weapon_type: fromWeaponType(reg.event.weapon_type),
+    is_cq_nq: reg.event.is_cq_nq,
     is_nandu: reg.event.is_nandu,
   };
   if (reg.event.is_nandu) out.nandu_str = reg.nandu_str;
@@ -103,6 +109,19 @@ export function shapeRegistration(reg: RegistrationWithEvent): RegistrationDTO {
 
 const memberName = (u: { first_name: string; last_name: string }): string =>
   `${u.first_name} ${u.last_name}`;
+
+// A competitor's team for one competition year. Memberships accumulate across years and the year
+// lives on the Groupset, so it is matched here; without one, the most recent team is the guess.
+type MembershipRows = { groupset: { groupset_id: string; team_name: string; comp_year: number } }[];
+
+function teamForYear(memberships: MembershipRows | undefined, year: number | undefined): TeamRefDTO | null {
+  const rows = memberships ?? [];
+  const row =
+    year === undefined
+      ? [...rows].sort((a, b) => b.groupset.comp_year - a.groupset.comp_year)[0]
+      : rows.find((m) => m.groupset.comp_year === year);
+  return row ? { groupset_id: row.groupset.groupset_id, team_name: row.groupset.team_name } : null;
+}
 
 // GroupsetSerializer: members/school rendered as strings. `gs.members` is
 // expected to include the related `member` user.
@@ -132,9 +151,12 @@ export function shapeOrganizerGroupset(gs: GroupsetWithMembers): OrganizerGroups
   };
 }
 
-// OrganizerRegistrationSerializer. `user.registration` should be pre-filtered to
-// the current comp_year and include the related event.
-export function shapeOrganizerRegistration(user: UserWithProfileAndRegistration): OrganizerRegistrationDTO {
+// OrganizerRegistrationSerializer. `user.registration` should be pre-filtered to the current
+// comp_year with its event included; `year` picks the competitor's team out of their memberships.
+export function shapeOrganizerRegistration(
+  user: UserWithProfileAndRegistration,
+  year?: number,
+): OrganizerRegistrationDTO {
   const profile = user.competitor_profile;
   return {
     user_id: user.user_id,
@@ -147,13 +169,14 @@ export function shapeOrganizerRegistration(user: UserWithProfileAndRegistration)
     student_type: fromStudentType(profile?.student_type),
     registration: (profile?.registration ?? []).map(shapeRegistration),
     is_competing: profile?.is_competing ?? false,
-    has_paid: profile?.has_paid ?? false,
+    amt_paid: profile?.amt_paid ?? 0,
     proof_of_reg: profile?.proof_of_reg ?? false,
+    team: teamForYear(profile?.groupset_member, year),
   };
 }
 
-// EventOrderSerializer.to_representation: competitor_list rendered as
-// {id, name, order} rows sorted by order.
+// EventOrderSerializer.to_representation: competitor_list as {id, name, order, team} sorted by
+// order. The slot's own comp_year picks each team, so a past year's order keeps that year's.
 export function shapeEventOrder(eo: EventOrderWithCompetitors): EventOrderDTO {
   return {
     id: eo.id,
@@ -163,24 +186,30 @@ export function shapeEventOrder(eo: EventOrderWithCompetitors): EventOrderDTO {
     name: eo.name,
     competitor_list: [...eo.competitor_orders]
       .sort((a, b) => a.order - b.order)
-      .map((co) => ({ id: co.competitor_id, name: memberName(co.competitor.user), order: co.order })),
+      .map((co) => ({
+        id: co.competitor_id,
+        name: memberName(co.competitor.user),
+        order: co.order,
+        team: teamForYear(co.competitor.groupset_member, eo.comp_year),
+      })),
     order: eo.order,
+    event_category: fromEventCategory(eo.event?.event_category),
   };
 }
 
-// OrderSerializer: one Ring row per ring_number, shaped into the three DTO
-// fields the client expects. A ring never created (or emptied) shapes to [].
-export function shapeOrder(o: OrderWithRings): OrderDTO {
+// OrderSerializer: one Ring row per ring_number, shaped into the three DTO fields ([] when never
+// created). Rings hang off Settings, so `comp_year` is its reg_year and `created_at` stands in.
+export function shapeOrder(s: OrderWithRings): OrderDTO {
   const ring = (n: number): EventOrderDTO[] =>
-    (o.rings.find((r) => r.ring_number === n)?.event_orders ?? [])
+    (s.rings.find((r) => r.ring_number === n)?.event_orders ?? [])
       .map(shapeEventOrder)
       .sort((a, b) => a.order - b.order);
   return {
-    comp_year: o.comp_year,
+    comp_year: s.reg_year,
     ring1: ring(1),
     ring2: ring(2),
     ring3: ring(3),
-    updated_at: o.updated_at,
+    updated_at: s.order_updated_at ?? s.created_at,
   };
 }
 

@@ -22,6 +22,9 @@ const validate = (name: string, value: string, formData: { password?: string } =
       if (!value) return "Password is required";
       if (value.length < 8) return "Password must be at least 8 characters";
       return "";
+    case "old_password":
+      if (!value) return "Current password is required";
+      return "";
     case "re_password":
       if (!value) return "Please confirm your password";
       if (value !== formData.password) return "Passwords do not match";
@@ -42,7 +45,7 @@ const validate = (name: string, value: string, formData: { password?: string } =
       if (!value) return "Please select a gender";
       return "";
     case "student_type":
-      if (!value) return "Please select a student type";
+      if (!value) return "Please select a class eligibility";
       return "";
     default:
       return "";

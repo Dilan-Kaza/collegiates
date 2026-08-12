@@ -6,9 +6,8 @@ import { usePathname, useParams as useNextParams } from "next/navigation";
 import type { ComponentProps, MouseEvent } from "react";
 import { useNavigateContext } from "@components/NavigationProvider";
 
-// react-router's useNavigate() returns a function: nav("/path") or nav(-1).
-// Backed by NavigationProvider, which runs the navigation inside a transition
-// and shows the global loading overlay while the server produces the next page.
+// react-router's useNavigate(): nav("/path") or nav(-1). Backed by NavigationProvider, which
+// runs the navigation in a transition and shows the global loading overlay.
 export function useNavigate() {
   return useNavigateContext();
 }
@@ -24,12 +23,8 @@ export const useParams = useNextParams;
 
 type LinkProps = Omit<ComponentProps<typeof NextLink>, "href"> & { to: string };
 
-// react-router's <Link to="/x"> -> next/link's <Link href="/x">.
-// A plain left-click is routed through NavigationProvider's transition (so the
-// loading overlay shows while the server produces the page) instead of Link's
-// own navigation. Modifier clicks, middle-clicks and target="_blank" fall
-// through to the browser's default so open-in-new-tab still works, and NextLink
-// keeps prefetching the route either way.
+// react-router's <Link to="/x"> -> next/link's <Link href="/x">. Left-clicks route through
+// NavigationProvider's transition; modifier/middle clicks and target="_blank" fall through.
 export function Link({ to, replace, onClick, ...props }: LinkProps) {
   const navigate = useNavigateContext();
 

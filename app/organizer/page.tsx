@@ -7,8 +7,6 @@ import {
   getOrganizerBlogPosts,
 } from "@functions/actions";
 import { requireOrganizer } from "@/lib/auth";
-import CacheSeed from "@functions/CacheSeed";
-import { cacheKeys } from "@functions/cacheKeys";
 
 export default async function Page() {
   // Gate to organizers and resolve every panel's data on the server so the
@@ -21,24 +19,14 @@ export default async function Page() {
     getOrganizerOrder(),
     getOrganizerBlogPosts(),
   ]);
+  // No seeding here: every panel's payload is seeded by its own binding in <Organizer>.
   return (
-    <>
-      <CacheSeed
-        entries={{
-          [cacheKeys.settings]: settings,
-          [cacheKeys.organizerRegistrations]: registrations,
-          [cacheKeys.organizerGroupsets]: groupsets,
-          [cacheKeys.organizerOrder]: order,
-          [cacheKeys.organizerBlogPosts]: blogPosts,
-        }}
-      />
-      <Organizer
-        settings={settings ?? {}}
-        registrations={registrations}
-        groupsets={groupsets}
-        order={order}
-        blogPosts={blogPosts}
-      />
-    </>
+    <Organizer
+      settings={settings ?? {}}
+      registrations={registrations}
+      groupsets={groupsets}
+      order={order}
+      blogPosts={blogPosts}
+    />
   );
 }

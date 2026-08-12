@@ -2,8 +2,11 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 import prisma from "@/lib/prisma";
 import { shapeSettings, shapeBlog, shapeBlogListItem, shapeOrder, ORDER_INCLUDE } from "@/lib/api";
-import type { SettingsDTO, BlogDTO, OrderDTO } from "@/lib/api";
+import type { SettingsDTO, BlogDTO, OrderDTO, LiveScoresDTO } from "@/lib/api";
 import { loadSettings } from "@/lib/settings";
+import { readSheetTabs } from "@/lib/sheets";
+import { parseScoringTab } from "@/lib/liveScores";
+import { RING_KEYS, RING_LABEL, scoringTabTitle } from "@/lib/scoringLayout";
 
 // Cached public-data fetchers: Prisma direct (no HTTP) through Next's Data Cache,
 // tagged so writes invalidate them. Call from Server Components, pass as props.
@@ -54,16 +57,20 @@ export const getBlogPosts = unstable_cache(
   { tags: ["blog"], revalidate: 3600 }
 );
 
-// The saved order for a competition year, via the Data Cache. Pure, year-keyed
-// data — auth and public/organizer gating are the caller's responsibility.
-export async function getOrderByYear(year: number): Promise<OrderDTO | null> {
+// The cache tag for one settings row's order, so the read below and saveOrder's
+// invalidation cannot drift apart.
+export const orderTag = (settingsId: string): string => `order-${settingsId}`;
+
+// The saved order for a competition year, via the Data Cache. Pure and settings-keyed — gating is
+// the caller's job. The order lives on Settings; `order_updated_at` null means "never saved".
+export async function getOrderForSettings(settingsId: string): Promise<OrderDTO | null> {
   const order = await unstable_cache(
     async (): Promise<OrderDTO | null> => {
-      const o = await prisma.order.findUnique({ where: { comp_year: year }, include: ORDER_INCLUDE });
-      return o ? shapeOrder(o) : null;
+      const s = await prisma.settings.findUnique({ where: { id: settingsId }, include: ORDER_INCLUDE });
+      return s?.order_updated_at ? shapeOrder(s) : null;
     },
-    ["order", String(year)],
-    { tags: ["order", `order-${year}`], revalidate: 3600 }
+    ["order", settingsId],
+    { tags: ["order", orderTag(settingsId)], revalidate: 3600 }
   )();
   // Restore the Date the cache serialized to a string, matching OrderDTO.
   if (order) order.updated_at = new Date(order.updated_at);
@@ -82,4 +89,32 @@ export async function getBlogPost(blogId: string): Promise<BlogDTO | null> {
   )();
   if (post?.date_created) post.date_created = new Date(post.date_created);
   return post;
+}
+
+// The live scoring read, off the competition's Google Sheet. Cached short and shared by every
+// viewer: the service account's 60-reads-a-minute quota must not scale with the audience.
+export const LIVE_SCORES_TTL = 20; // seconds
+
+export async function getLiveScoresForSheet(
+  spreadsheetId: string,
+  year: number | null,
+): Promise<LiveScoresDTO> {
+  const scores = await unstable_cache(
+    async (): Promise<LiveScoresDTO> => {
+      // The tab names this year's export would have written. readSheetTabs skips the
+      // ones that do not exist, so a two-ring competition is not an error.
+      const titles = RING_KEYS.map((ring) => scoringTabTitle(ring, year));
+      const tabs = await readSheetTabs(spreadsheetId, titles);
+      const rings = RING_KEYS
+        .map((ring, i) => parseScoringTab(RING_LABEL[ring], tabs.get(titles[i]) ?? []))
+        // A ring with no tab, or a tab the export has not put blocks into yet, is
+        // left out rather than shown empty.
+        .filter((ring) => ring.events.length > 0);
+      return { rings, fetched_at: new Date(), detail: true };
+    },
+    ["live-scores", spreadsheetId, String(year)],
+    { tags: ["live-scores"], revalidate: LIVE_SCORES_TTL }
+  )();
+  // Restore the Date the cache serialized to a string, as the order read does.
+  return { ...scores, fetched_at: new Date(scores.fetched_at) };
 }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ReactSortable } from "react-sortablejs";
 import type { BreakItem } from "./types";
+import { newBreakId } from "./utils";
 
 const BREAK_PRESETS: BreakItem[] = [
     { id: "preset_lunch", type: "break", name: "Lunch", duration: 60 },
@@ -31,7 +32,7 @@ export default function BreakPanel() {
 
     const addBreak = () => {
         if (!breakName.trim()) return;
-        setStagedBreaks((prev) => [...prev, { id: `break_${Date.now()}`, type: "break", name: breakName.trim(), duration: Number(breakDuration) }]);
+        setStagedBreaks((prev) => [...prev, { id: newBreakId(), type: "break", name: breakName.trim(), duration: Number(breakDuration) }]);
         setBreakName("");
         setBreakDuration(60);
     };
@@ -58,7 +59,6 @@ export default function BreakPanel() {
                     setList={() => {}}
                     group={{ name: "rings", pull: "clone", put: false }}
                     sort={false}
-                    clone={(item) => ({ ...item, id: `break_${Date.now()}` })}
                     className="flex flex-col gap-1"
                 >
                     {BREAK_PRESETS.map((preset) => (

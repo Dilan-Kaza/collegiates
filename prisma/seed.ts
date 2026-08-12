@@ -28,6 +28,7 @@ async function main() {
       event_code: e.event_code,
       event_name: e.event_name,
       is_nandu: e.is_nandu,
+      is_cq_nq: e.is_cq_nq,
       event_level: skillLevelByCode[e.event_level] ?? null,
       gender_category: genderByCode[e.gender_category] ?? null,
       event_category: eventCategoryFor(e),
@@ -36,6 +37,21 @@ async function main() {
     skipDuplicates: true,
   });
   console.log(`Events: ${eventResult.count} inserted (${events.length} total).`);
+
+  // createMany skips rows that already exist, so is_cq_nq — added to Event after the catalogue was
+  // first seeded — would stay null. Set it from the seed either way. Only this column is touched.
+  const cqNqCodes = events.filter((e) => e.is_cq_nq).map((e) => e.event_code);
+  const [flagged, cleared] = await Promise.all([
+    prisma.event.updateMany({
+      where: { event_code: { in: cqNqCodes } },
+      data: { is_cq_nq: true },
+    }),
+    prisma.event.updateMany({
+      where: { event_code: { notIn: cqNqCodes } },
+      data: { is_cq_nq: false },
+    }),
+  ]);
+  console.log(`Changquan/Nanquan: ${flagged.count} flagged, ${cleared.count} cleared.`);
 }
 
 main()

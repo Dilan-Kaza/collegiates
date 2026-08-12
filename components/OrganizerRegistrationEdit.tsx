@@ -5,7 +5,9 @@ import type { ChangeEvent, FormEvent } from "react";
 import { useAppDispatch } from "@/store/hooks";
 import { setErrorMsg, setSuccessMsg } from "@slices";
 import { clearSessionCache } from "@functions/sessionCache";
+import { cacheKeys } from "@functions";
 import { findUserByEmail, updateOrganizerRegistration } from "@functions/actions";
+import { errorMessage, runAction } from "@functions/actionErrors";
 import { Dropdown } from "@components";
 import type { RegEventItem } from "@/types";
 import { GENDER_CHOICES, SKILL_LEVEL_CHOICES, STUDENT_TYPE_CHOICES } from "@/lib/api";
@@ -73,15 +75,22 @@ export default function OrganizerRegistrationEdit({
     const handleSearch = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setSearching(true);
-        const user = await findUserByEmail(email);
-        if (user) {
-            setAthlete(user);
-            setProfile(profileFrom(user));
-            setEvents(user.registration.map((r) => ({ event_code: r.event_code, nandu_str: r.nandu_str ?? "" })));
-        } else {
-            dispatch(setErrorMsg("User not found"));
+        try {
+            const user = await findUserByEmail(email);
+            if (user) {
+                setAthlete(user);
+                setProfile(profileFrom(user));
+                setEvents(user.registration.map((r) => ({ event_code: r.event_code, nandu_str: r.nandu_str ?? "" })));
+            } else {
+                dispatch(setErrorMsg("User not found"));
+            }
+        } catch (err) {
+            // A thrown lookup is not the same as "no such competitor".
+            console.error("[findUserByEmail]", err);
+            dispatch(setErrorMsg("Could not search for that user. Please try again."));
+        } finally {
+            setSearching(false);
         }
-        setSearching(false);
     };
 
     const onAdd = () => {
@@ -110,25 +119,33 @@ export default function OrganizerRegistrationEdit({
     const onSave = async () => {
         if (!athlete) return;
         setSaving(true);
-        const result = await updateOrganizerRegistration(athlete.user_id, {
-            registration_input: events.map((e) => ({ event: e.event_code, nandu_str: e.nandu_str ?? "" })),
-            gender: profile.gender,
-            skill_level: profile.skill_level,
-            student_type: profile.student_type,
-            school: profile.school,
-        });
-        setSaving(false);
-        if (result.error) {
-            dispatch(setErrorMsg(Object.values(result.error)[0] ?? "Could not save registration"));
-            return;
+        const fallback = "Could not save registration";
+        try {
+            const result = await runAction(
+                () => updateOrganizerRegistration(athlete.user_id, {
+                    registration_input: events.map((e) => ({ event: e.event_code, nandu_str: e.nandu_str ?? "" })),
+                    gender: profile.gender,
+                    skill_level: profile.skill_level,
+                    student_type: profile.student_type,
+                    school: profile.school,
+                }),
+                fallback,
+            );
+            if (result.error || !result.data) {
+                dispatch(setErrorMsg(errorMessage(result.error, fallback)));
+                return;
+            }
+            // Invalidate the cached organizer registration list so the other tabs
+            // refetch this athlete's updated registration on next view.
+            clearSessionCache(cacheKeys.organizerRegistrations);
+            clearSessionCache(cacheKeys.organizerRegistration(athlete.user_id));
+            dispatch(setSuccessMsg(`Registration saved for ${athlete.name}`));
+            setAthlete(result.data);
+            setProfile(profileFrom(result.data));
+            setEvents(result.data.registration.map((r) => ({ event_code: r.event_code, nandu_str: r.nandu_str ?? "" })));
+        } finally {
+            setSaving(false);
         }
-        // Invalidate the cached organizer registration list so the other tabs
-        // refetch this athlete's updated registration on next view.
-        clearSessionCache("organizerRegistrations");
-        dispatch(setSuccessMsg(`Registration saved for ${athlete.name}`));
-        setAthlete(result.data);
-        setProfile(profileFrom(result.data));
-        setEvents(result.data.registration.map((r) => ({ event_code: r.event_code, nandu_str: r.nandu_str ?? "" })));
     };
 
     if (!athlete) {

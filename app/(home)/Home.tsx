@@ -1,14 +1,55 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Carousel, Timeline, Heading, CWCReps, BlogPosts } from "@components";
 import { Link } from "@/routerCompat";
+import { useCachedResource, cacheKeys, fetchSettings, fetchBlogPosts } from "@functions";
 import type { SettingsDTO, BlogDTO } from "@/lib/api";
 // home landing content
 
-export default function Home({ settings = {}, posts = [] }: { settings?: Partial<SettingsDTO>; posts?: BlogDTO[] }) {
-  // TODO: make more flexible to add/remove/change images
-  const carouselImages = ["carousel/2025NQ.jpg", "carousel/2025QS.jpg", "carousel/2025GS.jpg", "carousel/2026QS.JPG"];
+// To add/remove a carousel image, drop the file in `public/carousel/` and list
+// its name here. Built once at module load rather than on every render.
+const CAROUSEL_IMAGES = [
+  "2025NQ.jpg",
+  "2025QS.jpg",
+  "2025GS.jpg",
+  "2026QS.jpg",
+  "2026DS.jpg",
+  "2026JS.jpg",
+  "2026JS2.jpg",
+  "2026ND.jpg",
+  "2026OW.jpg",
+].map((file) => `carousel/${file}`);
+
+function shuffled(imgs: readonly string[]) {
+  const out = [...imgs];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+export default function Home({
+  settings: initialSettings = {},
+  posts: initialPosts = [],
+}: {
+  settings?: Partial<SettingsDTO>;
+  posts?: BlogDTO[];
+}) {
+  // Server data for first paint, then the cache entry — an organizer's settings save or a blog
+  // edit in another tab drops these keys, and the timeline and post list re-read them.
+  const settings = useCachedResource(cacheKeys.settings, fetchSettings, initialSettings);
+  const posts = useCachedResource(cacheKeys.blogPosts, fetchBlogPosts, initialPosts);
+
+  // The first client render has to match the server HTML, so the order is
+  // scrambled right after hydration instead of during render. Same nine files
+  // either way, so the reorder costs no extra image requests.
+  const [carouselImages, setCarouselImages] = useState<string[]>(CAROUSEL_IMAGES);
+  useEffect(() => {
+    setCarouselImages(shuffled(CAROUSEL_IMAGES));
+  }, []);
 
   return (
     <>

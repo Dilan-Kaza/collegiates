@@ -13,10 +13,13 @@ export default function EventBuilder({
     registrations = [],
     order = null,
     orderPublic = false,
+    regYear = null,
 }: {
     registrations?: OrganizerRegistrationDTO[];
     order?: OrderData | null;
     orderPublic?: boolean;
+    // Passed through to label the tabs of the Google Sheets export.
+    regYear?: number | null;
 }) {
     const [tab, setTab] = useState("build");
 
@@ -33,7 +36,7 @@ export default function EventBuilder({
                     </div>
                 </div>
                 {tab === "view" && <StillView order={order} />}
-                {tab === "build" && <BuildView rawRegistrations={registrations} initialOrder={order} orderPublic={orderPublic} />}
+                {tab === "build" && <BuildView rawRegistrations={registrations} initialOrder={order} orderPublic={orderPublic} regYear={regYear} />}
                 {tab === "sheet" && <SheetView />}
             </div>
         </>

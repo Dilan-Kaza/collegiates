@@ -2,84 +2,98 @@
 
 // Auth server actions (Auth.js via the Credentials provider).
 
-import { AuthError } from "next-auth";
-import type { UserType } from "@prisma/client";
+import { CredentialsSignin } from "next-auth";
 import { signIn, signOut } from "@/auth";
 import prisma from "@/lib/prisma";
-import { canAccessOrganizer, getCurrentUser } from "@/lib/auth";
-import { loadSettings } from "@/lib/settings";
-import { revalidateUserData } from "./shared";
+import { getCurrentUser, landingRoute } from "@/lib/auth";
+import { verifyPassword } from "@/lib/password";
+import { actionError, revalidateUserData } from "./shared";
 
-// What loginAction reports about the user it just signed in: server-only facts,
-// gathered here so the sign-in page can pick a landing route. No routing here.
-export interface SignedInUser {
-  user_id: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  user_type: UserType;
-  // Whether this user may reach the organizer console (settings host or admin).
-  can_access_organizer: boolean;
-  // Profile state: absent until /profile/setup runs, re-confirmed yearly.
-  // profile_reg_year behind reg_year means setup is due.
-  has_profile: boolean;
-  profile_reg_year: number | null;
-  reg_year: number | null;
-}
-
-// Signs the user in with the Credentials provider. Sets the Auth.js session
-// cookie server-side; returns { user } or { error }.
+// Signs the user in with the Credentials provider. Sets the Auth.js session cookie server-side;
+// returns { redirectTo }, { error }, or { inactive } (correct credentials, but the account hasn't
+// clicked its activation link yet). The destination is decided here, by the same lib/auth
+// landingRoute the auth-page gate uses, so a fresh sign-in and a return visit land alike.
+//
+// The credentials are checked here (not just left to the provider) only so
+// this specific case can be told apart from a wrong password — the provider
+// itself also refuses to sign in an inactive user (see auth.ts), so this is
+// purely a messaging improvement, not the actual gate.
 export async function loginAction({
   email,
   password,
 }: {
   email: string;
   password: string;
-}): Promise<{ user?: SignedInUser; error?: string }> {
-  try {
-    await signIn("credentials", { email, password, redirect: false });
-  } catch (error) {
-    if (error instanceof AuthError) return { error: "Invalid email or password" };
-    throw error;
+}): Promise<{ redirectTo?: string; error?: string; inactive?: true }> {
+  const normalizedEmail = email.trim().toLowerCase();
+  const precheck = await prisma.user.findUnique({
+    where: { email: normalizedEmail },
+    select: { is_active: true, password: true },
+  });
+  if (precheck && !precheck.is_active && verifyPassword(password, precheck.password)) {
+    return { inactive: true };
   }
 
-  // The Credentials provider just authenticated this email, so load the row by
-  // email rather than reading back the session cookie we set moments ago.
-  const user = await prisma.user.findUnique({
-    where: { email },
-    include: { competitor_profile: true },
-  });
-  if (!user) return { error: "Invalid email or password" };
+  try {
+    await signIn("credentials", { email: normalizedEmail, password, redirect: false });
+  } catch (error) {
+    // CredentialsSignin is the *only* AuthError that means "bad credentials": Auth.js
+    // throws it when our authorize() returns null. Anything thrown inside authorize
+    // (an unreachable database) arrives as CallbackRouteError, and a bad setup as
+    // MissingSecret/UntrustedHost/AdapterError — all AuthError subclasses too, so
+    // matching the base class here would report an outage as a wrong password.
+    if (error instanceof CredentialsSignin) return { error: "Invalid email or password" };
+    return { error: actionError("loginAction", error, "Could not sign you in. Please try again.").detail };
+  }
 
-  const settings = await loadSettings();
+  try {
+    // The Credentials provider just authenticated this email, so load the row by
+    // email rather than reading back the session cookie we set moments ago.
+    // Selected down to what landingRoute reads: the success path has no need of
+    // the password hash, so it is never loaded here.
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: {
+        user_id: true,
+        user_type: true,
+        competitor_profile: { select: { last_reg_year: true } },
+      },
+    });
+    if (!user) return { error: "Invalid email or password" };
 
-  return {
-    user: {
-      user_id: user.user_id,
-      email: user.email,
-      first_name: user.first_name,
-      last_name: user.last_name,
-      user_type: user.user_type,
-      can_access_organizer: await canAccessOrganizer(user),
-      has_profile: !!user.competitor_profile,
-      profile_reg_year: user.competitor_profile?.last_reg_year ?? null,
-      reg_year: settings?.reg_year ?? null,
-    },
-  };
+    return { redirectTo: await landingRoute(user) };
+  } catch (error) {
+    // The cookie is already set at this point, so the sign-in itself succeeded;
+    // only the landing-route lookup failed. Say so rather than "invalid password".
+    return { error: actionError("loginAction", error, "Signed in, but could not load your account. Please retry.").detail };
+  }
 }
 
 // Whether the caller's session cookie is still valid server-side, so the client
 // can drop a per-tab cache that outlived a silently-expired JWT.
 export async function verifySession(): Promise<{ authenticated: boolean }> {
-  const current = await getCurrentUser();
-  return { authenticated: !!current };
+  try {
+    const current = await getCurrentUser();
+    return { authenticated: !!current };
+  } catch (error) {
+    // A failed check means "couldn't tell", not "signed out". Reporting false
+    // here would wipe the tab's cache and refresh on every transient blip.
+    console.error("[action:verifySession]", error);
+    return { authenticated: true };
+  }
 }
 
-export async function logoutAction(): Promise<{ ok: true }> {
-  // Capture the user before the session is cleared so we can drop their cached
-  // payload — the cache must not outlive the session.
-  const current = await getCurrentUser();
-  await signOut({ redirect: false });
-  if (current) revalidateUserData(current.user_id);
-  return { ok: true };
+export async function logoutAction(): Promise<{ ok: boolean; error?: string }> {
+  try {
+    // Capture the user before the session is cleared so we can drop their cached
+    // payload — the cache must not outlive the session.
+    const current = await getCurrentUser();
+    await signOut({ redirect: false });
+    if (current) revalidateUserData(current.user_id);
+    return { ok: true };
+  } catch (error) {
+    // The cookie may well still be set, so the caller must not clear its cache
+    // and present the user as signed out — report the failure instead.
+    return { ok: false, error: actionError("logoutAction", error, "Could not log you out. Please try again.").detail };
+  }
 }

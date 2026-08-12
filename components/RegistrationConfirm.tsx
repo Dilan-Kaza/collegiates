@@ -2,8 +2,10 @@
 
 import type { MouseEventHandler } from "react";
 import { useState } from "react";
+import { formatSettingsDate } from "@/lib/dates";
 import type { RegEventItem } from "@/types";
 import type { EventDTO } from "@/lib/api";
+import AllAroundStatus from "./AllAroundStatus";
 
 interface RegistrationConfirmProps {
   events: RegEventItem[];
@@ -11,24 +13,30 @@ interface RegistrationConfirmProps {
   // mount here).
   catalogEvents?: EventDTO[];
   isEarly?: boolean;
-  firstCost?: number | null;
-  extraCost?: number | null;
+  baseCost?: number | null;
+  eventCost?: number | null;
   totalCost?: number | null;
+  // Profile fields the All-Around readout is gated on, so what
+  // is being confirmed states the title this registration qualifies for.
+  studentType?: string | null;
+  skillLevel?: string | null;
   // Payment + proof-of-enrollment deadline, shown in the agreement text.
   dueDate?: Date | null;
   onBack?: MouseEventHandler<HTMLButtonElement>;
   onConfirm?: () => void | Promise<void>;
+  // Why the last confirm was rejected, shown above the buttons. The competitor
+  // stays on this screen when it is set, so the message has to be visible here.
+  error?: string;
 }
 
-export default function RegistrationConfirm({ events, catalogEvents = [], isEarly, firstCost, extraCost, totalCost, dueDate, onBack, onConfirm }: RegistrationConfirmProps) {
+export default function RegistrationConfirm({ events, catalogEvents = [], isEarly, baseCost, eventCost, totalCost, studentType, skillLevel, dueDate, onBack, onConfirm, error }: RegistrationConfirmProps) {
     const eventsFromApi = catalogEvents;
     const [submitting, setSubmitting] = useState(false);
     const [agreePayment, setAgreePayment] = useState(false);
     const [agreeEnrollment, setAgreeEnrollment] = useState(false);
 
-    const dueDateStr = dueDate
-        ? dueDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })
-        : "the posted deadline";
+    // Shown on the competition's clock (Pacific), like every other settings date.
+    const dueDateStr = formatSettingsDate("due_date", dueDate, undefined, "the posted deadline");
 
     const handleConfirm = async () => {
         if (submitting || !agreePayment || !agreeEnrollment) return;
@@ -41,6 +49,12 @@ export default function RegistrationConfirm({ events, catalogEvents = [], isEarl
     };
 
     const getEventName = (eventCode: string) => eventsFromApi.find(e => e.event_code === eventCode)?.event_name;
+
+    // Resolved back to catalogue entries, which is what All-Around progress is
+    // scored over.
+    const selectedEvents = events
+        .map(event => eventsFromApi.find(e => e.event_code === event.event_code))
+        .filter((e): e is EventDTO => e !== undefined);
 
     return (
         <div className="bg-primary rounded-lg mx-[10%] px-[5%] py-5">
@@ -55,13 +69,19 @@ export default function RegistrationConfirm({ events, catalogEvents = [], isEarl
                     </div>
                 ))}
             </div>
+            <AllAroundStatus
+                events={selectedEvents}
+                studentType={studentType}
+                skillLevel={skillLevel}
+                className="bg-off-white rounded-lg px-4 py-3 mb-6"
+            />
             {totalCost != null && (
                 <div className="flex justify-between items-center bg-off-white rounded-lg px-4 py-3 mb-6">
                     <div>
                         <div className="font-medium text-primary">Total Price</div>
                         <div className="text-xs text-secondary">
-                            {isEarly ? "Early registration rate" : "Standard registration rate"} — ${firstCost} first event
-                            {events.length > 1 && `, $${extraCost} each additional event (${events.length - 1})`}
+                            {isEarly ? "Early registration rate" : "Standard registration rate"} — ${baseCost} base
+                            {events.length > 0 && `, $${eventCost} each event (${events.length})`}
                         </div>
                     </div>
                     <div className="text-2xl font-bold text-primary">${totalCost}</div>
@@ -94,11 +114,16 @@ export default function RegistrationConfirm({ events, catalogEvents = [], isEarl
                     </span>
                 </label>
             </div>
+            {error && (
+                <div className="bg-off-white border-l-4 border-red-500 rounded-lg px-4 py-3 mb-6 text-sm text-red-600">
+                    {error}
+                </div>
+            )}
             <div className="flex justify-between">
                 <button className="btn btn-ghost text-off-white" onClick={onBack} disabled={submitting}>Back</button>
                 <button className="btn btn-secondary" onClick={handleConfirm} disabled={submitting || !agreePayment || !agreeEnrollment}>
                     {submitting && <span className="loading loading-spinner loading-sm" />}
-                    Confirm
+                    Submit
                 </button>
             </div>
         </div>

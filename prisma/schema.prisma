@@ -1,7 +1,5 @@
-// Prisma schema mirroring the Django `collegiates_app` database, so it maps onto
-// a copy of the existing Postgres data: @@map/@map match Django's db_table and
-// db_column, and enum members @map to the varchar codes already stored in rows.
-// Django framework tables (auth_*, django_*, token_blacklist_*) are omitted.
+// Prisma schema mirroring the Django `collegiates_app` database: @@map/@map match db_table and
+// db_column, and enum members @map to the stored codes. Django framework tables are omitted.
 
 generator client {
   provider = "prisma-client-js"
@@ -11,9 +9,8 @@ datasource db {
   provider = "postgresql"
 }
 
-// Each enum mirrors a Django CharField(choices). Prisma Client reads and writes
-// the member NAMES, so lib/api.ts translates member <-> code at the server
-// boundary, keeping DTOs and forms on the original codes.
+// Each enum mirrors a Django CharField(choices). Prisma Client reads and writes member NAMES, so
+// lib/api.ts translates member <-> code at the boundary, keeping DTOs and forms on the codes.
 
 enum Gender {
   Male   @map("M")
@@ -30,21 +27,21 @@ enum SkillLevel {
   @@map("skill_level")
 }
 
+// External/Internal are the legacy Django split; Groupset is its own category because the team
+// event is neither, and it is entered through a groupset rather than individual registration.
 enum EventCategory {
   External @map("E")
   Internal @map("I")
+  Groupset @map("G")
 
   @@map("event_category")
 }
 
+// Competitors self-report the eligibility class from rules I directly, rather
+// than a finer-grained school status the app would have to classify.
 enum StudentType {
-  Undergraduate    @map("1") // Full/Part-Time Undergraduate Student
-  FullTimeGraduate @map("2") // Full-Time Graduate/Professional School Student
-  EarlyGraduate    @map("3") // Early Graduate Of Current Year
-  NonEnrolled      @map("4") // Non-Enrolled Student
-  OneYearAlumni    @map("5") // One Year Alumni
-  PartTimeGraduate @map("6") // Part-Time Graduate Student
-  International    @map("7") // International Student
+  ClassOne @map("1") // Class 1
+  ClassTwo @map("2") // Class 2
 
   @@map("student_type")
 }
@@ -88,6 +85,9 @@ model Event {
   event_category  EventCategory?
   gender_category Gender?
   is_nandu        Boolean?
+  // Marks the Changquan and Nanquan disciplines, nandu variants included — the External
+  // All-Around's first requirement (rules 4.I). Nothing else identifies them; new field, nullable.
+  is_cq_nq        Boolean?
   weapon_type     WeaponType?
 
   registrations Registration[]
@@ -108,10 +108,15 @@ model User {
   user_id   String   @id @default(uuid()) @db.Uuid
   email     String   @unique @db.VarChar(254)
   user_type UserType @default(Competitor)
+  // Bumped whenever the password changes; compared against the value embedded
+  // in the session token by getCurrentUser() to revoke stale sessions on other
+  // devices without needing a server-side session table.
+  token_version Int @default(0)
 
   competitor_profile CompetitorProfile?
   college_profile    CollegeProfile?
   hosted_settings    Settings[]
+  tokens             VerificationToken[]
 
   @@map("users")
 }
@@ -126,9 +131,11 @@ model CompetitorProfile {
   school_id     String?      @db.Uuid
   student_type  StudentType?
   is_competing  Boolean      @default(false)
-  has_paid      Boolean      @default(false)
+  // Whole dollars received so far, checked against the fee lib/fees.ts computes.
+  // 0 is "nothing paid"; a part payment is recorded as the amount that arrived.
+  amt_paid      Int          @default(0)
   proof_of_reg  Boolean      @default(false)
-  // Last Settings.reg_year confirmed under; re-runs /profile/setup on a new year.
+  // Last Settings.reg_year confirmed under; re-runs /competitor/profile on a new year.
   last_reg_year Int?
 
   registration      Registration[]
@@ -148,6 +155,23 @@ model CollegeProfile {
   host_years Int[]    @default([])
 
   @@map("college_profile")
+}
+
+// Single-use tokens for account activation ("A") and password reset ("P").
+// Only the sha256 hash of the token is stored — the raw value lives solely in
+// the emailed link, mirroring how passwords are never stored in the clear.
+model VerificationToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  user       User      @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  user_id    String    @db.Uuid
+  token_hash String    @unique @db.VarChar(64)
+  purpose    String    @db.VarChar(1)
+  expires_at DateTime  @db.Timestamptz(6)
+  used_at    DateTime? @db.Timestamptz(6)
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([user_id, purpose])
+  @@map("verification_tokens")
 }
 
 model Registration {
@@ -205,21 +229,29 @@ model Settings {
   id                   String    @id @default(uuid()) @db.Uuid
   reg_year             Int
   early_reg_start      DateTime? @db.Timestamptz(6)
-  early_reg_cost_first Int?
-  early_reg_cost_extra Int?
+  // Flat fee charged once per competitor, plus a per-event fee on top of it.
+  early_reg_cost_base  Int?
+  early_reg_cost_event Int?
   reg_start            DateTime  @db.Timestamptz(6)
   reg_end              DateTime  @db.Timestamptz(6)
-  reg_cost_first       Int
-  reg_cost_extra       Int
+  reg_cost_base        Int
+  reg_cost_event       Int
   // Deadline for payment + proof of enrollment; separate from reg_end.
   due_date             DateTime? @db.Date
   comp_date            DateTime? @db.Date
   contact_email        String    @db.VarChar(254)
+  // Where live scores are published for this competition; blank until there is one.
+  scoring_url          String?   @db.VarChar(500)
   // Whether this year's event order is visible to competitors.
   order_public         Boolean   @default(false)
+  // The event order used to be its own per-year `order` table; its rings now hang off the year's
+  // Settings row. Null until an order has first been saved, which reads as "no order yet".
+  order_updated_at     DateTime? @db.Timestamptz(6)
   host                 User      @relation(fields: [host_id], references: [user_id], onDelete: Cascade)
   host_id              String    @db.Uuid
   created_at           DateTime  @default(now()) @db.Timestamptz(6)
+
+  rings                Ring[]
 
   @@map("settings")
 }
@@ -255,26 +287,16 @@ model CompetitorOrder {
   @@map("collegiates_app_competitororder")
 }
 
-// One saved order per competition year (comp_year is the PK), owning up to three Rings.
-model Order {
-  comp_year  Int      @id
-  updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(6)
-
-  rings Ring[]
-
-  @@map("order")
-}
-
-// One ring of an Order (ring_number 1/2/3), owning its slots via EventOrder.ring_id
-// and sequencing them by EventOrder.order.
+// One ring (ring_number 1/2/3) of a year's saved order, owning its slots via EventOrder.ring_id and
+// sequencing them by EventOrder.order. Hangs off Settings: the order is per competition year.
 model Ring {
-  id          String @id @default(uuid()) @db.Uuid
+  id          String   @id @default(uuid()) @db.Uuid
   ring_number Int
-  order       Order  @relation(fields: [order_id], references: [comp_year], onDelete: Cascade)
-  order_id    Int
+  settings    Settings @relation(fields: [settings_id], references: [id], onDelete: Cascade)
+  settings_id String   @db.Uuid
 
   event_orders EventOrder[]
 
-  @@unique([order_id, ring_number])
+  @@unique([settings_id, ring_number])
   @@map("ring")
 }
