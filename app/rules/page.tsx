@@ -12,7 +12,7 @@ import {
   GeneralFormat,
   Arbitration,
   Disqualification,
-} from "@components/rules";
+} from "./_components";
 
 const rules = [
   { id: "official-rules",    title: "Official Rule Sets",         content: <OfficialRules /> },

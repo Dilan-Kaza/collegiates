@@ -20,7 +20,7 @@ const contacts = [
   {
     role: "Webmaster",
     detail: "Problems with this site — broken pages, bad data, or anything that won't load",
-    email: "dkaza0001@gmail.com",
+    email: "support@collegiatewushu.org",
   },
 ];
 

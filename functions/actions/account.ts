@@ -1,10 +1,10 @@
 "use server";
 
 // Account server actions: email check, registration, and the current user's
-// own profile (read/update/delete) plus activation. The college list lives here
+// own profile (read/update) plus activation. The college list lives here
 // too — it is the option source for the profile's `school` field.
 
-import { unstable_cache, updateTag } from "next/cache";
+import { unstable_cache } from "next/cache";
 import { Prisma, type StudentType, type Gender, type SkillLevel } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
@@ -13,11 +13,11 @@ import { loadSettings } from "@/lib/settings";
 import { getColleges } from "@functions/data";
 import { shapeCompetitor, toStudentType, toGender, toSkillLevel } from "@/lib/api";
 import type { CompetitorDTO } from "@/lib/api";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, fromAddress } from "@/lib/email";
 import { activationEmail } from "@/lib/email-templates";
 import { issueToken, consumeToken } from "@/lib/tokens";
 import {
-  USER_DATA_TTL, userDataTag, TAG_REGISTRATIONS, TAG_GROUPSETS,
+  USER_DATA_TTL, userDataTag,
   revalidateUserData, rehydrateCompetitor, competitorGate, actionError, appUrl,
 } from "./shared";
 import type { Mutation, RegisterBody, CompetitorProfileBody, UpdateMeBody } from "./shared";
@@ -50,6 +50,15 @@ export async function registerUser(body: RegisterBody): Promise<Mutation<Competi
     const existing = await prisma.user.findUnique({ where: { email: normalizedEmail }, select: { user_id: true } });
     if (existing) return { error: { email: "A user with this email already exists." } };
 
+    // Both halves of the activation link's delivery are checked before the
+    // insert — appUrl() throws on a missing NEXT_PUBLIC_APP_URL, fromAddress()
+    // on a missing SES_FROM_EMAIL. A user written without a sendable activation
+    // email is stranded: inactive, so unable to sign in, yet holding the address
+    // so they cannot sign up again. Failing here leaves nothing saved and the
+    // form retryable.
+    const baseUrl = appUrl();
+    fromAddress();
+
     // Sign-up creates the account only; the profile is filled in afterward via
     // createCompetitorProfile, so a fresh user has competitor_profile == null.
     // is_active starts false — the account can't sign in until the emailed
@@ -66,9 +75,24 @@ export async function registerUser(body: RegisterBody): Promise<Mutation<Competi
       include: { competitor_profile: { include: { school: true } } },
     });
 
-    const token = await issueToken(user.user_id, "A");
-    const link = `${appUrl()}/activate/${user.user_id}/${token}`;
-    await sendEmail(user.email, activationEmail(link));
+    // The pre-flight checks above only cover missing config; the send itself can
+    // still fail (SES down, throttled, recipient rejected). Same stranded-account
+    // problem, so undo the insert — the token rows cascade with the user — and
+    // hand the form back an error it can retry.
+    try {
+      const token = await issueToken(user.user_id, "A");
+      const link = `${baseUrl}/activate/${user.user_id}/${token}`;
+      await sendEmail(user.email, activationEmail(link));
+    } catch (err) {
+      await prisma.user.delete({ where: { user_id: user.user_id } }).catch(() => {});
+      return {
+        error: actionError(
+          "registerUser/activationEmail",
+          err,
+          "Could not send your activation email. Please try again.",
+        ),
+      };
+    }
 
     return { data: shapeCompetitor(user, []) };
   } catch (err) {
@@ -257,27 +281,6 @@ export async function updateMe(body: UpdateMeBody): Promise<Mutation<CompetitorD
   }
 }
 
-export async function deleteMe(): Promise<Mutation<{ detail: string }>> {
-  const current = await getCurrentUser();
-  if (!current) return { error: { detail: "Not authenticated." } };
-  try {
-    // Settings.host cascades on user delete, so a host deleting their own account
-    // would take every settings row they host — and the competition — with it.
-    const hosts = await prisma.settings.count({ where: { host_id: current.user_id } });
-    if (hosts > 0) {
-      return { error: { detail: "This account hosts the competition settings and cannot be deleted." } };
-    }
-    await prisma.user.delete({ where: { user_id: current.user_id } });
-    revalidateUserData(current.user_id);
-    // Removing the user drops them from the organizer registration and group set
-    // lists, so bust those shared caches too.
-    updateTag(TAG_REGISTRATIONS);
-    updateTag(TAG_GROUPSETS);
-    return { data: { detail: "deleted" } };
-  } catch (err) {
-    return { error: actionError("deleteMe", err, "Could not delete your account.") };
-  }
-}
 
 export async function activate({ uid, token }: { uid?: string; token?: string }): Promise<Mutation<{ detail: string }>> {
   if (!uid || !token) return { error: { detail: "Invalid activation link." } };

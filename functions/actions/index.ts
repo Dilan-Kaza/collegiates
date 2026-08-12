@@ -2,17 +2,9 @@
 // data (null/[] when denied); mutations return { data } or { error }.
 
 export { loginAction, logoutAction, verifySession } from "./auth";
-export type { SignedInUser } from "./auth";
-<<<<<<< Updated upstream
-export { checkEmail, registerUser, saveCompetitorProfile, getMe, updateMe, deleteMe, activate, resendActivation } from "./account";
+export { checkEmail, registerUser, saveCompetitorProfile, getMe, updateMe, activate, resendActivation, getSharedColleges } from "./account";
 export { requestPasswordReset, resetPassword } from "./password-reset";
 export { changePassword, requestEmailChange, confirmEmailChange } from "./profile-security";
-=======
-export {
-  checkEmail, registerUser, saveCompetitorProfile, getMe, updateMe, deleteMe, activate,
-  getSharedColleges,
-} from "./account";
->>>>>>> Stashed changes
 export {
   getCompetitorEvents, getRegistrations, createRegistrations,
   getMyGroupset, createGroupset, getJoinableGroupsets, joinGroupset,

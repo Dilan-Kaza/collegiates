@@ -61,7 +61,7 @@ CREATE TABLE "competitor_profile" (
     "school_id" UUID,
     "student_type" "student_type",
     "is_competing" BOOLEAN NOT NULL DEFAULT false,
-    "has_paid" BOOLEAN NOT NULL DEFAULT false,
+    "amt_paid" INTEGER NOT NULL DEFAULT 0,
     "proof_of_reg" BOOLEAN NOT NULL DEFAULT false,
     "last_reg_year" INTEGER,
 
@@ -150,7 +150,9 @@ CREATE TABLE "settings" (
     "due_date" DATE,
     "comp_date" DATE,
     "contact_email" VARCHAR(254) NOT NULL,
+    "scoring_url" VARCHAR(500),
     "order_public" BOOLEAN NOT NULL DEFAULT false,
+    "order_updated_at" TIMESTAMPTZ(6),
     "host_id" UUID NOT NULL,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -181,18 +183,10 @@ CREATE TABLE "collegiates_app_competitororder" (
 );
 
 -- CreateTable
-CREATE TABLE "order" (
-    "comp_year" INTEGER NOT NULL,
-    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "order_pkey" PRIMARY KEY ("comp_year")
-);
-
--- CreateTable
 CREATE TABLE "ring" (
     "id" UUID NOT NULL,
     "ring_number" INTEGER NOT NULL,
-    "order_id" INTEGER NOT NULL,
+    "settings_id" UUID NOT NULL,
 
     CONSTRAINT "ring_pkey" PRIMARY KEY ("id")
 );
@@ -222,7 +216,7 @@ CREATE UNIQUE INDEX "groupset_members_groupset_id_member_key" ON "groupset_membe
 CREATE INDEX "event_order_ring_id_idx" ON "event_order"("ring_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "ring_order_id_ring_number_key" ON "ring"("order_id", "ring_number");
+CREATE UNIQUE INDEX "ring_settings_id_ring_number_key" ON "ring"("settings_id", "ring_number");
 
 -- AddForeignKey
 ALTER TABLE "competitor_profile" ADD CONSTRAINT "competitor_profile_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("user_id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -270,4 +264,4 @@ ALTER TABLE "collegiates_app_competitororder" ADD CONSTRAINT "collegiates_app_co
 ALTER TABLE "collegiates_app_competitororder" ADD CONSTRAINT "collegiates_app_competitororder_competitor_id_fkey" FOREIGN KEY ("competitor_id") REFERENCES "competitor_profile"("user_id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ring" ADD CONSTRAINT "ring_order_id_fkey" FOREIGN KEY ("order_id") REFERENCES "order"("comp_year") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ring" ADD CONSTRAINT "ring_settings_id_fkey" FOREIGN KEY ("settings_id") REFERENCES "settings"("id") ON DELETE CASCADE ON UPDATE CASCADE;

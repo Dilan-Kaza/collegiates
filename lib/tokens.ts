@@ -41,10 +41,17 @@ export async function issueToken(userId: string, purpose: TokenPurpose): Promise
 // already-used token.
 export async function consumeToken(userId: string, rawToken: string, purpose: TokenPurpose): Promise<boolean> {
   if (!rawToken) return false;
-  const row = await prisma.verificationToken.findUnique({ where: { token_hash: hash(rawToken) } });
-  if (!row || row.user_id !== userId || row.purpose !== purpose) return false;
-  if (row.used_at || row.expires_at < new Date()) return false;
-
-  await prisma.verificationToken.update({ where: { id: row.id }, data: { used_at: new Date() } });
-  return true;
+  // The claim IS the check: `used_at: null` sits in the WHERE, so Postgres picks one
+  // winner and a link submitted twice can't be redeemed twice.
+  const { count } = await prisma.verificationToken.updateMany({
+    where: {
+      token_hash: hash(rawToken),
+      user_id: userId,
+      purpose,
+      used_at: null,
+      expires_at: { gt: new Date() },
+    },
+    data: { used_at: new Date() },
+  });
+  return count === 1;
 }

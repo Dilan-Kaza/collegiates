@@ -1,5 +1,5 @@
 // Rings -> the judges' scoring sheets. Every derived cell is a Sheets *formula*, so merited
-// score, deductions and placement compute live as judges type; see components/rules/ for the rules.
+// score, deductions and placement compute live as judges type; see app/rules/_components/ for the rules.
 
 import { groupIntoTeams } from "@/lib/teams";
 import { columnLetter, formula } from "@/lib/sheetGrid";

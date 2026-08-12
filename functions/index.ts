@@ -19,5 +19,4 @@ export {
   fetchOrganizerOrder,
 } from "./cachedFetchers";
 export { cacheKeys, organizerRegistrationsKey } from "./cacheKeys";
-export { useForwardDashboard } from "./forwardHooks";
 export { errorMessage, runAction } from "./actionErrors";

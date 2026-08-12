@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import Providers from "./providers";
 import { auth } from "@/auth";
 import { getCurrentUser, canViewLiveScores } from "@/lib/auth";
-import { NavBar, NavDock, BackgroundShapes, Notif, LoadingOverlay, Footer } from "@components";
+import { NavBar, NavDock, BackgroundStripes, Notif, LoadingOverlay, Footer } from "@components";
 // root layout + metadata
 
 export const metadata: Metadata = {
@@ -42,7 +42,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             id="bg-component"
             className="bg-tertiary fixed h-screen w-screen -top-[0svh] left-0 -z-20"
           />
-          <BackgroundShapes />
+          <BackgroundStripes />
 
           <div className="hidden md:block">
             <NavBar firstName={firstName} liveScores={liveScores} />

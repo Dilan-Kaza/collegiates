@@ -10,14 +10,15 @@ export interface CostSummary {
   hasGroupset: boolean;
 }
 
-// A registration is priced at the early tier when an early window is configured
-// and it was created before the regular window opened.
+// A registration is priced at the early tier when an early window is configured and it was created
+// before the regular window opened. Both cost columns are nullable, so a half-priced tier is not one.
 export function isEarlyRegistration(
   dateCreated: Date | string,
   settings: SettingsDTO,
 ): boolean {
   return !!settings.early_reg_start
     && settings.early_reg_cost_base != null
+    && settings.early_reg_cost_event != null
     && new Date(dateCreated).getTime() < new Date(settings.reg_start).getTime();
 }
 
@@ -42,13 +43,15 @@ export function computeTotalOwed(
 
   // The base fee is charged once, at the tier the earliest registration falls
   // under; each event is then charged on top, priced by its own create date.
+  // isEarlyRegistration already proved both early columns are set; the fallbacks are
+  // the regular price rather than 0 so a missed guard can never bill nothing.
   const baseEarly = isEarlyRegistration(billed[0], settings);
-  let total = baseEarly ? (settings.early_reg_cost_base ?? 0) : settings.reg_cost_base;
+  let total = baseEarly ? (settings.early_reg_cost_base ?? settings.reg_cost_base) : settings.reg_cost_base;
   let earlyCount = 0;
   for (const dateCreated of billed) {
     const early = isEarlyRegistration(dateCreated, settings);
     if (early) earlyCount += 1;
-    total += early ? (settings.early_reg_cost_event ?? 0) : settings.reg_cost_event;
+    total += early ? (settings.early_reg_cost_event ?? settings.reg_cost_event) : settings.reg_cost_event;
   }
 
   // `count` is the individual events only; the team competition is reported

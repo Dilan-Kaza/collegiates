@@ -60,6 +60,36 @@ export async function requireCompetitor(): Promise<CurrentUser> {
   return user;
 }
 
+// Where a signed-in user belongs when they haven't asked for a particular page. Structural
+// parameter rather than CurrentUser: loginAction routes by this too, and it works from its own
+// narrow select because the session cookie it just set isn't readable back in the same request.
+export async function landingRoute(user: {
+  user_id: string;
+  user_type: string;
+  competitor_profile: { last_reg_year: number | null } | null;
+}): Promise<string> {
+  if (await canAccessOrganizer(user)) return "/organizer";
+  // A School account that isn't the current host has no area of its own.
+  if (!isCompetitor(user)) return "/";
+  const settings = await loadSettings();
+  const currentYear = settings?.reg_year;
+  const profile = user.competitor_profile;
+  // Same rule /competitor's page gate applies: no profile yet, or one last
+  // confirmed under an earlier competition year, means the profile step is due.
+  if (!profile || (currentYear != null && profile.last_reg_year !== currentYear)) {
+    return "/competitor/profile";
+  }
+  return "/competitor";
+}
+
+// Inverse of requireUser, for the auth pages: an already-signed-in visitor is sent where they
+// belong before the form renders. Routes in one hop — forwarding everyone to /competitor would
+// make an organizer bounce again off requireCompetitor.
+export async function redirectIfSignedIn(): Promise<void> {
+  const user = await getCurrentUser();
+  if (user) redirect(await landingRoute(user));
+}
+
 type UserTypeHolder = { user_type: string } | null | undefined;
 
 export const isOrganizer = (user: UserTypeHolder): boolean => user?.user_type === "School";

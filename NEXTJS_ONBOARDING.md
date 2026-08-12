@@ -250,7 +250,7 @@ Two existing pages illustrate the risk: `app/organizer/settings/page.tsx` has no
 
 ### 🟠 Input validation is thin
 
-Runtime validation is hand-rolled and partial. `registerUser` does not enforce password strength server-side (the 8-char rule in `functions/forms.ts` is **client-side only** — trivially bypassed). There's no email verification: `activate()` (`functions/actions/account.ts`) is a stub that checks a uid exists and ignores the token entirely. `checkEmail` is an open user-enumeration endpoint. `deleteMe` deletes immediately with no server-side confirmation.
+Runtime validation is hand-rolled and partial. `registerUser` does not enforce password strength server-side (the 8-char rule in `functions/forms.ts` is **client-side only** — trivially bypassed). There's no email verification: `activate()` (`functions/actions/account.ts`) is a stub that checks a uid exists and ignores the token entirely. `checkEmail` is an open user-enumeration endpoint. There is deliberately no self-serve account deletion action.
 
 None of these are new bugs you'd be introducing — but don't build on them, and consider adding a validation library (zod) at the action boundary for anything new.
 

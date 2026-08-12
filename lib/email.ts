@@ -13,9 +13,17 @@ export interface EmailContent {
   text: string;
 }
 
-export async function sendEmail(to: string, content: EmailContent): Promise<void> {
+// The verified identity every send goes out from. Exported so a caller that
+// writes before it sends can check the sender up front and abort while nothing
+// is persisted yet — see registerUser.
+export function fromAddress(): string {
   const from = process.env.SES_FROM_EMAIL;
   if (!from) throw new Error("SES_FROM_EMAIL is not set.");
+  return from;
+}
+
+export async function sendEmail(to: string, content: EmailContent): Promise<void> {
+  const from = fromAddress();
 
   await ses.send(
     new SendEmailCommand({

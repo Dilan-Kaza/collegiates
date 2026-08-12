@@ -32,6 +32,11 @@ const OTHER_SCHOOL = "other";
 
 // Level and class are self-reported but bind the competitor all tournament, so each field
 // states its rule and links to the source in a new tab (the rest of the form is unsaved).
+const SKILL_LEVEL_HINT = "Some moves are banned depending on your level.";
+const ELIGIBILITY_HINT =
+  "Class 1: enrolled undergrads and full-time grad students. Class 2: part-time grad students, " +
+  "one-year alumni, non-enrolled students, and undergrads past their Class 1 years.";
+
 function RuleHint({ section, children }: { section: string; children: ReactNode }) {
   return (
     <p className="-mt-1 text-xs leading-snug text-gray-600">
@@ -145,9 +150,7 @@ export default function ProfileSetup({
               <div className="flex flex-col gap-4 sm:grid sm:grid-cols-3">
                 <div className="flex flex-col gap-2 sm:col-span-2">
                   <Field {...fieldProps} as={Dropdown} name="skill_level" label="Experience Level*" options={SKILL_LEVEL_CHOICES} errorClass="mt-1" required />
-                  <RuleHint section="skill-level">
-                    Some moves are banned depending on your level.
-                  </RuleHint>
+                  <RuleHint section="skill-level">{SKILL_LEVEL_HINT}</RuleHint>
                   {/* What the chosen level forbids, once there is a choice — the
                       restrictions are the practical consequence of this field. */}
                   {SKILL_LEVEL_RESTRICTIONS[formData.skill_level] && (
@@ -183,11 +186,7 @@ export default function ProfileSetup({
               </div>
               <div className="flex flex-col gap-2">
                 <Field {...fieldProps} as={Dropdown} name="student_type" label="Class Eligibility*" options={STUDENT_TYPE_CHOICES} required />
-                <RuleHint section="eligibility">
-                  Class 1: enrolled undergrads and full-time grad students.
-                  Class 2: part-time grad students, one-year alumni, non-enrolled students, and
-                  undergrads past their Class 1 years.
-                </RuleHint>
+                <RuleHint section="eligibility">{ELIGIBILITY_HINT}</RuleHint>
               </div>
               <SubmitButton loading={loading} handleSubmit={handleSubmit} label="Save profile" />
             </form>

@@ -1,5 +1,5 @@
 // All-Around eligibility, scored exactly as rules 4.I states it — keep in step with
-// components/rules/AllAround.tsx. Pure and shared; reads DTO codes, not Prisma members.
+// app/rules/_components/AllAround.tsx. Pure and shared; reads DTO codes, not Prisma members.
 
 // The fields a title is scored over. Both EventDTO and RegistrationDTO satisfy
 // this, which is what lets the picker and the dashboard share the scoring.

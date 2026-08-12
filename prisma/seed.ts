@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaPostgresAdapter } from "@prisma/adapter-ppg";
 import { colleges } from "./seed-data/colleges.ts";
 import { events } from "./seed-data/events.ts";
 import { skillLevelByCode, genderByCode, eventCategoryFor, weaponTypeBySuffix } from "./seed-data/event-codes.ts";
@@ -13,7 +13,7 @@ if (!connectionString) {
   throw new Error("DATABASE_URL is not set.");
 }
 
-const adapter = new PrismaPg({ connectionString });
+const adapter = new PrismaPostgresAdapter({ connectionString });
 const prisma = new PrismaClient({ adapter });
 
 async function main() {

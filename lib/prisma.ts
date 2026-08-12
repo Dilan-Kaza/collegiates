@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaPostgresAdapter } from "@prisma/adapter-ppg";
 
 // Reuse a single PrismaClient across hot reloads in dev to avoid exhausting
 // database connections.
@@ -16,13 +16,13 @@ if (!connectionString) {
 }
 if (connectionString.startsWith("prisma+postgres://")) {
   throw new Error(
-    "DATABASE_URL is a prisma+postgres:// Accelerate URL, which @prisma/adapter-pg " +
+    "DATABASE_URL is a prisma+postgres:// Accelerate URL, which @prisma/adapter-ppg " +
       "does not accept. Use the Prisma Postgres Direct TCP URL " +
       "(postgres://<id>:<key>@db.prisma.io:5432/postgres?sslmode=require) instead.",
   );
 }
 
-const adapter = new PrismaPg({ connectionString });
+const adapter = new PrismaPostgresAdapter({ connectionString });
 
 const prisma = globalForPrisma.prisma ?? new PrismaClient({ adapter });
 

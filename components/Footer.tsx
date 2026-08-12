@@ -6,7 +6,7 @@ import { Link } from "@/routerCompat";
 // layout, mirroring the old site's #siteInfo strip.
 function Footer() {
   return (
-    <footer className="text-center text-xs text-off-white py-6">
+    <footer className="text-center text-sm text-primary py-6">
       <Link to="/contact" className="hover:underline">
         Questions? Contact us
       </Link>

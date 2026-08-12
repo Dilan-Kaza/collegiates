@@ -1,7 +1,7 @@
 import "dotenv/config";
 import * as readline from "node:readline/promises";
 import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaPostgresAdapter } from "@prisma/adapter-ppg";
 import { hashPassword } from "../lib/password.ts";
 
 // Bootstraps an "Admin" user (the /admin console role). Run: npm run create-admin.
@@ -14,7 +14,7 @@ function db(): PrismaClient {
   if (!client) {
     const connectionString = process.env.DATABASE_URL;
     if (!connectionString) throw new Error("DATABASE_URL is not set.");
-    client = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
+    client = new PrismaClient({ adapter: new PrismaPostgresAdapter({ connectionString }) });
   }
   return client;
 }

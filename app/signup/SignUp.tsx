@@ -5,7 +5,6 @@ import { useState } from "react";
 import type { FocusEvent, SyntheticEvent } from "react";
 import { checkEmail, registerUser } from "@functions/actions";
 import { runAction } from "@functions/actionErrors";
-import { useForwardDashboard } from "@functions";
 import { useNavigate } from "@/routerCompat";
 import { useAppDispatch } from "@/store/hooks";
 import { setSuccessMsg } from "@slices";
@@ -47,8 +46,6 @@ export default function SignUp() {
     }));
     if (name === "email") checkEmailExists(value);
   };
-
-  useForwardDashboard();
 
   const handleSubmit = async (e: SyntheticEvent) => {
     e.preventDefault();
@@ -104,34 +101,28 @@ export default function SignUp() {
   const fieldProps = { formData, errors, handleChange, handleBlur };
 
   return (
-    <div className="overflow-x-hidden min-h-screen">
+    <>
       <div className="hidden sm:block"><MtHeader /></div>
-      <div
-        id="bg-component"
-        className="bg-primary h-screen w-full skew-y-10 absolute -top-[60svh] left-0 -z-20"
-      ></div>
-      <div className="mx-4">
-        <AuthPanel
-          bottomLabel="Already have an account? "
-          bottomLink="Sign In"
-          onSubmit={handleSubmit}
-          title="Create an Account"
-        >
-          <FormError error={error} />
-          <Field {...fieldProps} name="email" type="email" label="Email*" onBlur={handleEmailBlur} required />
-          <Field {...fieldProps} name="password" type="password" label="Password*" minLength={8} required />
-          <Field {...fieldProps} name="re_password" type="password" label="Confirm Password*" minLength={8} required />
-          <div className="flex gap-4">
-            <div className="flex flex-col flex-1">
-              <Field {...fieldProps} name="first_name" type="text" label="First Name*" errorClass="mt-1" required />
-            </div>
-            <div className="flex flex-col flex-1">
-              <Field {...fieldProps} name="last_name" type="text" label="Last Name*" errorClass="mt-1" required />
-            </div>
+      <AuthPanel
+        bottomLabel="Already have an account? "
+        bottomLink="Sign In"
+        onSubmit={handleSubmit}
+        title="Create an Account"
+      >
+        <FormError error={error} />
+        <Field {...fieldProps} name="email" type="email" label="Email*" onBlur={handleEmailBlur} required />
+        <Field {...fieldProps} name="password" type="password" label="Password*" minLength={8} required />
+        <Field {...fieldProps} name="re_password" type="password" label="Confirm Password*" minLength={8} required />
+        <div className="flex gap-4">
+          <div className="flex flex-col flex-1">
+            <Field {...fieldProps} name="first_name" type="text" label="First Name*" errorClass="mt-1" required />
           </div>
-          <SubmitButton loading={loading} handleSubmit={handleSubmit} label="Create account" />
-        </AuthPanel>
-      </div>
-    </div>
+          <div className="flex flex-col flex-1">
+            <Field {...fieldProps} name="last_name" type="text" label="Last Name*" errorClass="mt-1" required />
+          </div>
+        </div>
+        <SubmitButton loading={loading} handleSubmit={handleSubmit} label="Create account" />
+      </AuthPanel>
+    </>
   );
 }

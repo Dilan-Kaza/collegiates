@@ -1,5 +1,5 @@
-export { AuthPanel, AuthPanelWide } from "./AuthPanel";
-export { default as BackgroundShapes } from "./BackgroundShapes";
+export { AuthPanel } from "./AuthPanel";
+export { default as BackgroundStripes } from "./BackgroundStripes";
 export { default as CardCarousel } from "./CardCarousel";
 export { Carousel, CarouselSquare } from "./ImageCarousel";
 export { CWCReps } from "./CwcReps";
