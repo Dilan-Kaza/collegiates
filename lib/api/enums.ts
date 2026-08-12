@@ -85,6 +85,17 @@ export function studentTypeLabel(code: string | null | undefined): string {
   return code ? STUDENT_TYPE_LABEL_BY_CODE[code] ?? "" : "";
 }
 
+// Gender and SkillLevel members already read as prose ("Male", "Intermediate"), so
+// their labels expand the code through the enum maps above rather than repeating the
+// wording in a second list. Both return "" for null/blank, as studentTypeLabel does.
+export function genderLabel(code: string | null | undefined): string {
+  return code ? GENDER_BY_CODE[code] ?? "" : "";
+}
+
+export function skillLevelLabel(code: string | null | undefined): string {
+  return code ? SKILL_LEVEL_BY_CODE[code] ?? "" : "";
+}
+
 // ---------- competitor class eligibility ----------
 
 // The class is self-reported (rules I) so eligibility reads off the profile; organizers verify it

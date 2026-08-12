@@ -53,6 +53,23 @@
   --color-brown: #1c1513;
 }
 
+/* Height the root layout puts around every page, in normal flow: the wrapper's
+   `my-2` (1rem) plus the sign-off Footer (`py-6` = 3rem, over a `text-sm` line
+   of 1.25rem). The NavBar is `position: fixed` and contributes nothing. A page
+   that wants to fill the viewport exactly — and so own the only scrollbar on
+   the document — subtracts this from 100dvh.
+   Coupled to app/layout.tsx and components/Footer.tsx: if either changes its
+   spacing, this has to change with it. */
+:root {
+  --cg-layout-chrome: 5.25rem;
+}
+@media (width < 48rem) {
+  /* Below `md` the fixed dock's in-flow spacer is also on the page. */
+  :root {
+    --cg-layout-chrome: calc(9.25rem + env(safe-area-inset-bottom));
+  }
+}
+
 /* Custom component classes distilled from repeated utility combos in the app.
    Namespaced with `cg-` (collegiate) to avoid clashing with daisyUI components. */
 @layer components {
@@ -62,6 +79,51 @@
   }
   .cg-card-bordered {
     @apply bg-off-white rounded-lg px-6 py-5 flex flex-col gap-4 border border-gray-200;
+  }
+
+  /* Translucent variant of `cg-card`: same geometry, but the surface is partly
+     see-through over a blur, with a light hairline edge to hold its shape against
+     the page background. For stacks that should read as panes floating above the
+     page rather than solid sheets on it — text stays legible because the blur
+     flattens whatever shows through. */
+  .cg-card-glass {
+    @apply bg-off-white/60 backdrop-blur-sm border border-white/40 rounded-lg px-6 py-5 flex flex-col gap-4;
+  }
+
+  /* Edge fade: solid through the middle, opacity ramping to zero over the outer
+     band on all four sides. The two gradients are intersected so each axis fades
+     independently — stacking them as backgrounds instead would brighten the
+     corners rather than fade them. Meant for a background layer, not for text. */
+  .cg-fade-edges {
+    --cg-fade: 1rem;
+    -webkit-mask-image:
+      linear-gradient(to right, transparent, black var(--cg-fade), black calc(100% - var(--cg-fade)), transparent),
+      linear-gradient(to bottom, transparent, black var(--cg-fade), black calc(100% - var(--cg-fade)), transparent);
+    -webkit-mask-composite: source-in;
+    mask-image:
+      linear-gradient(to right, transparent, black var(--cg-fade), black calc(100% - var(--cg-fade)), transparent),
+      linear-gradient(to bottom, transparent, black var(--cg-fade), black calc(100% - var(--cg-fade)), transparent);
+    mask-composite: intersect;
+  }
+  @media (width >= 40rem) {
+    .cg-fade-edges {
+      --cg-fade: 1.75rem;
+    }
+  }
+
+  /* Vertical-only companion for a scrolling element: content dissolves as it
+     crosses the top or bottom edge instead of being cut off mid-glyph. Sized to
+     match the scroll container's own padding, so at either end of the scroll the
+     ramp covers empty padding and nothing looks faded at rest. */
+  .cg-fade-scroll {
+    --cg-scroll-fade: 0.5rem;
+    -webkit-mask-image: linear-gradient(to bottom, transparent, black var(--cg-scroll-fade), black calc(100% - var(--cg-scroll-fade)), transparent);
+    mask-image: linear-gradient(to bottom, transparent, black var(--cg-scroll-fade), black calc(100% - var(--cg-scroll-fade)), transparent);
+  }
+  @media (width >= 40rem) {
+    .cg-fade-scroll {
+      --cg-scroll-fade: 2rem;
+    }
   }
 
   /* Highlighted / accented card with the secondary left rail */

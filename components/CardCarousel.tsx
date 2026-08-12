@@ -35,44 +35,56 @@ export default function CardCarousel({ cards, initialId }: { cards: CarouselCard
   const card = cards[current];
 
   return (
-    <div className="max-w-3xl mx-auto px-1 pt-2 pb-2 sm:px-6 sm:py-10">
-      <div ref={scrollRef} className="bg-white rounded-lg shadow p-2 sm:p-8 overflow-auto h-[70vh] sm:h-[75vh]">
-        <h2 className="text-sm sm:text-2xl font-bold mb-1 sm:mb-6">{card.title}</h2>
-        {card.content}
-      </div>
+    // Fills whatever height the page hands it, so the card itself is the page.
+    <div className="flex flex-1 min-h-0 w-full flex-col">
+      {/* The white surface is its own layer so the edge fade masks the background
+          only — the text on top stays fully opaque. */}
+      <div className="relative flex-1 min-h-0 mx-2 sm:mx-6">
+        <div aria-hidden className="cg-fade-edges pointer-events-none absolute inset-0 bg-white/85" />
+        {/* Horizontal padding clears the arrows so no line of text ever runs
+            underneath them; vertical padding still matches the scroll fade. */}
+        <div ref={scrollRef} className="cg-fade-scroll relative h-full overflow-auto px-11 sm:px-20 py-2 sm:py-8">
+          <h2 className="text-sm sm:text-2xl font-bold mb-1 sm:mb-6">{card.title}</h2>
+          {card.content}
+        </div>
 
-      <div className="grid grid-cols-3 items-center mt-4 sm:mt-6">
         <button
           onClick={prev}
-          className={`btn btn-sm sm:btn-md bg-white text-primary justify-self-start ${current === 0 ? "invisible" : ""}`}
+          aria-label="Previous section"
+          className={`btn btn-circle btn-ghost btn-sm sm:btn-md bg-tertiary/25 hover:bg-tertiary/40 text-primary absolute left-1 sm:left-4 top-1/2 -translate-y-1/2 ${current === 0 ? "invisible" : ""}`}
         >
-          Previous
+          <i className="bi bi-chevron-left" />
         </button>
 
-        <div className="flex gap-1.5 sm:gap-2 flex-wrap justify-center">
+        <button
+          onClick={next}
+          aria-label="Next section"
+          className={`btn btn-circle btn-ghost btn-sm sm:btn-md bg-tertiary/25 hover:bg-tertiary/40 text-primary absolute right-1 sm:right-4 top-1/2 -translate-y-1/2 ${current === cards.length - 1 ? "invisible" : ""}`}
+        >
+          <i className="bi bi-chevron-right" />
+        </button>
+
+        {/* Dots and counter both float over the card's bottom edge rather than
+            below it, so they cost the card no height. The dot strip spans the
+            full width to stay centred, so it is click-through everywhere except
+            the dots themselves — otherwise it would swallow scroll gestures. */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-2 sm:bottom-8 flex flex-wrap justify-center gap-1.5 sm:gap-2 opacity-60">
           {cards.map((_, i) => (
             <button
               key={i}
               onClick={() => setCurrent(i)}
               title={cards[i].title}
-              className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full transition ${
+              className={`pointer-events-auto w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full transition ${
                 i === current ? "bg-primary" : "bg-gray-300 hover:bg-gray-400"
               }`}
             />
           ))}
         </div>
 
-        <button
-          onClick={next}
-          className={`btn btn-sm sm:btn-md btn-primary justify-self-end ${current === cards.length - 1 ? "invisible" : ""}`}
-        >
-          Next
-        </button>
+        <p className="hidden sm:block pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 text-sm text-gray-400 opacity-60">
+          {current + 1} / {cards.length}
+        </p>
       </div>
-
-      <p className="hidden sm:block text-center text-sm text-gray-400 mt-3">
-        {current + 1} / {cards.length}
-      </p>
     </div>
   );
 }
