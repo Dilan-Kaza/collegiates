@@ -6,7 +6,7 @@ import { clearSessionCache } from "@functions/sessionCache";
 import { updateOrganizerGroupset } from "@functions/actions";
 import { confirmMessage, errorMessage, runAction } from "@functions/actionErrors";
 import { useCachedResource, cacheKeys, fetchOrganizerGroupset } from "@functions";
-import { useNavigate } from "@/routerCompat";
+import { Link } from "@/routerCompat";
 import { useState } from "react";
 import { useAppDispatch } from "@/store/hooks";
 import type { OrganizerGroupsetDTO, OrganizerMemberDTO } from "@/lib/api";
@@ -22,7 +22,6 @@ export default function GroupsetDetail({
     groupset: OrganizerGroupsetDTO;
 }) {
 
-    const nav = useNavigate();
     const dispatch = useAppDispatch();
 
     // Read-only view of the group set, kept in step with its cache entry.
@@ -105,7 +104,7 @@ export default function GroupsetDetail({
             <div className="hidden md:block"><MtHeader /></div>
             <div className="min-h-screen bg-off-white max-w-3xl mx-auto w-full px-4 py-8 flex flex-col gap-6 rounded-2xl">
                 <div className="flex items-center justify-between">
-                    <button className="btn btn-ghost w-fit" onClick={() => nav("/organizer/groupset")}>← Back</button>
+                    <Link to="/organizer/groupset" className="btn btn-ghost w-fit">← Back</Link>
                     <button className="btn btn-secondary btn-sm" onClick={() => setEditing(e => !e)}>
                         {editing ? "Cancel" : "Edit"}
                     </button>

@@ -134,10 +134,6 @@ export default function ProfileSetup({
   return (
     <>
       <div className="hidden sm:block"><MtHeader /></div>
-      <div
-        id="bg-component"
-        className="bg-primary h-screen w-full skew-y-10 absolute -top-[60svh] left-0 -z-20"
-      />
       <div className="flex items-center justify-center px-4">
         <div className="grow min-w-0 bg-off-white max-w-[36rem] mt-0 sm:mt-10 rounded-xl border border-brown/50">
           <div className="flex flex-col items-center gap-4">
@@ -149,7 +145,7 @@ export default function ProfileSetup({
                   full width below sm. */}
               <div className="flex flex-col gap-4 sm:grid sm:grid-cols-3">
                 <div className="flex flex-col gap-2 sm:col-span-2">
-                  <Field {...fieldProps} as={Dropdown} name="skill_level" label="Experience Level*" options={SKILL_LEVEL_CHOICES} errorClass="mt-1" required />
+                  <Field {...fieldProps} as={Dropdown} name="skill_level" label="Experience Level*" options={SKILL_LEVEL_CHOICES} required />
                   <RuleHint section="skill-level">{SKILL_LEVEL_HINT}</RuleHint>
                   {/* What the chosen level forbids, once there is a choice — the
                       restrictions are the practical consequence of this field. */}
@@ -159,9 +155,7 @@ export default function ProfileSetup({
                     </p>
                   )}
                 </div>
-                <div className="flex flex-col">
-                  <Field {...fieldProps} as={Dropdown} name="gender" label="Gender*" options={GENDER_CHOICES} labelClass="min-w-[11rem] sm:min-w-0" errorClass="mt-1" required />
-                </div>
+                <Field {...fieldProps} as={Dropdown} name="gender" label="Gender*" options={GENDER_CHOICES} labelClass="min-w-[11rem] sm:min-w-0" required />
               </div>
               <div className="flex flex-col gap-2">
                 <Field {...fieldProps} as={Dropdown} name="school" label="College*" options={collegeOptions} required />

@@ -2,6 +2,10 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+// next/link rather than the routerCompat Link: this boundary can catch a failure
+// from anywhere in the tree, so the escape hatch shouldn't depend on
+// NavigationProvider's context being intact.
+import NextLink from "next/link";
 
 // Route-level error boundary. The read actions deliberately don't swallow database failures
 // — an outage would render an empty dashboard — so a failed read lands here, with a retry.
@@ -39,9 +43,9 @@ export default function Error({
           >
             Try again
           </button>
-          <button className="btn btn-ghost btn-sm" onClick={() => router.push("/")}>
+          <NextLink href="/" className="btn btn-ghost btn-sm">
             Go home
-          </button>
+          </NextLink>
         </div>
       </div>
     </div>

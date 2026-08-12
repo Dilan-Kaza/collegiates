@@ -65,7 +65,6 @@ export function actionError(
 export interface RegisterBody {
   email?: string;
   password?: string;
-  re_password?: string;
   first_name?: string;
   last_name?: string;
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Link, useNavigate } from "@/routerCompat";
+import { Link } from "@/routerCompat";
 import { useSession } from "@functions/sessionContext";
 
 const tabs = ["Tournament", "Rules", "About", "News", "Multimedia"];
@@ -15,8 +15,6 @@ function NavBar({ firstName = "", liveScores = false }: { firstName?: string; li
   const userType = session?.user?.user_type;
   const accountHref =
     userType === "Admin" ? "/admin" : userType === "School" ? "/organizer" : "/competitor";
-
-  const nav = useNavigate();
 
   return (
     <div className="fixed w-[70%] top-4 left-[15%] p-4 bg-primary text-off-white rounded-lg px-12 z-100">
@@ -41,9 +39,12 @@ function NavBar({ firstName = "", liveScores = false }: { firstName?: string; li
             </Link>
           ))}
         </div>
+        {/* Links, not buttons: an `href` is what lets Next prefetch the destination
+            before the click, and it restores middle-click / open-in-new-tab. The
+            click itself still routes through NavigationProvider — see routerCompat. */}
         {username ?
-          <button className="btn btn-outline [--btn-color:var(--color-off-white)]" onClick={()=>nav(accountHref)}>{username}</button> :
-          <button className="btn btn-outline [--btn-color:var(--color-off-white)]" onClick={()=>nav("/signin")}>Sign In</button>
+          <Link to={accountHref} className="btn btn-outline [--btn-color:var(--color-off-white)]">{username}</Link> :
+          <Link to="/signin" className="btn btn-outline [--btn-color:var(--color-off-white)]">Sign In</Link>
         }
       </div>
     </div>

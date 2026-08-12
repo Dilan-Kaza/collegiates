@@ -2,13 +2,12 @@
 
 import { AuthPanel, MtHeader } from "@components";
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "@/routerCompat";
+import { useParams, Link } from "@/routerCompat";
 import { confirmEmailChange } from "@functions/actions";
 
 export default function ConfirmEmailChange() {
   const params = useParams();
   const token = params.token as string | undefined;
-  const nav = useNavigate();
   const [status, setStatus] = useState("loading"); // loading | success | error
 
   useEffect(() => {
@@ -20,10 +19,6 @@ export default function ConfirmEmailChange() {
   return (
     <>
       <div className="hidden sm:block"><MtHeader/></div>
-      <div
-        id="bg-component"
-        className="bg-secondary h-screen w-full skew-y-6 absolute -top-[50svh] left-0 -z-20"
-      ></div>
       <AuthPanel
         bottomLink="Sign In"
         bottomLabel="Back to "
@@ -37,9 +32,9 @@ export default function ConfirmEmailChange() {
             <div className="text-center text-primary font-medium">
               Your email has been updated.
             </div>
-            <button type="button" className="btn btn-primary" onClick={() => nav("/")}>
+            <Link to="/" className="btn btn-primary">
               Back to Home
-            </button>
+            </Link>
           </div>
         )}
         {status === "error" && (

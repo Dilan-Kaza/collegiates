@@ -3,7 +3,7 @@
 import { AuthPanel, ShortAnswer, MtHeader } from "@components";
 import { useState } from "react";
 import type { SyntheticEvent } from "react";
-import { useParams, useNavigate } from "@/routerCompat";
+import { useParams, Link } from "@/routerCompat";
 import { resetPassword } from "@functions/actions";
 import { validate, handleFormBlur, handleFormChange } from "@functions/forms";
 
@@ -11,7 +11,6 @@ export default function ResetPassword() {
   const params = useParams();
   const uid = params.uid as string;
   const token = params.token as string;
-  const nav = useNavigate();
 
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -49,10 +48,6 @@ export default function ResetPassword() {
   return (
     <>
       <div className="hidden sm:block"><MtHeader/></div>
-      <div
-        id="bg-component"
-        className="bg-secondary h-screen w-full skew-y-6 absolute -top-[50svh] left-0 -z-20"
-      ></div>
       <AuthPanel
         bottomLink="Sign In"
         bottomLabel="Back to "
@@ -64,13 +59,13 @@ export default function ResetPassword() {
             <div className="text-center text-primary font-medium">
               Your password has been updated. You can now sign in.
             </div>
-            <button type="button" className="btn btn-primary" onClick={() => nav("/signin")}>
+            <Link to="/signin" className="btn btn-primary">
               Sign In
-            </button>
+            </Link>
           </div>
         ) : (
           <>
-            {error && <div className="text-red-500 mb-4">{error}</div>}
+            {error && <div role="alert" className="text-error mb-4">{error}</div>}
             <ShortAnswer
               type="password"
               name="password"
@@ -78,9 +73,9 @@ export default function ResetPassword() {
               onChange={handleChange}
               onBlur={handleBlur}
               value={formData.password || ""}
+              error={errors.password}
               required
             />
-            {errors.password && <div className="text-red-500 mb-4">{errors.password}</div>}
             <ShortAnswer
               type="password"
               name="re_password"
@@ -88,9 +83,9 @@ export default function ResetPassword() {
               onChange={handleChange}
               onBlur={handleBlur}
               value={formData.re_password || ""}
+              error={errors.re_password}
               required
             />
-            {errors.re_password && <div className="text-red-500 mb-4">{errors.re_password}</div>}
             <div className="flex">
               <div className="flex-col flex-1"></div>
               <div className="flex-box">

@@ -6,7 +6,7 @@ import { clearSessionCache } from "@functions/sessionCache";
 import { setErrorMsg, setSuccessMsg } from "@slices";
 import { updateBlogPost } from "@functions/actions";
 import { errorMessage, runAction } from "@functions/actionErrors";
-import { useNavigate } from "@/routerCompat";
+import { Link } from "@/routerCompat";
 import { useState } from "react";
 import { useAppDispatch } from "@/store/hooks";
 import type { BlogDTO } from "@/lib/api";
@@ -22,7 +22,6 @@ export default function BlogEditor({
     post: BlogDTO;
 }) {
 
-    const nav = useNavigate();
     const dispatch = useAppDispatch();
 
     const [post, setPost] = useState<BlogDTO>(initialPost);
@@ -64,7 +63,7 @@ export default function BlogEditor({
             <div className="hidden md:block"><MtHeader /></div>
             <div className="max-w-3xl mx-auto w-full px-4 py-8 flex flex-col gap-6">
                 <div className="flex items-center justify-between">
-                    <button className="btn btn-primary btn-sm" onClick={() => nav("/organizer/blog")}>← Back</button>
+                    <Link to="/organizer/blog" className="btn btn-primary btn-sm">← Back</Link>
                     <button className="btn btn-sm btn-secondary" onClick={() => setEditing(e => !e)}>
                         {editing ? "Cancel" : "Edit"}
                     </button>

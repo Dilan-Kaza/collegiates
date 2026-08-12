@@ -7,7 +7,7 @@ import {
     OrganizerRegistrationEdit,
     OrganizerPayments,
 } from "@components";
-import { useNavigate } from "@/routerCompat";
+import { Link } from "@/routerCompat";
 import { useState } from "react";
 import {
     useCachedResource,
@@ -32,8 +32,6 @@ export default function Registrations({
     colleges?: Record<string, string>;
     settings?: Partial<SettingsDTO>;
 }) {
-
-    const nav = useNavigate();
 
     // The Create/Edit tab below saves through OrganizerRegistrationEdit, which drops this key —
     // so switching back to a list tab shows the edit, not this page's render-time copy.
@@ -66,7 +64,7 @@ export default function Registrations({
             <div className="hidden md:block"><MtHeader /></div>
             <div className="max-w-3xl mx-auto w-full px-4 py-8 flex flex-col gap-6">
                 <div className="flex items-center gap-4">
-                    <button className="btn btn-ghost btn-sm" onClick={() => nav("/organizer")}>← Back</button>
+                    <Link to="/organizer" className="btn btn-ghost btn-sm">← Back</Link>
                     <div className="text-3xl text-secondary font-semibold">Registrations</div>
                 </div>
                 <div className="flex gap-2">

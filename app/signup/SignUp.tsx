@@ -1,6 +1,6 @@
 "use client";
 
-import { MtHeader, AuthPanel, Field, FormError, SubmitButton } from "@components";
+import { MtHeader, AuthPanel, Field, FormError, SubmitButton, PasswordAnswer } from "@components";
 import { useState } from "react";
 import type { FocusEvent, SyntheticEvent } from "react";
 import { checkEmail, registerUser } from "@functions/actions";
@@ -52,7 +52,7 @@ export default function SignUp() {
 
     // Sign-up collects account fields only; the competitor profile is created
     // in the separate /competitor/profile step after the user first signs in.
-    const requiredFields = ["email", "password", "re_password", "first_name", "last_name"];
+    const requiredFields = ["email", "password", "first_name", "last_name"];
 
     const allErrors: Record<string, string> = {};
     requiredFields.forEach((name) => {
@@ -70,7 +70,6 @@ export default function SignUp() {
     const payload = {
       email: formData.email,
       password: formData.password,
-      re_password: formData.re_password,
       first_name: formData.first_name,
       last_name: formData.last_name,
     };
@@ -111,15 +110,10 @@ export default function SignUp() {
       >
         <FormError error={error} />
         <Field {...fieldProps} name="email" type="email" label="Email*" onBlur={handleEmailBlur} required />
-        <Field {...fieldProps} name="password" type="password" label="Password*" minLength={8} required />
-        <Field {...fieldProps} name="re_password" type="password" label="Confirm Password*" minLength={8} required />
+        <Field {...fieldProps} as={PasswordAnswer} name="password" label="Password*" minLength={8} required />
         <div className="flex gap-4">
-          <div className="flex flex-col flex-1">
-            <Field {...fieldProps} name="first_name" type="text" label="First Name*" errorClass="mt-1" required />
-          </div>
-          <div className="flex flex-col flex-1">
-            <Field {...fieldProps} name="last_name" type="text" label="Last Name*" errorClass="mt-1" required />
-          </div>
+          <Field {...fieldProps} name="first_name" type="text" label="First Name*" labelClass="flex-1 min-w-0" required />
+          <Field {...fieldProps} name="last_name" type="text" label="Last Name*" labelClass="flex-1 min-w-0" required />
         </div>
         <SubmitButton loading={loading} handleSubmit={handleSubmit} label="Create account" />
       </AuthPanel>

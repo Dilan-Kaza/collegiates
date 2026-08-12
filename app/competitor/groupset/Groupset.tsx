@@ -151,7 +151,7 @@ export default function Groupset({
                         </button>
                     </div>
 
-                    {error && <div className="text-red-500 text-sm text-center">{error}</div>}
+                    {error && <div role="alert" className="text-error text-sm text-center">{error}</div>}
 
                     {mode === "create" ? (
                         <>

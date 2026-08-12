@@ -6,7 +6,7 @@ import { saveSettings } from "@functions/actions";
 import { errorMessage, runAction } from "@functions/actionErrors";
 import { clearSessionCache } from "@functions/sessionCache";
 import { cacheKeys, useCachedResource, fetchSettings } from "@functions";
-import { useNavigate } from "@/routerCompat";
+import { Link, useNavigate } from "@/routerCompat";
 import { useState } from "react";
 import { useAppDispatch } from "@/store/hooks";
 import { settingsDateInput } from "@/lib/dates";
@@ -126,7 +126,7 @@ export default function OrganizerSettings({
             <div className="hidden md:block"><MtHeader /></div>
             <div className="max-w-3xl mx-auto w-full px-4 py-8 flex flex-col gap-6">
                 <div className="flex items-center justify-between">
-                    <button className="btn btn-ghost w-fit" onClick={() => nav("/organizer")}>← Back</button>
+                    <Link to="/organizer" className="btn btn-ghost w-fit">← Back</Link>
                 </div>
 
                 <div className="text-3xl text-secondary font-semibold">Competition Settings</div>

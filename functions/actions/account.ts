@@ -41,9 +41,11 @@ export async function checkEmail(email: string): Promise<{ exists: boolean }> {
 }
 
 export async function registerUser(body: RegisterBody): Promise<Mutation<CompetitorDTO>> {
-  const { email, password, re_password } = body ?? {};
+  const { email, password } = body ?? {};
   if (!email || !password) return { error: { detail: "Email and password are required." } };
-  if (password !== re_password) return { error: { re_password: "Passwords do not match" } };
+  // The form asks for the password once — it is confirmed by the field's own
+  // show/hide toggle rather than a second input, so there is nothing to match here.
+  if (password.length < 8) return { error: { password: "Password must be at least 8 characters" } };
 
   try {
     const normalizedEmail = email.trim().toLowerCase();

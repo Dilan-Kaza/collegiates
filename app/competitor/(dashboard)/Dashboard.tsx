@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { MtHeader, LogoutButton, AllAroundStatus } from "@components";
-import { useNavigate } from "@/routerCompat";
+import { Link } from "@/routerCompat";
 import { useCachedResource, fetchMe, fetchSettings, fetchRegistrations, cacheKeys } from "@functions";
 import type { SettingsDTO, CompetitorDTO } from "@/lib/api";
 import { studentTypeLabel } from "@/lib/api";
@@ -27,8 +27,6 @@ export default function Dashboard ({
     settings?: Partial<SettingsDTO>;
     userinfo?: CompetitorDTO | null;
 }){
-
-    const nav = useNavigate();
 
     // Server data for first paint, then the cache entry — so a save on another page that
     // clears `currentUser` is re-read here instead of showing a stale copy.
@@ -72,17 +70,13 @@ export default function Dashboard ({
     return (
         <>
             <div className="hidden md:block"><MtHeader /></div>
-            <div
-                id="bg-component"
-                className="bg-gradient-to-b from-tertiary via-secondary via-100% to-primary h-[60vh] w-[80%] absolute top-20 left-[10%] -z-20 [clip-path:polygon(0%_0%,100%_0%,100%_100%,50%_88%,0%_100%)]"
-            />
             <div className="bg-off-white grid grid-cols-[1fr_2fr] rounded-lg px-[5%] py-8 max-w-3xl mx-auto w-full">
                 <div className="grid-row p-1">
                     <div className="flex flex-col gap-2">
                         <span className="text-4xl">{me?.first_name} {me?.last_name}</span>
                         <div className="flex gap-2">
                             <LogoutButton />
-                            <button className="btn btn-secondary btn-sm" onClick={() => nav("/edit-profile-info")}>Edit Profile Info</button>
+                            <Link to="/edit-profile-info" className="btn btn-secondary btn-sm">Edit Profile Info</Link>
                         </div>
                     </div>
                     <div className="py-2 text-sm space-y-1">
@@ -107,7 +101,7 @@ export default function Dashboard ({
                     ) : regStarted ? (
                         // Registering starts at the profile, where gender, level and class — which decide event
                         // eligibility — are confirmed; saving continues on to event selection.
-                        <button className="btn btn-primary" onClick={() => nav("/competitor/profile")}>Register</button>
+                        <Link to="/competitor/profile" className="btn btn-primary">Register</Link>
                     ) : (
                         <button className="btn btn-primary" disabled>Registration is not open</button>
                     )}
@@ -121,7 +115,7 @@ export default function Dashboard ({
                             )}
                         </div>
                     ) : inGroupsetEvent ? (
-                        <button className="btn btn-secondary mt-2" onClick={() => nav("/competitor/groupset")}>Join/Create Team</button>
+                        <Link to="/competitor/groupset" className="btn btn-secondary mt-2">Join/Create Team</Link>
                     ) : null}
                 </div>
                 {/* Scored over the events actually registered, so it reads as a
@@ -152,7 +146,7 @@ export default function Dashboard ({
                 ) : null}
                 <div className="col-span-2 flex justify-center pt-4">
                     {hasPublicOrder ? (
-                        <button className="btn btn-secondary" onClick={() => nav("/event-order")}>Event Order</button>
+                        <Link to="/event-order" className="btn btn-secondary">Event Order</Link>
                     ) : (
                         <button className="btn btn-secondary" disabled>Event Order Coming Soon</button>
                     )}

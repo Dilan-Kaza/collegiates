@@ -108,52 +108,42 @@ export default function EditProfileInfo({ email }: { email: string }) {
   return (
     <>
       <div className="hidden sm:block"><MtHeader /></div>
-      <div
-        id="bg-component"
-        className="bg-primary h-screen w-full skew-y-10 absolute -top-[60svh] left-0 -z-20"
-      />
       <div className="flex flex-col items-center gap-6 px-4 pb-10">
         <div className="grow min-w-0 w-full max-w-[36rem] mt-0 sm:mt-10 bg-off-white rounded-xl border border-brown/50">
           <div className="flex flex-col items-center gap-4">
             <Heading className="mt-2 sm:mt-6 !text-3xl !p-2 !animate-none">Change Password</Heading>
             <form className="self-stretch px-4 sm:px-12 pb-10 flex flex-col gap-6" onSubmit={handlePasswordSubmit}>
-              {pwError && <div className="text-red-500">{pwError}</div>}
-              <div>
-                <ShortAnswer
-                  type="password"
-                  name="old_password"
-                  label="Current Password*"
-                  onChange={handlePwChange}
-                  onBlur={handlePwBlur}
-                  value={pwData.old_password || ""}
-                  required
-                />
-                {pwErrors.old_password && <div className="text-red-500 mt-1">{pwErrors.old_password}</div>}
-              </div>
-              <div>
-                <ShortAnswer
-                  type="password"
-                  name="password"
-                  label="New Password*"
-                  onChange={handlePwChange}
-                  onBlur={handlePwBlur}
-                  value={pwData.password || ""}
-                  required
-                />
-                {pwErrors.password && <div className="text-red-500 mt-1">{pwErrors.password}</div>}
-              </div>
-              <div>
-                <ShortAnswer
-                  type="password"
-                  name="re_password"
-                  label="Confirm New Password*"
-                  onChange={handlePwChange}
-                  onBlur={handlePwBlur}
-                  value={pwData.re_password || ""}
-                  required
-                />
-                {pwErrors.re_password && <div className="text-red-500 mt-1">{pwErrors.re_password}</div>}
-              </div>
+              {pwError && <div role="alert" className="text-error">{pwError}</div>}
+              <ShortAnswer
+                type="password"
+                name="old_password"
+                label="Current Password*"
+                onChange={handlePwChange}
+                onBlur={handlePwBlur}
+                value={pwData.old_password || ""}
+                error={pwErrors.old_password}
+                required
+              />
+              <ShortAnswer
+                type="password"
+                name="password"
+                label="New Password*"
+                onChange={handlePwChange}
+                onBlur={handlePwBlur}
+                value={pwData.password || ""}
+                error={pwErrors.password}
+                required
+              />
+              <ShortAnswer
+                type="password"
+                name="re_password"
+                label="Confirm New Password*"
+                onChange={handlePwChange}
+                onBlur={handlePwBlur}
+                value={pwData.re_password || ""}
+                error={pwErrors.re_password}
+                required
+              />
               <button type="submit" disabled={pwLoading} className="btn btn-primary self-end">
                 {pwLoading ? "Updating..." : "Update Password"}
               </button>
@@ -165,20 +155,18 @@ export default function EditProfileInfo({ email }: { email: string }) {
           <div className="flex flex-col items-center gap-4">
             <Heading className="mt-2 sm:mt-6 !text-3xl !p-2 !animate-none">Change Email</Heading>
             <form className="self-stretch px-4 sm:px-12 pb-10 flex flex-col gap-6" onSubmit={handleEmailSubmit}>
-              {emailError && <div className="text-red-500">{emailError}</div>}
+              {emailError && <div role="alert" className="text-error">{emailError}</div>}
               <div className="text-sm text-gray-500">Current email: {email}</div>
-              <div>
-                <ShortAnswer
-                  type="email"
-                  name="email"
-                  label="New Email*"
-                  onChange={handleEmailChange}
-                  onBlur={handleEmailBlur}
-                  value={emailData.email || ""}
-                  required
-                />
-                {emailErrors.email && <div className="text-red-500 mt-1">{emailErrors.email}</div>}
-              </div>
+              <ShortAnswer
+                type="email"
+                name="email"
+                label="New Email*"
+                onChange={handleEmailChange}
+                onBlur={handleEmailBlur}
+                value={emailData.email || ""}
+                error={emailErrors.email}
+                required
+              />
               <button type="submit" disabled={emailLoading} className="btn btn-primary self-end">
                 {emailLoading ? "Sending..." : "Change Email"}
               </button>

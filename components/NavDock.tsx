@@ -1,6 +1,6 @@
 "use client";
 
-import { useNavigate } from "@/routerCompat";
+import { Link } from "@/routerCompat";
 import { useSession } from "@functions/sessionContext";
 
 // `firstName` and `liveScores` are resolved by the root layout on the server, so the account
@@ -8,7 +8,6 @@ import { useSession } from "@functions/sessionContext";
 export default function NavDock({ firstName = "", liveScores = false }: { firstName?: string; liveScores?: boolean }){
 
     const { data: session } = useSession();
-    const nav = useNavigate();
     const username = firstName;
     const userType = session?.user?.user_type;
     const accountHref = username
@@ -17,32 +16,32 @@ export default function NavDock({ firstName = "", liveScores = false }: { firstN
 
     return (
         <div className="dock z-10">
-            <button onClick={()=>nav("/")}>
+            <Link to="/">
                 <i className="bi bi-house-door"></i>
                 <span className="dock-label">Home</span>
-            </button>
+            </Link>
 
-            <button onClick={()=>nav("/about")}>
+            <Link to="/about">
                 <i className="bi bi-info-square"></i>
                 <span className="dock-label">About</span>
-            </button>
+            </Link>
 
-            <button onClick={()=>nav("/tournament")}>
+            <Link to="/tournament">
                 <i className="bi bi-bank"></i>
                 <span className="dock-label">Tournament</span>
-            </button>
+            </Link>
 
             {liveScores && (
-                <button onClick={()=>nav("/live")}>
+                <Link to="/live">
                     <i className="bi bi-broadcast"></i>
                     <span className="dock-label">Live</span>
-                </button>
+                </Link>
             )}
 
-            <button onClick={()=>nav(accountHref)}>
+            <Link to={accountHref}>
                 <i className="bi bi-person-circle"></i>
                 <span className="dock-label">{username || "Login"}</span>
-            </button>
+            </Link>
         </div>
     );
 }

@@ -7,7 +7,7 @@ import { errorMessage, runAction } from "@functions/actionErrors";
 import { cacheKeys, useCachedResource, fetchOrganizerBlogPosts } from "@functions";
 import { clearSessionCache } from "@functions/sessionCache";
 import { useState } from "react";
-import { useNavigate } from "@/routerCompat";
+import { Link } from "@/routerCompat";
 import { useAppDispatch } from "@/store/hooks";
 import type { BlogDTO } from "@/lib/api";
 
@@ -15,7 +15,6 @@ import type { BlogDTO } from "@/lib/api";
 // drops that entry and the server's "blog" tag, so the refetch returns the new post.
 export default function BlogManager({ posts: initialPosts = [] }: { posts?: BlogDTO[] }) {
 
-    const nav = useNavigate();
     const dispatch = useAppDispatch();
     const posts = useCachedResource(
         cacheKeys.organizerBlogPosts,
@@ -63,7 +62,7 @@ export default function BlogManager({ posts: initialPosts = [] }: { posts?: Blog
             <div className="hidden md:block"><MtHeader /></div>
             <div className="max-w-3xl mx-auto w-full px-4 py-8 flex flex-col gap-6">
                 <div className="flex items-center gap-4">
-                    <button className="btn btn-primary btn-sm" onClick={() => nav("/organizer")}>← Back</button>
+                    <Link to="/organizer" className="btn btn-primary btn-sm">← Back</Link>
                     <div className="text-3xl text-secondary font-semibold">Blog Posts</div>
                 </div>
 

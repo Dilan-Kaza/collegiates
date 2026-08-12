@@ -11,10 +11,6 @@ export default async function Page() {
   return (
     <>
       <div className="hidden sm:block"><MtHeader /></div>
-      <div
-        id="bg-component"
-        className="bg-primary h-screen w-full skew-y-10 absolute -top-[60svh] left-0 -z-20"
-      />
       <div className="flex items-center justify-center px-4">
         <div className="grow min-w-0 bg-off-white max-w-[36rem] mt-0 sm:mt-10 rounded-xl border border-brown/50">
           <div className="flex flex-col items-center gap-4 px-4 sm:px-12 py-10 text-center">

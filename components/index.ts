@@ -15,7 +15,7 @@ export { default as OrganizerRegistrationList } from "./OrganizerRegistrationLis
 export { default as OrganizerRegistrationByEvent } from "./OrganizerRegistrationByEvent";
 export { default as OrganizerRegistrationEdit } from "./OrganizerRegistrationEdit";
 export { default as OrganizerPayments } from "./OrganizerPayments";
-export { ShortAnswer, LongAnswer, Dropdown, DatePicker } from "./FormComponents";
+export { ShortAnswer, LongAnswer, Dropdown, DatePicker, PasswordAnswer } from "./FormComponents";
 export { Footer } from "./Footer";
 export { ImgHeader, MtHeader } from "./Headers";
 export { Heading } from "./Heading";

@@ -36,10 +36,6 @@ export default function ForgotPassword() {
   return (
     <>
       <div className="hidden sm:block"><MtHeader/></div>
-      <div
-        id="bg-component"
-        className="bg-secondary h-screen w-full skew-y-6 absolute -top-[50svh] left-0 -z-20"
-      ></div>
       <AuthPanel
         bottomLink="Sign In"
         bottomLabel="Back to "
@@ -59,9 +55,9 @@ export default function ForgotPassword() {
               onChange={handleChange}
               onBlur={handleBlur}
               value={formData.email || ""}
+              error={errors.email && "Invalid email address"}
               required
             />
-            {errors.email && <div className="text-red-500 mb-4">Invalid email address</div>}
             <div className="flex">
               <div className="flex-col flex-1"></div>
               <div className="flex-box">

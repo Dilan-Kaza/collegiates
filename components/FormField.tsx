@@ -18,33 +18,30 @@ interface FieldProps {
   errors: Record<string, string>;
   handleChange?: ChangeEventHandler<FormControl>;
   handleBlur?: FocusEventHandler<FormControl>;
-  errorClass?: string;
   [key: string]: unknown;
 }
 
-// A labeled control (ShortAnswer by default) wired to the shared form state, plus
-// its error. `as={DatePicker}`/`as={Dropdown}` swap the control; `errorClass` spaces it.
+// A labeled control (ShortAnswer by default) wired to the shared form state.
+// `as={DatePicker}`/`as={Dropdown}` swap the control. The control renders its own
+// error as a daisyUI `validator-hint`, so callers don't have to space one themselves.
 export function Field({
   as: Control = ShortAnswer,
-  name, formData, errors, handleChange, handleBlur,
-  errorClass = "-mt-2", ...props
+  name, formData, errors, handleChange, handleBlur, ...props
 }: FieldProps) {
   return (
-    <>
-      <Control
-        name={name}
-        value={formData[name] || ""}
-        onChange={handleChange}
-        onBlur={handleBlur}
-        {...props}
-      />
-      {errors[name] && <p className={`text-red-500 text-sm ${errorClass}`}>{errors[name]}</p>}
-    </>
+    <Control
+      name={name}
+      value={formData[name] || ""}
+      error={errors[name]}
+      onChange={handleChange}
+      onBlur={handleBlur}
+      {...props}
+    />
   );
 }
 
 export function FormError({ error }: { error?: string | null }) {
-  return error ? <div className="text-red-500 mb-4">{error}</div> : null;
+  return error ? <div role="alert" className="text-error mb-4">{error}</div> : null;
 }
 
 export function SubmitButton({
