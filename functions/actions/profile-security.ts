@@ -1,10 +1,20 @@
 "use server";
 
-// Self-service account security for an already-signed-in user: change
-// password (immediate) and change email (confirm-by-link, mirroring the
-// activation flow). See requestEmailChange/confirmEmailChange for why the
-// email change uses a stateless signed token instead of the VerificationToken
-// table used by activation/password-reset.
+/**
+ * Self-service account security for an already-signed-in user.
+ *
+ * @remarks
+ * A password change takes effect immediately. An email change is
+ * confirm-by-link, mirroring the activation flow, so an address is never moved
+ * to somewhere the requester cannot prove they control.
+ *
+ * The email change is the one flow using a **stateless signed token**
+ * ({@link "lib/signedToken"}) rather than the `VerificationToken` table that
+ * backs activation and password reset — it has to carry the new address as well
+ * as the user, and nothing needs persisting to trust it.
+ *
+ * @packageDocumentation
+ */
 
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
@@ -18,8 +28,29 @@ import { signEmailChangeToken, verifyEmailChangeToken } from "@/lib/signedToken"
 import { revalidateUserData, appUrl } from "./shared";
 import type { Mutation } from "./shared";
 
+/**
+ * Changes the signed-in user's password.
+ *
+ * @remarks
+ * The current password is re-verified even though the caller holds a valid
+ * session, so a session left open on a shared machine cannot be used to seize
+ * the account.
+ *
+ * Bumping `token_version` then revokes **every other session** — the one making
+ * the change included, though it re-authenticates from the same cookie. A
+ * notification goes to the account's address out of band.
+ *
+ * @returns A confirmation, or errors keyed to the individual fields.
+ */
 export async function changePassword(
-  { old_password, new_password, confirm_password }: { old_password: string; new_password: string; confirm_password: string },
+  { old_password, new_password, confirm_password }: {
+    /** The current password, re-verified even though a session is held. */
+    old_password: string;
+    /** The new password; at least 8 characters, and different from the old one. */
+    new_password: string;
+    /** Must match `new_password`. */
+    confirm_password: string;
+  },
 ): Promise<Mutation<{ detail: string }>> {
   const current = await getCurrentUser();
   if (!current) return { error: { detail: "Not authenticated." } };
@@ -35,9 +66,7 @@ export async function changePassword(
 
   await prisma.user.update({
     where: { user_id: current.user_id },
-    // Bumping token_version invalidates any other session's token — see
-    // lib/auth.ts's getCurrentUser(), which compares this against the value
-    // embedded in the caller's own session on every request.
+    // Bumping token_version revokes every session issued before this change.
     data: { password: hashPassword(new_password), token_version: { increment: 1 } },
   });
   revalidateUserData(current.user_id);
@@ -46,7 +75,23 @@ export async function changePassword(
   return { data: { detail: "Password updated successfully." } };
 }
 
-export async function requestEmailChange({ new_email }: { new_email: string }): Promise<Mutation<{ detail: string }>> {
+/**
+ * Starts an email change by sending a confirmation link to the new address.
+ *
+ * @remarks
+ * Nothing is written. The signed token carries the `(user, new address)` pair
+ * and expires in an hour, so the change only lands once the requester proves
+ * they can read mail at the destination.
+ *
+ * The availability check here is advisory: the address could be taken in the
+ * meantime, which {@link confirmEmailChange} catches on the unique index.
+ *
+ * @returns A confirmation that the email was sent, or a field error.
+ */
+export async function requestEmailChange({ new_email }: {
+  /** The address to move to. */
+  new_email: string;
+}): Promise<Mutation<{ detail: string }>> {
   const current = await getCurrentUser();
   if (!current) return { error: { detail: "Not authenticated." } };
 
@@ -65,7 +110,24 @@ export async function requestEmailChange({ new_email }: { new_email: string }): 
   return { data: { detail: "Confirmation email sent to your new address." } };
 }
 
-export async function confirmEmailChange({ token }: { token?: string }): Promise<Mutation<{ detail: string }>> {
+/**
+ * Completes an email change from its confirmation link.
+ *
+ * @remarks
+ * Unauthenticated, because the link is opened in whatever browser reads the new
+ * address's mail. The signature is the authorization.
+ *
+ * The old address is read before the update so the "your email changed"
+ * notification can go **there**, which is the only warning an account owner gets
+ * if someone else made the change.
+ *
+ * @returns A confirmation, or an error — including the address having been taken
+ * since the request was made.
+ */
+export async function confirmEmailChange({ token }: {
+  /** The signed token from the confirmation link. */
+  token?: string;
+}): Promise<Mutation<{ detail: string }>> {
   const payload = token ? verifyEmailChangeToken(token) : null;
   if (!payload) return { error: { detail: "This confirmation link is invalid or has expired." } };
 

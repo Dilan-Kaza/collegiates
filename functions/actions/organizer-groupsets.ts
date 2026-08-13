@@ -1,6 +1,21 @@
 "use server";
 
-// Organizer server actions for group sets: list, single read, and full CRUD.
+/**
+ * Organizer server actions for group sets: list, single read, and full CRUD.
+ *
+ * @remarks
+ * The competitor-facing flow in {@link "functions/actions/competitor"} enforces
+ * the team rules strictly — Class 1 only, one team per year, same school,
+ * registered for the team event. An organizer needs to be able to break them,
+ * because a hand edit is usually how the very gap a rule describes gets fixed.
+ *
+ * So the checks here are split in two. **Blocking** problems cannot be written
+ * at all. **Warnings** come back under a `confirm` key, which the UI turns into
+ * a "Save anyway" button; re-submitting with `override: true` accepts them. See
+ * `memberProblems`.
+ *
+ * @packageDocumentation
+ */
 
 import { unstable_cache, updateTag } from "next/cache";
 import { Prisma } from "@prisma/client";
@@ -105,6 +120,11 @@ async function memberProblems(
 // turns into a "Save anyway" (see confirmMessage in functions/actionErrors.ts).
 const confirmError = (warnings: string[]): FieldErrors => ({ confirm: warnings.join(" ") });
 
+/**
+ * Every group set for the current competition year.
+ *
+ * @returns The teams, or `[]` for a denied read or before a competition exists.
+ */
 export async function getOrganizerGroupsets(): Promise<OrganizerGroupsetDTO[]> {
   const { error } = await organizerGate();
   if (error) return [];
@@ -122,6 +142,16 @@ export async function getOrganizerGroupsets(): Promise<OrganizerGroupsetDTO[]> {
   return groupsets.map(reOrganizerGroupset);
 }
 
+/**
+ * One group set, for the detail and edit screens.
+ *
+ * @remarks
+ * Not year-scoped — the id identifies the team, and reading a past year's team
+ * by direct link should work.
+ *
+ * @param uuid - The group set's id.
+ * @returns The team, or `null` for a denied read or no match.
+ */
 export async function getOrganizerGroupset(uuid: string): Promise<OrganizerGroupsetDTO | null> {
   const { error } = await organizerGate();
   if (error) return null;
@@ -136,6 +166,20 @@ export async function getOrganizerGroupset(uuid: string): Promise<OrganizerGroup
   return gs ? reOrganizerGroupset(gs) : null;
 }
 
+/**
+ * Creates a group set on a competitor's behalf.
+ *
+ * @remarks
+ * Unlike the competitor flow, the organizer picks the school and the roster
+ * outright. Eligibility problems come back as confirmable warnings; a blank
+ * name, a missing school, and a duplicated member are not confirmable, since
+ * they cannot be written or are simply malformed.
+ *
+ * @param body - Team name, school, leader, members, and `override` to accept
+ * any warnings a previous attempt returned.
+ * @returns The created team, or field errors — `confirm` when the save is
+ * merely warned about rather than refused.
+ */
 export async function createOrganizerGroupset(body: CreateOrganizerGroupsetBody): Promise<Mutation<OrganizerGroupsetDTO>> {
   const { error } = await organizerGate();
   if (error) return { error };
@@ -199,6 +243,21 @@ export async function createOrganizerGroupset(body: CreateOrganizerGroupsetBody)
   }
 }
 
+/**
+ * Edits a group set: rename it, move it to another school, or change its roster.
+ *
+ * @remarks
+ * Only members being **added** are checked; existing ones are left alone, so an
+ * unrelated edit does not re-raise warnings the organizer already accepted.
+ *
+ * Moving the team to another school re-seats it: every member counts as newly
+ * added and is re-checked against the new school, since school membership is
+ * exactly what such a move invalidates.
+ *
+ * @param uuid - The group set to edit.
+ * @param body - The fields to change, plus `override` to accept warnings.
+ * @returns The updated team, or field errors — `confirm` for warnings.
+ */
 export async function updateOrganizerGroupset(
   uuid: string,
   body: UpdateOrganizerGroupsetBody
@@ -296,6 +355,17 @@ export async function updateOrganizerGroupset(
   }
 }
 
+/**
+ * Deletes a group set. Its memberships cascade with it.
+ *
+ * @remarks
+ * The members' registrations for the team event are **not** removed — they
+ * remain registered, and unassigned, which is a state the order views surface
+ * explicitly rather than hiding.
+ *
+ * @param uuid - The group set to delete.
+ * @returns A confirmation, or an error.
+ */
 export async function deleteOrganizerGroupset(uuid: string): Promise<Mutation<{ detail: string }>> {
   const { error } = await organizerGate();
   if (error) return { error };

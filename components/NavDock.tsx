@@ -3,9 +3,19 @@
 import { Link } from "@/routerCompat";
 import { useSession } from "@functions/sessionContext";
 
-// `firstName` and `liveScores` are resolved by the root layout on the server, so the account
-// label and Live button render with no client fetch. Live shows only when openable — see NavBar.
-export default function NavDock({ firstName = "", liveScores = false }: { firstName?: string; liveScores?: boolean }){
+/** The mobile bottom navigation dock. The desktop counterpart is `NavBar`. */
+export default function NavDock({ firstName = "", liveScores = false }: {
+    /**
+     * Resolved by the root layout on the server, so the account label renders
+     * with no client fetch and no auth-status flash.
+     */
+    firstName?: string;
+    /**
+     * Whether to offer the Live tab. Also resolved server-side, since it depends
+     * on the competition date — no client decides what day it is.
+     */
+    liveScores?: boolean;
+}){
 
     const { data: session } = useSession();
     const username = firstName;

@@ -1,8 +1,30 @@
-// All-Around eligibility, scored exactly as rules 4.I states it — keep in step with
-// app/rules/_components/AllAround.tsx. Pure and shared; reads DTO codes, not Prisma members.
+/**
+ * All-Around title eligibility, scored exactly as rules 4.I states it.
+ *
+ * @remarks
+ * There are two titles, External and Internal, each defined by a short list of
+ * requirements that must be filled by *different* events. That last constraint
+ * is what makes this more than a set of independent checks: a single form can
+ * satisfy several requirements on paper, but may only be counted once. See
+ * {@link allAroundProgress} for how that is resolved.
+ *
+ * Keep this in step with `app/rules/_components/AllAround.tsx`, which states the
+ * same rules to competitors in prose.
+ *
+ * Pure and shared, reading DTO codes rather than Prisma enum members, so the
+ * event picker and the dashboard score identically.
+ *
+ * @packageDocumentation
+ */
 
-// The fields a title is scored over. Both EventDTO and RegistrationDTO satisfy
-// this, which is what lets the picker and the dashboard share the scoring.
+/**
+ * The event fields a title is scored over.
+ *
+ * @remarks
+ * Both `EventDTO` and `RegistrationDTO` structurally satisfy this, which is what
+ * lets the registration picker (scoring hypothetical selections) and the
+ * dashboard (scoring saved registrations) share one implementation.
+ */
 export interface AllAroundEvent {
   event_category: string | null;
   weapon_type: string | null;
@@ -65,24 +87,26 @@ const TITLES: TitleSpec[] = [
   },
 ];
 
+/** One requirement and whether the competitor's events currently fill it. */
 export interface RequirementProgress {
   label: string;
   met: boolean;
 }
 
+/** A competitor's standing against one All-Around title. */
 export interface AllAroundTitleProgress {
-  // Event-category code the title belongs to ("E"/"I").
+  /** The event-category code the title belongs to: `"E"` or `"I"`. */
   key: string;
   title: string;
-  // In rules order, so the checklist reads like the rules page.
+  /** In rules order, so the rendered checklist reads like the rules page. */
   requirements: RequirementProgress[];
   met: number;
   required: number;
   eligible: boolean;
 }
 
-// Which requirements the given events can cover at once. The requirements overlap and one event
-// can't fill two, so this is a maximum bipartite matching (Kuhn's) — greedy would under-count.
+// Which requirements the given events can cover at once. Requirements overlap and one event can't
+// fill two, so this is a maximum bipartite matching (Kuhn's) — greedy would under-count.
 function matchRequirements(requirements: Requirement[], events: AllAroundEvent[]): boolean[] {
   // Event index -> the requirement currently holding it.
   const heldBy: (number | null)[] = events.map(() => null);
@@ -108,8 +132,16 @@ function matchRequirements(requirements: Requirement[], events: AllAroundEvent[]
   return filled;
 }
 
-// Class 1 and advanced skill level are the profile gate (rules 4.I) — the events
-// below mean nothing without both.
+/**
+ * The profile-level gate on All-Around titles (rules 4.I).
+ *
+ * @remarks
+ * Class 1 *and* advanced skill level are both required. Without them the events
+ * a competitor has entered are irrelevant — no combination qualifies.
+ *
+ * @param studentType - The DTO code: `"1"` or `"2"`.
+ * @param skillLevel - The DTO code: `"B"`, `"I"`, or `"A"`.
+ */
 export function canCompeteForAllAround(
   studentType: string | null | undefined,
   skillLevel: string | null | undefined,
@@ -117,8 +149,25 @@ export function canCompeteForAllAround(
   return studentType === "1" && skillLevel === "A";
 }
 
-// One entry per title the competitor is actually working toward, closest first. A title only
-// shows once one of its own requirements is met, so an internal competitor sees no noise.
+/**
+ * Scores a set of events against every All-Around title.
+ *
+ * @remarks
+ * Each title's requirements must be filled by *distinct* events, and the
+ * requirements overlap heavily — "an external weapon form" and "another
+ * external form" both accept the same event. Deciding how many can be filled at
+ * once is therefore a maximum bipartite matching, solved with Kuhn's algorithm.
+ * A greedy pass would assign an event to the first requirement it fits and
+ * under-count titles that were in fact within reach.
+ *
+ * Only titles the competitor is actually working toward are returned. A title
+ * qualifies once one of its **non-wildcard** requirements is met: the External
+ * title's fourth slot accepts any form at all, so counting it would show every
+ * internal competitor an External checklist they never asked about.
+ *
+ * @param events - The competitor's events, registered or merely selected.
+ * @returns One entry per pursued title, closest to complete first.
+ */
 export function allAroundProgress(events: AllAroundEvent[]): AllAroundTitleProgress[] {
   const scored = TITLES.map((spec) => {
     const filled = matchRequirements(spec.requirements, events);
@@ -142,7 +191,17 @@ export function allAroundProgress(events: AllAroundEvent[]): AllAroundTitleProgr
     .sort((a, b) => Number(b.eligible) - Number(a.eligible) || b.met - a.met);
 }
 
-// Whether a title is already locked in, for callers that only need the yes/no.
+/**
+ * Whether any All-Around title is already locked in.
+ *
+ * @remarks
+ * The yes/no form of {@link canCompeteForAllAround} plus {@link allAroundProgress},
+ * for callers that do not render the checklist.
+ *
+ * @param studentType - The DTO code: `"1"` or `"2"`.
+ * @param skillLevel - The DTO code: `"B"`, `"I"`, or `"A"`.
+ * @param events - The competitor's events.
+ */
 export function isAllAroundEligible(
   studentType: string | null | undefined,
   skillLevel: string | null | undefined,

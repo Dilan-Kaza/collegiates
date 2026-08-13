@@ -1,7 +1,20 @@
 "use server";
 
-// Event-order server actions: read/save this year's ring order, publish state,
-// and the public read. Include shapes live in lib/api beside their shapers.
+/**
+ * Event-order server actions: read and save the year's ring order, control
+ * whether it is published, and export it to Google Sheets.
+ *
+ * @remarks
+ * A save is a **full rewrite** of the year's slots, driven by whatever the
+ * builder submits — the client owns the arrangement, and this module's job is to
+ * make the stored rows match it without losing data the payload did not mention.
+ * {@link "functions/actions/order".saveOrder} explains how omissions are merged.
+ *
+ * The `include` shapes live in {@link "lib/api/payloads"}, beside the shapers
+ * that consume them.
+ *
+ * @packageDocumentation
+ */
 
 import { updateTag } from "next/cache";
 import { Prisma } from "@prisma/client";
@@ -175,8 +188,17 @@ async function clearRings(
   });
 }
 
-// OrganizerOrderView retrieve: the saved order for the current comp_year, served
-// from the Data Cache (getOrderForSettings) behind the organizer gate.
+/**
+ * The saved event order for the current competition year, for the builder.
+ *
+ * @remarks
+ * Shares the Data Cache entry with the public read, so an organizer refreshing
+ * the builder does not re-query what a competitor just loaded.
+ *
+ * @returns The order, `null` for a denied read, and `null` when no order has
+ * been saved yet — the two are deliberately indistinguishable to the client,
+ * which renders an empty builder either way.
+ */
 export async function getOrganizerOrder(): Promise<OrderDTO | null> {
   const { error } = await organizerGate();
   if (error) return null;
@@ -185,8 +207,34 @@ export async function getOrganizerOrder(): Promise<OrderDTO | null> {
   return getOrderForSettings(settings.id);
 }
 
-// OrganizerOrderView create/update: stamp the current year's settings row as
-// having a saved order and rewrite whichever rings were provided.
+/**
+ * Saves the event order, rewriting whichever rings the payload supplies.
+ *
+ * @remarks
+ * The whole save is **one transaction**, so a failure leaves nothing written and
+ * the cached order still current.
+ *
+ * Three rules govern what a payload does and does not change:
+ *
+ * - A **ring omitted from the body** is left untouched. Only listed rings are
+ *   rewritten.
+ * - A **field omitted from a slot** keeps whatever the stored row held, falling
+ *   back to the column default only when there is no row yet.
+ * - An **omitted `competitor_list`** is not a request to clear one: an existing
+ *   slot keeps its competitors, a new slot starts empty.
+ *
+ * Listed rings are replaced wholesale rather than reconciled row by row, because
+ * per-slot updates would cost round trips proportional to the schedule's size.
+ * Client-supplied slot ids survive the rewrite, so dragging a slot between rings
+ * moves it rather than recreating it.
+ *
+ * Saving also stamps `order_updated_at`. Clearing that null is what the reads
+ * treat as "an order exists", the way a missing `Order` row used to.
+ *
+ * @param body - Zero to three rings of slots.
+ * @returns The saved order read back, or an error. A read-back failure is
+ * reported distinctly, so the organizer does not re-save work already persisted.
+ */
 export async function saveOrder(body: OrderBody): Promise<Mutation<OrderDTO>> {
   const { error } = await organizerGate();
   if (error) return { error };
@@ -201,8 +249,6 @@ export async function saveOrder(body: OrderBody): Promise<Mutation<OrderDTO>> {
   try {
     await prisma.$transaction(
       async (tx) => {
-        // Marks the year's order as saved — the null this clears is what the
-        // reads treat as "no order yet", the way a missing Order row used to.
         await tx.settings.update({
           where: { id: settings.id },
           data: { order_updated_at: new Date() },
@@ -232,8 +278,6 @@ export async function saveOrder(body: OrderBody): Promise<Mutation<OrderDTO>> {
         const carried = await carryRosters(tx, plan);
         const comps = competitorRows(plan, carried);
 
-        // The listed rings are replaced rather than reconciled row by row: per-slot updates cost
-        // round trips proportional to the schedule. Client-supplied ids survive the rewrite.
         await clearRings(tx, [...ringIds.values()], plan.slots.map((s) => s.id));
         if (plan.slots.length) await tx.eventOrder.createMany({ data: plan.slots });
         if (comps.length) await tx.competitorOrder.createMany({ data: comps });
@@ -264,8 +308,17 @@ export async function saveOrder(body: OrderBody): Promise<Mutation<OrderDTO>> {
   }
 }
 
-// Publish / unpublish this year's order, a flag on Settings (order_public). Returns the flag as
-// the server stored it; no `include`, which would force an interactive transaction (WebSocket).
+/**
+ * Publishes or unpublishes this year's event order to competitors.
+ *
+ * @remarks
+ * A single `order_public` flag on the settings row. Until it is set,
+ * {@link getPublicOrder} returns nothing however complete the order is.
+ *
+ * @param value - True to publish.
+ * @returns The flag as the server stored it — a `select`, not an `include`,
+ * which would force an interactive transaction over a WebSocket.
+ */
 export async function setOrderPublic(value: boolean): Promise<Mutation<{ order_public: boolean } | null>> {
   const { error } = await organizerGate();
   if (error) return { error };
@@ -333,8 +386,29 @@ function cleanTabs(body: SheetExportBody): SheetTabData[] {
   });
 }
 
-// Pushes a built grid into this year's spreadsheet, one tab per ring, serving both exports. Reads
-// no order rows and runs no maths — it gates, resolves the destination from Settings, and bounds.
+/**
+ * Pushes a client-built grid into this year's spreadsheet, one tab per ring.
+ *
+ * @remarks
+ * Serves both exports — the event order and the scoring sheets. It reads no
+ * order rows and does no arithmetic: the browser sends finished cells, and this
+ * action's job is to gate the call, resolve the destination, and bound the
+ * payload before it reaches the Sheets API.
+ *
+ * The destination is `Settings.scoring_url`, which doubles as the export target.
+ * One spreadsheet link per year means a new competition is a settings edit
+ * rather than a redeploy.
+ *
+ * Grids are bounded at 6 tabs, 2,000 rows, 26 columns, and 500 characters per
+ * cell. Nothing legitimate approaches those; past them is a client bug or
+ * someone calling the action directly. Individual unusable cells are dropped
+ * rather than failing the whole export — a stray cell is not worth the schedule.
+ *
+ * @param body - The tabs to write, each with a title and its rows.
+ * @returns The spreadsheet's URL, or an error. Configuration problems (no
+ * service account, no or unusable Scoring Link) are reported as instructions
+ * rather than logged as failures.
+ */
 export async function exportSheetTabs(body: SheetExportBody): Promise<Mutation<{ url: string }>> {
   const { error } = await organizerGate();
   if (error) return { error };
@@ -372,8 +446,17 @@ export async function exportSheetTabs(body: SheetExportBody): Promise<Mutation<{
   }
 }
 
-// CompetitorOrderView: this year's order, but only when settings have publishing
-// enabled. Shares the cached per-year read with the organizer path.
+/**
+ * This year's event order, for competitors.
+ *
+ * @remarks
+ * Returns nothing unless the organizer has published it, however complete the
+ * saved order is. Shares the cached per-year read with
+ * {@link getOrganizerOrder}.
+ *
+ * @returns The order, or `null` when the caller is not a competitor, no
+ * competition exists, or the order is unpublished.
+ */
 export async function getPublicOrder(): Promise<OrderDTO | null> {
   const user = await getCurrentUser();
   if (!user || !isCompetitor(user)) return null;

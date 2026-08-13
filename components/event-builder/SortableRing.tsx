@@ -5,10 +5,9 @@ import EventCard from "./EventCard";
 import BreakCard from "./BreakCard";
 import type { Competitor, RingEvent, RingKey, Conflicts } from "./types";
 import { newBreakId } from "./utils";
-// drag-and-drop ring column
 
-// react-sortablejs applies the destination list's `clone` prop to every added item, so this is
-// the only place a preset dragged out of BreakPanel gets a fresh id instead of a duplicate key.
+// react-sortablejs applies the destination list's `clone` to every added item, so
+// this is the only place a preset out of BreakPanel gets a fresh id.
 const cloneAdded = (item: RingEvent, evt: { pullMode?: boolean | "clone" }): RingEvent =>
     evt?.pullMode === "clone" ? { ...item, id: newBreakId() } : item;
 
@@ -24,6 +23,15 @@ interface SortableRingProps {
   duplicateNames?: Set<string>;
 }
 
+/**
+ * One ring column: a drop target holding its slots in running order.
+ *
+ * @remarks
+ * All three rings and the break palette share the `"rings"` sortable group, so
+ * slots drag freely between them.
+ *
+ * @param timeLabel - The ring's estimated running time, shown in its header.
+ */
 export default function SortableRing({ label, timeLabel, events, setEvents, conflicts, ringKey, onSetCompetitors, compact, duplicateNames }: SortableRingProps) {
     return (
         <div className="bg-off-white rounded-lg border border-gray-200 flex flex-col">

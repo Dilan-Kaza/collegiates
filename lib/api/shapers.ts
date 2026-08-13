@@ -1,4 +1,19 @@
-// Serializer-equivalent shapers: Prisma rows -> the DTOs the client consumes.
+/**
+ * Prisma rows to the DTOs the client consumes.
+ *
+ * @remarks
+ * These are the port of the old Django REST serializers, and each is named
+ * after the one it replaces. They do three jobs: pick the fields that may leave
+ * the server, translate Prisma enum members back to the codes the DTOs and
+ * forms speak (see {@link "lib/api/enums"}), and flatten relations the client
+ * would otherwise have to walk.
+ *
+ * Every shaper is pure and synchronous. The Prisma payload types they accept,
+ * and the matching `include` values, live in {@link "lib/api/payloads"} so the
+ * query shape and the accepted type cannot drift apart.
+ *
+ * @packageDocumentation
+ */
 import type { College, Event, Blog } from "@prisma/client";
 import { fromGender, fromSkillLevel, fromStudentType, fromEventCategory, fromWeaponType } from "./enums";
 import type {
@@ -25,11 +40,13 @@ import type {
   OrderWithRings,
 } from "./payloads";
 
+/** A college row as the client sees it. */
 export const shapeCollege = (c: College): CollegeDTO => ({
   college_id: c.college_id,
   college_name: c.college_name,
 });
 
+/** A catalogue event, with its Prisma enums translated back to DTO codes. */
 export const shapeEvent = (e: Event): EventDTO => ({
   event_code: e.event_code,
   event_name: e.event_name,
@@ -41,6 +58,7 @@ export const shapeEvent = (e: Event): EventDTO => ({
   is_cq_nq: e.is_cq_nq,
 });
 
+/** A blog post with its complete body. Use {@link shapeBlogListItem} for lists. */
 export const shapeBlog = (b: Blog): BlogDTO => ({
   blog_id: b.blog_id,
   date_created: b.date_created,
@@ -50,11 +68,17 @@ export const shapeBlog = (b: Blog): BlogDTO => ({
   blog_content: b.blog_content,
 });
 
-// How much of the body a list item carries.
+/** How much of a post's body a list item carries, in characters. */
 export const BLOG_EXCERPT_CHARS = 300;
 
-// Blog LIST readers use this, not shapeBlog: list views clip the body anyway.
-// Single-post readers still serve the complete text.
+/**
+ * A blog post truncated to an excerpt, for list views.
+ *
+ * @remarks
+ * Every blog **list** reader uses this rather than {@link shapeBlog}: the list
+ * clips the body visually anyway, so shipping whole posts would only inflate the
+ * payload and the cache entry. Single-post readers still serve the full text.
+ */
 export const shapeBlogListItem = (b: Blog): BlogDTO => ({
   ...shapeBlog(b),
   blog_content:
@@ -63,6 +87,20 @@ export const shapeBlogListItem = (b: Blog): BlogDTO => ({
       : b.blog_content,
 });
 
+/**
+ * The competition settings as the client sees them.
+ *
+ * @remarks
+ * `reg_open` is resolved here, on the server, rather than left for each client
+ * to compute — otherwise every browser would judge the window against its own
+ * clock. The rule mirrors `regActive` in {@link "lib/settings"}.
+ *
+ * The host is flattened to their email (the key writes resolve a host by) plus
+ * their college's name for display.
+ *
+ * @param s - The settings row with its host included, or null.
+ * @returns The DTO, or `null` when no competition exists yet.
+ */
 export function shapeSettings(s: SettingsWithHost | null): SettingsDTO | null {
   // Mirrors Settings.reg_active / regActive in lib/settings.
   const now = new Date();
@@ -90,7 +128,20 @@ export function shapeSettings(s: SettingsWithHost | null): SettingsDTO | null {
   );
 }
 
-// Registration row -> flattened event shape (matches EventRegistrationSerializer).
+/**
+ * A registration flattened into its event's shape — the port of
+ * `EventRegistrationSerializer`.
+ *
+ * @remarks
+ * The event's own fields are lifted onto the registration so the dashboard can
+ * score All-Around progress straight off a registration list, without a second
+ * pass over the catalogue.
+ *
+ * `nandu_str` is only included for nandu events, so a non-nandu registration
+ * carries no empty difficulty string.
+ *
+ * @param reg - A registration row with its `event` included.
+ */
 export function shapeRegistration(reg: RegistrationWithEvent): RegistrationDTO {
   const out: RegistrationDTO = {
     comp_year: reg.comp_year,
@@ -123,8 +174,16 @@ function teamForYear(memberships: MembershipRows | undefined, year: number | und
   return row ? { groupset_id: row.groupset.groupset_id, team_name: row.groupset.team_name } : null;
 }
 
-// GroupsetSerializer: members/school rendered as strings. `gs.members` is
-// expected to include the related `member` user.
+/**
+ * A group set for its own members — the port of `GroupsetSerializer`.
+ *
+ * @remarks
+ * Members and school are rendered as plain display strings, since the
+ * competitor-facing views only ever show them. Organizers need ids to edit with,
+ * so they get {@link shapeOrganizerGroupset} instead.
+ *
+ * @param gs - A group set with `school` and `members.member.user` included.
+ */
 export function shapeGroupset(gs: GroupsetWithMembers): GroupsetDTO {
   return {
     groupset_id: gs.groupset_id,
@@ -136,7 +195,15 @@ export function shapeGroupset(gs: GroupsetWithMembers): GroupsetDTO {
   };
 }
 
-// OrganizerGroupsetSerializer representation.
+/**
+ * A group set for the organizer console — the port of `OrganizerGroupsetSerializer`.
+ *
+ * @remarks
+ * Carries user ids and the school id alongside the display names, because the
+ * organizer's editor has to preselect members and reassign the team.
+ *
+ * @param gs - A group set with `school` and `members.member.user` included.
+ */
 export function shapeOrganizerGroupset(gs: GroupsetWithMembers): OrganizerGroupsetDTO {
   const members = (gs.members ?? []).map((m) => ({ user_id: m.member.user_id, name: memberName(m.member.user) }));
   const leaderRow = (gs.members ?? []).find((m) => m.leader);
@@ -151,8 +218,16 @@ export function shapeOrganizerGroupset(gs: GroupsetWithMembers): OrganizerGroups
   };
 }
 
-// OrganizerRegistrationSerializer. `user.registration` should be pre-filtered to the current
-// comp_year with its event included; `year` picks the competitor's team out of their memberships.
+/**
+ * One competitor as the organizer's registration and payment views need them —
+ * the port of `OrganizerRegistrationSerializer`.
+ *
+ * @param user - The user with `competitor_profile` included, whose
+ * `registration` relation should already be filtered to the competition year and
+ * have its `event` included. This shaper does not filter by year itself.
+ * @param year - Which year's team membership to report. Memberships accumulate
+ * across years, so without this the most recent team is used as a guess.
+ */
 export function shapeOrganizerRegistration(
   user: UserWithProfileAndRegistration,
   year?: number,
@@ -175,8 +250,19 @@ export function shapeOrganizerRegistration(
   };
 }
 
-// EventOrderSerializer.to_representation: competitor_list as {id, name, order, team} sorted by
-// order. The slot's own comp_year picks each team, so a past year's order keeps that year's.
+/**
+ * One slot of a ring — the port of `EventOrderSerializer.to_representation`.
+ *
+ * @remarks
+ * The competitor list is sorted by its stored `order`, so running order survives
+ * however the rows came back from Postgres.
+ *
+ * Each competitor's team is resolved against the **slot's own** `comp_year`, not
+ * today's, so re-reading a past year's order still shows the teams as they stood
+ * that year.
+ *
+ * @param eo - An `EventOrder` row with `EVENT_ORDER_INCLUDE` applied.
+ */
 export function shapeEventOrder(eo: EventOrderWithCompetitors): EventOrderDTO {
   return {
     id: eo.id,
@@ -197,8 +283,20 @@ export function shapeEventOrder(eo: EventOrderWithCompetitors): EventOrderDTO {
   };
 }
 
-// OrderSerializer: one Ring row per ring_number, shaped into the three DTO fields ([] when never
-// created). Rings hang off Settings, so `comp_year` is its reg_year and `created_at` stands in.
+/**
+ * A competition year's whole event order — the port of `OrderSerializer`.
+ *
+ * @remarks
+ * Rings are stored as rows keyed by `ring_number` and picked out into the three
+ * flat DTO fields; a ring that was never created reads as `[]` rather than being
+ * absent.
+ *
+ * The order hangs off the year's `Settings` row, which is why `comp_year` comes
+ * from `reg_year`, and why `created_at` stands in when `order_updated_at` is
+ * still null.
+ *
+ * @param s - A `Settings` row with `ORDER_INCLUDE` applied.
+ */
 export function shapeOrder(s: OrderWithRings): OrderDTO {
   const ring = (n: number): EventOrderDTO[] =>
     (s.rings.find((r) => r.ring_number === n)?.event_orders ?? [])
@@ -213,6 +311,19 @@ export function shapeOrder(s: OrderWithRings): OrderDTO {
   };
 }
 
+/**
+ * The signed-in competitor's own payload: profile, registrations, and team.
+ *
+ * @remarks
+ * The three parts are passed separately rather than read off one deep include,
+ * because the callers fetch them under different cache keys — see
+ * {@link "functions/actions/account"}. `school` is the college **id** (what the
+ * profile form binds to) while `school_name` is the display name.
+ *
+ * @param user - The user with `competitor_profile.school` included.
+ * @param registrations - This year's registrations, each with its `event`.
+ * @param groupset - Their team, or null when they are on none.
+ */
 export function shapeCompetitor(
   user: UserWithProfile,
   registrations: RegistrationWithEvent[] = [],

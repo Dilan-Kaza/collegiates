@@ -1,12 +1,22 @@
 import type { EmailContent } from "./email";
 
-// Plain-template transactional emails. Each returns both an HTML and a text
-// part — SendEmailCommand requires both, and mail providers weight
-// HTML-only messages as more spam-like.
+/**
+ * Bodies for every transactional email the site sends.
+ *
+ * @remarks
+ * Each builder returns both an HTML and a plain-text part: SES's
+ * `SendEmailCommand` takes both, and mail providers weight HTML-only messages
+ * as more spam-like.
+ *
+ * Interpolated values are either server-generated (a signed link, a formatted
+ * amount) or stored text that a human typed at some point — event names, a
+ * school name, an email address. Everything in the second group goes through
+ * `escapeHtml`.
+ *
+ * @packageDocumentation
+ */
 
-// Escapes untrusted values (e.g. a user-submitted email address) before they're
-// interpolated into an HTML email body — unlike `link`/`eventNames` elsewhere in
-// this file, which are server-generated and never carry attacker-controlled markup.
+// Escapes untrusted values before they are interpolated into an HTML body.
 const escapeHtml = (value: string): string =>
   value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
@@ -17,6 +27,12 @@ const wrap = (title: string, body: string): string => `
   <p style="margin-top:32px;color:#888;font-size:12px">Collegiates</p>
 </div>`;
 
+/**
+ * The account-activation email sent at sign-up.
+ *
+ * @param link - The activation URL, carrying a 24-hour token from
+ * {@link "lib/tokens"}. The expiry stated in the body must match that TTL.
+ */
 export function activationEmail(link: string): EmailContent {
   return {
     subject: "Confirm your Collegiates account",
@@ -30,6 +46,35 @@ export function activationEmail(link: string): EmailContent {
   };
 }
 
+/**
+ * The invitation sent when an admin creates a school account.
+ *
+ * @remarks
+ * The account is created with a random password nobody holds, so this link is
+ * the only way in: it sets the first password and activates the account in one
+ * step.
+ *
+ * @param link - The set-password URL, carrying a seven-day token from
+ * {@link "lib/tokens"}. The expiry stated in the body must match that TTL.
+ */
+export function schoolAccountInviteEmail(link: string): EmailContent {
+  return {
+    subject: "Your Collegiates school account",
+    html: wrap(
+      "Set your password",
+      `<p>A school account has been created for you on Collegiates. Click below to choose a password and activate it:</p>
+       <p><a href="${link}" style="color:#2563eb">${link}</a></p>
+       <p>This link expires in 7 days.</p>`,
+    ),
+    text: `Set your password: ${link}\n\nThis link expires in 7 days.`,
+  };
+}
+
+/**
+ * The password-reset email.
+ *
+ * @param link - The reset URL, carrying a one-hour token from {@link "lib/tokens"}.
+ */
 export function passwordResetEmail(link: string): EmailContent {
   return {
     subject: "Reset your Collegiates password",
@@ -43,6 +88,12 @@ export function passwordResetEmail(link: string): EmailContent {
   };
 }
 
+/**
+ * Sent to the **new** address, to prove the requester controls it.
+ *
+ * @param link - The confirmation URL, carrying a one-hour signed token from
+ * {@link "lib/signedToken"}.
+ */
 export function emailChangeConfirmationEmail(link: string): EmailContent {
   return {
     subject: "Confirm your new Collegiates email",
@@ -56,6 +107,12 @@ export function emailChangeConfirmationEmail(link: string): EmailContent {
   };
 }
 
+/**
+ * Sent to the **old** address once an email change completes, so a hijacked
+ * account still surfaces the change somewhere its owner can see it.
+ *
+ * @param newEmail - The address moved to. User-supplied, so it is HTML-escaped.
+ */
 export function emailChangedNotificationEmail(newEmail: string): EmailContent {
   return {
     subject: "Your Collegiates account email was changed",
@@ -68,6 +125,10 @@ export function emailChangedNotificationEmail(newEmail: string): EmailContent {
   };
 }
 
+/**
+ * Sent after a password change or reset, as an out-of-band warning that the
+ * credential moved.
+ */
 export function passwordChangedNotificationEmail(): EmailContent {
   return {
     subject: "Your Collegiates password was changed",
@@ -80,15 +141,158 @@ export function passwordChangedNotificationEmail(): EmailContent {
   };
 }
 
-export function registrationConfirmedEmail(eventNames: string[]): EmailContent {
-  const items = eventNames.map((n) => `<li>${n}</li>`).join("");
+/** One registered event, as the two registration emails list it. */
+export interface RegistrationLine {
+  /** The event's display name, falling back to its code. */
+  name: string;
+  /** The declared difficulty string. Present only for nandu events. */
+  nandu?: string | null;
+}
+
+/**
+ * The billing block both registration emails close with.
+ *
+ * @remarks
+ * `total` is the same `computeTotalOwed` figure the competitor's dashboard and
+ * the organizer's payments screen show, so a receipt never states an amount the
+ * competitor is then billed differently for. It is null when the competition has
+ * no fee schedule configured, and the whole money block is dropped.
+ *
+ * Mail carries the cost only, never the payment on record. A receipt is written
+ * once and read much later, by which time any figure it quotes for money
+ * received is stale; the dashboard is where a competitor sees where they stand.
+ * That rules out a balance line too, since a balance is the paid figure restated.
+ */
+export interface RegistrationBilling {
+  /** Whole dollars owed for the year, or null when no fee schedule is set. */
+  total: number | null;
+  /** The payment and proof-of-enrollment deadline, already formatted. */
+  dueDate: string;
+  /** The organizer address to reply to, when the settings carry one. */
+  contactEmail?: string | null;
+}
+
+// Whole dollars throughout — every cost column on Settings and amt_paid are ints.
+const money = (amount: number): string => `$${amount}`;
+
+// One label/value line. Right-aligning the value is what makes the totals read
+// as a column in clients that honour inline styles.
+const row = (label: string, value: string, bold = false): string => `
+  <tr>
+    <td style="padding:4px 0;${bold ? "font-weight:600;" : ""}">${label}</td>
+    <td style="padding:4px 0;text-align:right;white-space:nowrap;${bold ? "font-weight:600;" : ""}">${value}</td>
+  </tr>`;
+
+// The registered events, one per line, with any nandu code under the name.
+function eventsHtml(events: RegistrationLine[]): string {
+  const rows = events
+    .map((e) =>
+      row(
+        escapeHtml(e.name) +
+          (e.nandu ? `<br><span style="color:#888;font-size:12px">Nandu code: ${escapeHtml(e.nandu)}</span>` : ""),
+        "",
+      ),
+    )
+    .join("");
+  return `<table style="width:100%;border-collapse:collapse;font-size:14px">${rows}</table>`;
+}
+
+function eventsText(events: RegistrationLine[]): string {
+  return events.map((e) => `- ${e.name}${e.nandu ? ` (nandu code: ${e.nandu})` : ""}`).join("\n");
+}
+
+// A cost is only meaningful once a total exists, so with no fee schedule
+// configured this degrades to the deadline alone rather than claiming $0 is owed.
+function billingHtml(billing: RegistrationBilling): string {
+  const rows: string[] = [];
+  if (billing.total != null) {
+    rows.push(row("Total cost", money(billing.total), true));
+  }
+  const table = rows.length
+    ? `<table style="width:100%;border-collapse:collapse;font-size:14px;border-top:1px solid #ddd;margin-top:8px;padding-top:8px">${rows.join("")}</table>`
+    : "";
+  const due = `<p style="font-size:14px">Payment and proof of enrollment are due by <strong>${escapeHtml(billing.dueDate)}</strong>.</p>`;
+  const contact = billing.contactEmail
+    ? `<p style="font-size:14px">Questions? Reply to <a href="mailto:${escapeHtml(billing.contactEmail)}" style="color:#2563eb">${escapeHtml(billing.contactEmail)}</a>.</p>`
+    : "";
+  return table + due + contact;
+}
+
+function billingText(billing: RegistrationBilling): string {
+  const lines: string[] = [];
+  if (billing.total != null) {
+    lines.push(`Total cost: ${money(billing.total)}`);
+    lines.push("");
+  }
+  lines.push(`Payment and proof of enrollment are due by ${billing.dueDate}.`);
+  if (billing.contactEmail) lines.push(`Questions? Reply to ${billing.contactEmail}.`);
+  return lines.join("\n");
+}
+
+/**
+ * The receipt sent once event registrations are written.
+ *
+ * @remarks
+ * Sent best-effort by `createRegistrations`, after the rows are committed. It
+ * restates what the confirm screen showed — the events, the cost, the deadline —
+ * so the competitor keeps a copy of what they agreed to.
+ *
+ * @param events - The events registered for, in the order they were submitted.
+ * @param billing - What is owed and by when. Omitted only when the settings row
+ * needed to price the registration could not be read.
+ */
+export function registrationConfirmedEmail(
+  events: RegistrationLine[],
+  billing?: RegistrationBilling,
+): EmailContent {
   return {
-    subject: "Your event registration is confirmed",
+    subject: "Your Collegiates registration receipt",
     html: wrap(
       "Registration confirmed",
       `<p>You're registered for the following events:</p>
-       <ul>${items}</ul>`,
+       ${eventsHtml(events)}
+       ${billing ? billingHtml(billing) : ""}`,
     ),
-    text: `You're registered for the following events:\n${eventNames.map((n) => `- ${n}`).join("\n")}`,
+    text: `You're registered for the following events:\n${eventsText(events)}${billing ? `\n\n${billingText(billing)}` : ""}`,
+  };
+}
+
+/**
+ * Sent to a competitor when an organizer edits their registration on their
+ * behalf.
+ *
+ * @remarks
+ * The competitor cannot see the organizer console, so an edit made there is
+ * otherwise silent — this is the only notice they get that their entry, payment,
+ * or profile was changed by somebody else.
+ *
+ * @param changes - One human-readable line per field that actually changed.
+ * `updateOrganizerRegistration` skips the send when this is empty, so a save
+ * that altered nothing does not mail anybody.
+ * @param events - The competitor's events *after* the edit, so the message
+ * doubles as a current statement of what they are entered in.
+ * @param billing - What is owed and by when, after the edit.
+ */
+export function registrationUpdatedEmail(
+  changes: string[],
+  events: RegistrationLine[],
+  billing?: RegistrationBilling,
+): EmailContent {
+  const changeItems = changes.map((c) => `<li style="margin-bottom:4px">${escapeHtml(c)}</li>`).join("");
+  return {
+    subject: "Your Collegiates registration was updated",
+    html: wrap(
+      "Registration updated",
+      `<p>An organizer updated your registration:</p>
+       <ul style="font-size:14px;padding-left:20px">${changeItems}</ul>
+       <p style="margin-top:24px">You are now registered for:</p>
+       ${events.length ? eventsHtml(events) : `<p style="font-size:14px;color:#888">No events.</p>`}
+       ${billing ? billingHtml(billing) : ""}
+       <p style="font-size:14px">If anything here looks wrong, contact the organizers.</p>`,
+    ),
+    text:
+      `An organizer updated your registration:\n${changes.map((c) => `- ${c}`).join("\n")}\n\n` +
+      `You are now registered for:\n${events.length ? eventsText(events) : "- No events."}` +
+      `${billing ? `\n\n${billingText(billing)}` : ""}\n\nIf anything here looks wrong, contact the organizers.`,
   };
 }

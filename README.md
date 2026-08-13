@@ -15,7 +15,7 @@ registrations, build the event order, and publish blog posts.
 | Styling   | Tailwind CSS 4 + daisyUI, Bootstrap Icons, Typekit fonts |
 
 There are no API route handlers. All reads and mutations go through server
-actions in [`functions/actions/`](functions/actions/), and the session is read
+actions in [`functions/actions/`](functions/actions/index.ts), and the session is read
 server-side via `auth()`.
 
 ## Getting started

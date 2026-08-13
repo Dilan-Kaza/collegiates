@@ -23,8 +23,15 @@ function BreakChip({ item }: { item: BreakItem }) {
     );
 }
 
-// Sidebar palette of draggable breaks. Staged and preset chips share the "rings"
-// sortable group, so dragging one into a ring is what moves it out of here.
+/**
+ * The sidebar palette of draggable breaks: two presets, plus any the organizer
+ * stages by name and duration.
+ *
+ * @remarks
+ * Staged and preset chips share the `"rings"` sortable group, so dragging one
+ * into a ring is itself what moves it out of the palette — there is no separate
+ * "add" step.
+ */
 export default function BreakPanel() {
     const [stagedBreaks, setStagedBreaks] = useState<BreakItem[]>([]);
     const [breakName, setBreakName] = useState("");

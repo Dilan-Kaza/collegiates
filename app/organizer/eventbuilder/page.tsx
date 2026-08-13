@@ -12,9 +12,8 @@ export default async function Page() {
     getOrganizerOrder(),
     getSettings(),
   ]);
-  // No seeding here: the builder owns unsaved ring state, so it deliberately does not bind to the
-  // registration/order cache — a mid-edit refetch must not reach it. The console re-reads both
-  // from its own server props on the way back, so there is nothing to hand it.
+  // No seeding: the builder owns unsaved ring state and must not be reached by a
+  // mid-edit refetch. The console re-reads from its own server props on return.
   return (
     <EventBuilder
       registrations={registrations}

@@ -8,11 +8,23 @@ import { clearSessionCache } from "@functions/sessionCache";
 import { cacheKeys } from "@functions";
 import { updateOrganizerRegistration } from "@functions/actions";
 import { errorMessage, runAction } from "@functions/actionErrors";
-import { computeTotalOwed } from "@/lib/fees";
+import { totalOwedFor } from "@/lib/fees";
 import type { OrganizerRegistrationDTO, SettingsDTO } from "@/lib/api";
 
-// Processing screen for what an organizer confirms off-platform: the fee arriving and proof of
-// enrollment. Both are profile fields; `is_competing` is here so a withdrawal fits the same row.
+/**
+ * The payments screen: what an organizer confirms off-platform.
+ *
+ * @remarks
+ * The site takes no money and sees no enrollment records, so both the fee
+ * arriving and proof of enrollment are recorded here by hand. `is_competing`
+ * sits alongside them so a withdrawal fits the same row.
+ *
+ * Amounts are checked against `computeTotalOwed` — the very figure the
+ * competitor's own dashboard shows them — so the two can never disagree about
+ * what is owed.
+ *
+ * @packageDocumentation
+ */
 
 // The two yes/no fields. amt_paid is an amount and is edited separately.
 type FlagField = "proof_of_reg" | "is_competing";
@@ -41,20 +53,33 @@ const isPaid = (amt: number, due: number | null): boolean =>
     due == null ? amt > 0 : amt >= due;
 
 // Amount owed, priced exactly as the competitor's own dashboard prices it so the two figures
-// can be checked against each other. With no team date carried, the earliest registration stands in.
+// can be checked against each other. The same helper prices the registration emails.
 function owedFor(a: OrganizerRegistrationDTO, settings: Partial<SettingsDTO>): number | null {
     if (settings.reg_cost_base == null) return null;
-    const earliest = a.registration
-        .map((r) => r.date_created)
-        .sort((x, y) => new Date(x).getTime() - new Date(y).getTime())[0];
-    return computeTotalOwed(a.registration, settings as SettingsDTO, a.team ? earliest : null)?.total ?? null;
+    return totalOwedFor(a.registration, !!a.team, settings as SettingsDTO);
 }
 
+/**
+ * The organizer's payment and proof-of-enrollment processing table.
+ *
+ * @remarks
+ * Rows can be filtered to the ones needing attention, and the filtered view can
+ * be copied as TSV — which is how a chase-up list gets made.
+ *
+ * Edits save per row and are held as a local overlay until the server confirms
+ * them, so the table stays responsive without lying about what was stored: the
+ * amount box remounts on the saved value once the write returns.
+ */
 export default function OrganizerPayments({
     registrations = [],
     settings = {},
 }: {
+    /** Every competitor's registration state for the year. */
     registrations?: OrganizerRegistrationDTO[];
+    /**
+     * The competition settings, for pricing. With no cost columns configured
+     * what is owed is unknown, and any payment at all then counts as paid.
+     */
     settings?: Partial<SettingsDTO>;
 }) {
 
@@ -193,14 +218,12 @@ export default function OrganizerPayments({
                     <span className="text-xs text-gray-400">
                         Showing {rows.length} of {registrations.length}
                     </span>
-                    {/* The filtered view, not the whole year — copying under the
-                        "Unpaid" chip is how a chase-up list gets made. Values come
-                        from the same overlay the row renders, so a copy taken
-                        right after an edit matches what is on screen. */}
+                    {/* Copies the filtered view, not the whole year — that is how
+                        a chase-up list gets made. Reads the row's own overlay. */}
                     <CopyButton
                         label="Copy shown"
                         getRows={() => [
-                            ["Name", "Email", "College", "Events", "Due", "Paid", "Balance", "Proof", "Competing"],
+                            ["Name", "Email", "College", "Events", "Total Cost", "Paid", "Balance", "Proof", "Competing"],
                             ...rows.map((a) => {
                                 const row = stateFor(a);
                                 const due = owedFor(a, settings);
@@ -241,19 +264,17 @@ export default function OrganizerPayments({
                                         <div className="text-xs text-gray-500 mt-1">
                                             {events} event{events === 1 ? "" : "s"}
                                             {athlete.team && ` · ${athlete.team.team_name}`}
-                                            {due != null && <span className="text-dark font-medium"> · ${due} due</span>}
-                                            {/* Only the shortfall is worth calling
-                                                out; a settled row says so through
-                                                the amount box being green. */}
+                                            {due != null && <span className="text-dark font-medium"> · ${due} total cost</span>}
+                                            {/* Only the shortfall is called out;
+                                                a settled row goes green. */}
                                             {balance != null && balance > 0 && (
                                                 <span className="text-red-600 font-medium"> · ${balance} left</span>
                                             )}
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                                        {/* Remounts on the saved value so the box
-                                            shows what the server took, including
-                                            the flooring it applies. */}
+                                        {/* Remounts on the saved value, so the box
+                                            shows what the server actually took. */}
                                         <AmountInput
                                             key={row.amt_paid}
                                             amount={row.amt_paid}
@@ -391,9 +412,8 @@ function ToggleButton({
                     : "bg-gray-100 text-gray-400 border-gray-200 hover:bg-gray-200"
             }`}
         >
-            {/* The spinner takes the ✓/○ slot rather than replacing the whole
-                badge, so the row keeps its width and the label stays readable
-                while the save is in flight. Fixed-width so nothing shifts. */}
+            {/* The spinner takes the ✓/○ slot rather than the whole badge, at a
+                fixed width, so the row keeps its size while the save is in flight. */}
             <span className="w-4 h-4 inline-flex items-center justify-center">
                 {busy ? <span className="loading loading-spinner loading-xs" /> : active ? "✓" : "○"}
             </span>

@@ -3,8 +3,30 @@ import Credentials from "next-auth/providers/credentials";
 import prisma from "@/lib/prisma";
 import { verifyPassword } from "@/lib/password";
 
-// Auth.js (NextAuth v5) email/password Credentials provider over the Prisma `users` table with
-// Django-compatible PBKDF2. JWT session in an httpOnly cookie; no /api/auth route handler.
+/**
+ * The Auth.js (NextAuth v5) configuration: an email/password Credentials
+ * provider over the Prisma `users` table.
+ *
+ * @remarks
+ * Passwords are verified with Django-compatible PBKDF2, so credentials
+ * inherited from the previous backend still work — see {@link "lib/password"}.
+ *
+ * Sessions are **JWTs in an httpOnly cookie**, with no session table. Two
+ * consequences follow, both handled in {@link "lib/auth"}:
+ *
+ * - The token carries `user_id`, `user_type`, and `token_version`, but those are
+ *   a snapshot. `getCurrentUser` re-reads the user on every request rather than
+ *   trusting them.
+ * - Revocation has nowhere to live, so it is done by comparing `token_version`
+ *   against the column, which a password change increments.
+ *
+ * `authorize` refuses an inactive account, so an unactivated user cannot sign in
+ * even with correct credentials.
+ *
+ * There is **no `/api/auth/[...nextauth]` route handler** — unusually for
+ * NextAuth. The server actions in {@link "functions/actions/auth"} are the whole
+ * auth surface.
+ */
 export const { auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
   trustHost: true,

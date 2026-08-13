@@ -2,10 +2,9 @@
 
 import CopyButton from "./CopyButton";
 import type { OrganizerRegistrationDTO } from "@/lib/api";
-// registrations by athlete
 
-// One athlete per row, their events joined into a single cell — a roster that
-// pastes into a sheet as it reads here.
+// One athlete per row, events joined into a single cell — a roster that pastes
+// into a sheet as it reads here.
 const copyRows = (registrations: OrganizerRegistrationDTO[]): string[][] => [
     ["Name", "Email", "College", "Level", "Competing", "Paid ($)", "Proof", "Events"],
     ...registrations.map((user) => [
@@ -20,13 +19,20 @@ const copyRows = (registrations: OrganizerRegistrationDTO[]): string[][] => [
     ]),
 ];
 
-// `registrations` arrives from the server. `onEdit` adds a per-row action that
-// opens the Create/Edit view pre-loaded, skipping the email search.
+/**
+ * Registrations listed by competitor: one row each, with their events, payment,
+ * and proof state. Copyable as TSV.
+ */
 export default function OrganizerRegistrationList({
     registrations = [],
     onEdit,
 }: {
+    /** Resolved on the server. */
     registrations?: OrganizerRegistrationDTO[];
+    /**
+     * Adds a per-row action opening the edit view pre-loaded on that competitor,
+     * skipping the email search. Omitted hides the action.
+     */
     onEdit?: (athlete: OrganizerRegistrationDTO) => void;
 }) {
 

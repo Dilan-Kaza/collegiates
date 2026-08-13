@@ -1,5 +1,16 @@
-// Rings -> the finished Google Sheets grid: the running clock, durations, entry counts and team
-// grouping. Pure, runs in the browser, and sits with the other ring maths so the two agree.
+/**
+ * Builds the running-order export: the day's schedule as a Google Sheets grid.
+ *
+ * @remarks
+ * Produces the running clock, durations, entry counts, and team grouping. Pure
+ * and browser-side — the server action re-derives nothing, it only bounds and
+ * writes what arrives.
+ *
+ * It lives beside the builder's other ring arithmetic so the exported times
+ * cannot disagree with the times shown on screen.
+ *
+ * @packageDocumentation
+ */
 
 import { groupIntoTeams } from "@/lib/teams";
 import type { Cell, SheetTabData } from "@/lib/sheetGrid";
@@ -7,9 +18,8 @@ import { eventSeconds, toHrMin } from "./utils";
 import { isEventItem } from "./types";
 import type { RingEvent, RingKey, Rings } from "./types";
 
-// A ring stores durations only — nothing records when the day starts — so the
-// export anchors it at 9:00 AM and walks the ring adding each slot's length. The
-// organizer shifts the whole column in the sheet if the day begins elsewhere.
+// A ring stores durations only, so the export anchors the day at 9:00 AM and
+// accumulates. An organizer shifts the whole column if it starts elsewhere.
 const DAY_START_MINUTES = 9 * 60;
 
 // Elapsed seconds -> wall clock. A plain string cell, written literally by lib/sheets.ts, so
@@ -75,8 +85,18 @@ function ringRows(label: string, items: RingEvent[]): Cell[][] {
   return rows;
 }
 
-// One tab per ring that has anything in it, titled with the competition year so a
-// later year's export lands beside this one instead of overwriting it.
+/**
+ * Builds one running-order tab per non-empty ring: a timed schedule of the day.
+ *
+ * @remarks
+ * This is the human-readable export — the schedule taped to the wall — as
+ * opposed to {@link "components/event-builder/scoringExport"}, which produces
+ * the judges' working sheets.
+ *
+ * @param rings - The schedule to export.
+ * @param year - Stamps the tab titles, so a later year's export lands beside
+ * this one rather than overwriting it.
+ */
 export function buildOrderSheetTabs(rings: Rings, year?: number | null): SheetTabData[] {
   const ringKeys: RingKey[] = ["ring1", "ring2", "ring3"];
   return ringKeys

@@ -1,7 +1,15 @@
 "use server";
 
-// Live scoring reads. The scores live in the competition's Google Sheet, entered by judges and
-// computed by formulas there, so this is read-only — nothing here sits between a judge and a number.
+/**
+ * Live scoring reads.
+ *
+ * @remarks
+ * The scores live in the competition's Google Sheet, entered by judges and
+ * computed by formulas there. This module is strictly read-only — nothing here
+ * sits between a judge and a number.
+ *
+ * @packageDocumentation
+ */
 
 import { getCurrentUser, canViewLiveScores } from "@/lib/auth";
 import { loadSettings } from "@/lib/settings";
@@ -11,14 +19,20 @@ import type { LiveScoresDTO } from "@/lib/api";
 import { getLiveScoresForSheet } from "../data";
 import { actionError } from "./shared";
 
-// Why there is nothing to show, so the page can do better than "no scores". An organizer who
-// forgot to paste the Scoring Link needs to be told that, not shown an empty table.
+/**
+ * Why there is nothing to show, so the page can do better than "no scores".
+ *
+ * @remarks
+ * An organizer who forgot to paste the Scoring Link needs to be told exactly
+ * that, not shown an empty table they will read as a bug.
+ */
 export type LiveScoresStatus =
   | "ok"
   | "denied"        // not permitted at all, or a competitor before the day
   | "unconfigured"  // no service account on this deployment, or no sheet in Settings
   | "empty";        // sheet is reachable but has no scoring tabs yet
 
+/** A live-scores read: the payload, or a {@link LiveScoresStatus} explaining its absence. */
 export interface LiveScoresResult {
   status: LiveScoresStatus;
   scores: LiveScoresDTO | null;
@@ -26,8 +40,23 @@ export interface LiveScoresResult {
 
 const nothing = (status: LiveScoresStatus): LiveScoresResult => ({ status, scores: null });
 
-// This year's live results, gated per lib/auth's canViewLiveScores. `open` is the key of the one
-// block whose rows are wanted — one key, so the largest response is one event. Self-authorizing.
+/**
+ * This year's live results, narrowed to one open block and redacted for the
+ * viewer.
+ *
+ * @remarks
+ * Gated by `canViewLiveScores`: organizers and admins at any time and in full
+ * detail, competitors only on competition day and outcomes only, nobody else.
+ *
+ * The response is narrowed **then** redacted, in that order, because projecting
+ * first is cheaper. The redaction happens here rather than in the UI, so
+ * judge-by-judge numbers never reach a browser that may not see them.
+ *
+ * @param open - The key of the one block whose rows are wanted. Exactly one, so
+ * the largest possible response is a single event — this page polls all day.
+ * @returns The scores with a status of `"ok"`, or a null payload with the
+ * {@link LiveScoresStatus} explaining why.
+ */
 export async function getLiveScores(open: string | null = null): Promise<LiveScoresResult> {
   const user = await getCurrentUser();
   const { allowed, detail } = await canViewLiveScores(user);

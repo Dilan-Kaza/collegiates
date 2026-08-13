@@ -1,5 +1,18 @@
-// Rings -> the judges' scoring sheets. Every derived cell is a Sheets *formula*, so merited
-// score, deductions and placement compute live as judges type; see app/rules/_components/ for the rules.
+/**
+ * Builds the judges' scoring sheets from the event order.
+ *
+ * @remarks
+ * Every derived cell is written as a Sheets **formula**, not a value — the
+ * merited score, the deductions, the final, and the placing all compute live as
+ * judges type. That is what makes the live-scoring page possible: it reads the
+ * sheet's evaluated values back, without recomputing anything.
+ *
+ * The column layout is {@link "lib/scoringLayout"}, shared with the reader in
+ * {@link "lib/liveScores"} so the two cannot drift. The judging rules the
+ * formulas encode are stated in `app/rules/_components/`.
+ *
+ * @packageDocumentation
+ */
 
 import { groupIntoTeams } from "@/lib/teams";
 import { columnLetter, formula } from "@/lib/sheetGrid";
@@ -171,12 +184,23 @@ function ringRows(label: string, items: RingEvent[]): Cell[][] {
   return rows;
 }
 
-// One tab per ring that has anything scoreable in it. Titles come from
-// scoringTabTitle, which the live page also calls to know what to read back.
+/**
+ * Builds one scoring tab per ring that has something scoreable in it.
+ *
+ * @remarks
+ * Titles come from `scoringTabTitle`, which the live page also calls to know
+ * which tabs to read back — so a renamed tab breaks live scoring, and both sides
+ * must change together.
+ *
+ * A ring holding only breaks is skipped: it would produce a title with nothing
+ * under it.
+ *
+ * @param rings - The schedule to export.
+ * @param year - Stamps the tab titles, so a later year lands beside this one.
+ */
 export function buildScoringSheetTabs(rings: Rings, year?: number | null): SheetTabData[] {
   return RING_KEYS
     .map((key) => ({ key, rows: ringRows(RING_LABEL[key], rings[key as RingKey]) }))
-    // A ring holding only breaks produces a title and nothing under it.
     .filter(({ rows }) => rows.length > 2)
     .map(({ key, rows }) => ({ title: scoringTabTitle(key, year), rows }));
 }

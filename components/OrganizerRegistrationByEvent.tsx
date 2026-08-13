@@ -36,7 +36,14 @@ const eventRank = (name: string) => {
     return idx === -1 ? EVENT_ORDER.length : idx;
 };
 
-// `registrations` is resolved on the server and passed in (was fetched on mount).
+/**
+ * Registrations regrouped by event rather than by competitor, tabbed by skill
+ * level.
+ *
+ * @remarks
+ * The view an organizer needs when building the schedule or briefing judges:
+ * who is in each event, in the conventional running order. Copyable as TSV.
+ */
 export default function OrganizerRegistrationByEvent({ registrations = [] }: { registrations?: OrganizerRegistrationDTO[] }) {
 
     const [activeLevel, setActiveLevel] = useState("B");

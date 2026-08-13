@@ -5,7 +5,7 @@ import { MtHeader, LogoutButton, AllAroundStatus } from "@components";
 import { Link } from "@/routerCompat";
 import { useCachedResource, fetchMe, fetchSettings, fetchRegistrations, cacheKeys } from "@functions";
 import type { SettingsDTO, CompetitorDTO } from "@/lib/api";
-import { studentTypeLabel } from "@/lib/api";
+import { studentTypeLabel, genderLabel, skillLevelLabel } from "@/lib/api";
 // Pricing lives in lib/fees so the organizer payments screen bills identically.
 import { computeTotalOwed } from "@/lib/fees";
 // competitor dashboard
@@ -33,12 +33,11 @@ export default function Dashboard ({
     const me = useCachedResource(cacheKeys.currentUser, fetchMe, userinfo);
 
     // Same binding for the fee schedule: an organizer editing settings in another tab drops
-    // this key, and the "Total Owed" figure below re-prices rather than staying stale.
+    // this key, and the "Total Cost" figure below re-prices rather than staying stale.
     const settings = useCachedResource(cacheKeys.settings, fetchSettings, initialSettings);
 
-    // The registered-event list has its own entry as well as travelling inside `currentUser`.
-    // Both are dropped together on every path that changes them (see Register.tsx), so this
-    // reads the dedicated key and `me` is left to the profile fields.
+    // Registrations have their own entry as well as travelling inside `currentUser`.
+    // Both drop together, so this reads the dedicated key and `me` covers the profile.
     const registrations = useCachedResource(
         cacheKeys.registrations,
         fetchRegistrations,
@@ -70,69 +69,103 @@ export default function Dashboard ({
     return (
         <>
             <div className="hidden md:block"><MtHeader /></div>
-            <div className="bg-off-white grid grid-cols-[1fr_2fr] rounded-lg px-[5%] py-8 max-w-3xl mx-auto w-full">
-                <div className="grid-row p-1">
-                    <div className="flex flex-col gap-2">
-                        <span className="text-4xl">{me?.first_name} {me?.last_name}</span>
-                        <div className="flex gap-2">
-                            <LogoutButton />
-                            <Link to="/edit-profile-info" className="btn btn-secondary btn-sm">Edit Profile Info</Link>
-                        </div>
-                    </div>
-                    <div className="py-2 text-sm space-y-1">
-                        <div>email: {me?.email}</div>
-                        <div>gender: {me?.gender}</div>
-                        <div>school: {me?.school_name}</div>
-                        <div>student type: {studentTypeLabel(me?.student_type)}</div>
-                        <div>skill level: {me?.skill_level}</div>
+            <div className="max-w-3xl mx-auto w-full px-4 py-8 flex flex-col gap-4">
+                {/* Same translucent surface as the cards below, but shorter and laid
+                    out in a row, so it reads as a heading rather than another card. */}
+                <div className="cg-card-glass flex-row justify-between items-center gap-2 py-4">
+                    <span className="text-4xl">{me?.first_name} {me?.last_name}</span>
+                    <div className="flex items-center gap-2">
+                        {/* Credentials, not competition details, so they sit with logout
+                            here. Icon-only, so the label carries the accessible name. */}
+                        <Link
+                            to="/edit-profile-info"
+                            className="btn btn-square text-base"
+                            aria-label="Account settings — change email or password"
+                            title="Change email or password"
+                        >
+                            <i className="bi bi-gear" aria-hidden="true"></i>
+                        </Link>
+                        <LogoutButton />
                     </div>
                 </div>
-                <div className="p-1 content-center flex flex-col items-center gap-2 w-full">
-                    {registrations.length > 0 ? (
-                        <div className="space-y-2 flex flex-col items-center w-full">
-                            <div className="text-lg font-semibold mb-2">Registered Events</div>
-                            {registrations.map((reg, i) => (
-                                <div key={i} className="border border-gray-200 rounded-lg px-4 py-2 text-sm w-full text-center">
-                                    <div className="font-medium">{reg.event_name}</div>
-                                    {reg.nandu_str && <div className="text-gray-500">Nandu: {reg.nandu_str}</div>}
-                                </div>
-                            ))}
+                {/* Side by side from `md` up, stacked below. `items-start` keeps each
+                    card at its own height rather than matching the taller neighbour. */}
+                <div className="grid gap-4 md:grid-cols-[1fr_2fr] md:items-start">
+                    <div className="cg-card-glass gap-2">
+                        <div className="flex items-center gap-2">
+                            <div className="cg-eyebrow">Competitor Info</div>
+                            {/* Edits the competition profile — gender, school, class, level.
+                                Icon-only, so the label carries the accessible name. */}
+                            <Link
+                                to="/competitor/profile"
+                                className="text-sm text-gray-500 hover:text-primary"
+                                aria-label="Edit competitor info"
+                                title="Edit competitor info"
+                            >
+                                <i className="bi bi-pencil-square" aria-hidden="true"></i>
+                            </Link>
                         </div>
-                    ) : regStarted ? (
-                        // Registering starts at the profile, where gender, level and class — which decide event
-                        // eligibility — are confirmed; saving continues on to event selection.
-                        <Link to="/competitor/profile" className="btn btn-primary">Register</Link>
-                    ) : (
-                        <button className="btn btn-primary" disabled>Registration is not open</button>
-                    )}
-                    {myTeam ? (
-                        <div className="border border-gray-200 rounded-lg px-4 py-2 text-sm w-full text-center mt-2">
-                            <div className="cg-eyebrow-muted">Group Set</div>
-                            <div className="font-medium">{myTeam.team_name}</div>
-                            {myTeam.school && <div className="text-gray-400 text-xs">{myTeam.school}</div>}
-                            {myTeam.members.length > 0 && (
-                                <div className="text-gray-500 text-xs mt-1">{myTeam.members.join(", ")}</div>
+                        {/* The DTO carries the legacy codes ("M", "B"), so each value is
+                            expanded through its label helper rather than shown raw. */}
+                        <div className="text-sm space-y-1">
+                            <div>Gender: {genderLabel(me?.gender)}</div>
+                            <div>School: {me?.school_name}</div>
+                            <div>Student type: {studentTypeLabel(me?.student_type)}</div>
+                            <div>Skill level: {skillLevelLabel(me?.skill_level)}</div>
+                        </div>
+                    </div>
+                    <div className="flex flex-col gap-4">
+                        <div className="cg-card-glass gap-2 items-center">
+                            {/* Outside the branch so the card is labelled before there is
+                                anything registered — where it holds the Register button. */}
+                            <div className="cg-eyebrow self-start">
+                                {registrations.length > 0 ? "Registered Events" : "Registration"}
+                            </div>
+                            {registrations.length > 0 ? (
+                                registrations.map((reg, i) => (
+                                    <div key={i} className="cg-list-row py-2 text-sm w-full text-center">
+                                        <div className="font-medium">{reg.event_name}</div>
+                                        {reg.nandu_str && <div className="text-gray-500">Nandu: {reg.nandu_str}</div>}
+                                    </div>
+                                ))
+                            ) : regStarted ? (
+                                // Registering starts at the profile, where gender, level and class — which decide event
+                                // eligibility — are confirmed; saving continues on to event selection.
+                                <Link to="/competitor/profile" className="btn btn-primary">Register</Link>
+                            ) : (
+                                <button className="btn btn-primary" disabled>Registration is not open</button>
                             )}
                         </div>
-                    ) : inGroupsetEvent ? (
-                        <Link to="/competitor/groupset" className="btn btn-secondary mt-2">Join/Create Team</Link>
-                    ) : null}
+                        {myTeam ? (
+                            <div className="cg-card-glass gap-1 text-sm text-center">
+                                <div className="cg-eyebrow-muted">Group Set</div>
+                                <div className="font-medium">{myTeam.team_name}</div>
+                                {myTeam.school && <div className="text-gray-400 text-xs">{myTeam.school}</div>}
+                                {myTeam.members.length > 0 && (
+                                    <div className="text-gray-500 text-xs">{myTeam.members.join(", ")}</div>
+                                )}
+                            </div>
+                        ) : inGroupsetEvent ? (
+                            <div className="cg-card-glass items-center">
+                                <Link to="/competitor/groupset" className="btn btn-secondary">Join/Create Team</Link>
+                            </div>
+                        ) : null}
+                    </div>
                 </div>
-                {/* Scored over the events actually registered, so it reads as a
-                    standing rather than the running count the picker shows. */}
+                {/* Scored over registered events, so it reads as a standing rather than
+                    the picker's running count. `gap-0`: its sections carry own margins. */}
                 <AllAroundStatus
                     events={registrations}
                     studentType={me?.student_type}
                     skillLevel={me?.skill_level}
-                    className="col-span-2 cg-list-row mt-4"
+                    className="cg-card-glass gap-0"
                 />
                 {cost ? (
-                    <div className="col-span-2 cg-list-row mt-4 text-sm flex items-center justify-between">
+                    <div className="cg-card-glass flex-row items-center justify-between text-sm">
                         <div>
-                            <div className="font-semibold">Total Owed</div>
-                            {/* Either part can be absent — a competitor can be in the
-                                team competition alone — so the two are joined rather
-                                than one being suffixed onto the other. */}
+                            <div className="font-semibold">Total Cost</div>
+                            {/* Either part can be absent — a competitor may enter the
+                                team event alone — so the two are joined, not suffixed. */}
                             <div className="text-gray-500 text-xs">
                                 {[
                                     cost.count > 0 && `${cost.count} event${cost.count > 1 ? "s" : ""} registered`,
@@ -144,7 +177,7 @@ export default function Dashboard ({
                         <div className="text-xl font-bold text-primary">${cost.total}</div>
                     </div>
                 ) : null}
-                <div className="col-span-2 flex justify-center pt-4">
+                <div className="flex justify-center pt-2">
                     {hasPublicOrder ? (
                         <Link to="/event-order" className="btn btn-secondary">Event Order</Link>
                     ) : (

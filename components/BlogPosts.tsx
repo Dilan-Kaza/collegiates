@@ -3,6 +3,13 @@
 import { Link } from "@/routerCompat";
 import type { BlogDTO } from "@/lib/api";
 
+/**
+ * The home page's news teaser: the three most recent posts as cards.
+ *
+ * @remarks
+ * Only the first card shows on mobile; the other two appear from the `sm`
+ * breakpoint up.
+ */
 export default function BlogPosts({ posts = [] }: { posts?: BlogDTO[] }) {
 
     if (posts.length === 0) return (

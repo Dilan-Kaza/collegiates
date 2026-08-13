@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { ImgHeader } from "@components";
-// DISABLED 2026-08-02 — Jira bug report. Uncomment this and the "Report a Bug" band below
-// when fixing that code; see the header note in app/contact/BugReportForm.tsx.
+// DISABLED 2026-08-02 — Jira bug report. Uncomment this and the band below; see
+// the header note in app/contact/BugReportForm.tsx.
 // import BugReportForm from "./BugReportForm";
 
 export const metadata: Metadata = {
@@ -66,10 +66,8 @@ export default function Page() {
         </div>
       </div>
 
-      {/* DISABLED 2026-08-02 — Jira bug report band. Uncomment together with the
-          BugReportForm import above when asked to fix that code. Note the band
-          colors alternate: with this back in, "Follow Us" below should return to
-          bg-primary/text-off-white and its links to text-secondary.
+      {/* DISABLED 2026-08-02 — Jira bug report band. Restoring this also means
+          reverting "Follow Us" below to bg-primary/text-off-white, links secondary.
       <div className="flex-col bg-primary text-off-white md:py-10">
         <div className="content-center w-full max-w-8/10 translate-x-1/10">
           <div>&nbsp;</div>

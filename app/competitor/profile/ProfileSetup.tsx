@@ -25,9 +25,8 @@ export interface ProfileInitial {
   skill_level: string;
 }
 
-// The college dropdown's trailing "Other" choice, for a competitor whose university is not
-// on the list yet. It is a UI-only value: nothing is seeded for it, and the profile saves
-// with no school (school_id null) until the organizer adds the university for real.
+// The college dropdown's trailing "Other" choice. UI-only: nothing is seeded for
+// it, and the profile saves with school_id null until an organizer adds the school.
 const OTHER_SCHOOL = "other";
 
 // Level and class are self-reported but bind the competitor all tournament, so each field
@@ -140,9 +139,8 @@ export default function ProfileSetup({
             <Heading className="mt-2 sm:mt-6 !text-4xl !p-2 !animate-none">Complete Your Profile</Heading>
             <form className="self-stretch px-4 sm:px-12 pb-10 flex flex-col gap-6" onSubmit={handleSubmit}>
               <FormError error={error} />
-              {/* Two thirds to experience level, one to gender: the level's options
-                  and its rule hint need the room, gender is two short words. Stacks
-                  full width below sm. */}
+              {/* Two thirds to experience level, whose options and rule hint need the
+                  room, one to gender's two short words. Stacks full width below sm. */}
               <div className="flex flex-col gap-4 sm:grid sm:grid-cols-3">
                 <div className="flex flex-col gap-2 sm:col-span-2">
                   <Field {...fieldProps} as={Dropdown} name="skill_level" label="Experience Level*" options={SKILL_LEVEL_CHOICES} required />

@@ -69,8 +69,17 @@ function StaticRing({ label, items }: { label: string; items: StillItem[] }) {
     );
 }
 
-// `order` is resolved on the server and passed in (null = no saved order for
-// this year); it was fetched on mount here.
+/**
+ * The saved event order, read-only — what a competitor sees once it is
+ * published.
+ *
+ * @remarks
+ * Renders from the persisted order alone, without the live registrations the
+ * builder resolves against, so it shows the schedule exactly as it was saved.
+ * Group-set slots are grouped into teams, matching how the builder laid them out.
+ *
+ * @param order - The saved order, or null when none exists for this year.
+ */
 export default function StillView({ order = null }: { order?: OrderData | null }) {
 
     const rings = useMemo<StillRings | null>(() => {

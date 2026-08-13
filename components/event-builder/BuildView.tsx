@@ -17,18 +17,35 @@ import { eventRank, eventSeconds, toHrMin, buildIdToName, computeConflicts } fro
 import { isEventItem } from "./types";
 import type { BreakItem, Competitor, EventItem, OrderData, RingEvent, RingKey, Rings } from "./types";
 
-// `rawRegistrations` and `initialOrder` are resolved on the server and passed in.
-// `initialOrder` is null when no order has been saved for the current year yet.
+/**
+ * The event builder proper: drag events and breaks into three rings to lay out
+ * the competition day.
+ *
+ * @remarks
+ * Events are derived from the year's registrations rather than the catalogue, so
+ * only events somebody actually entered can be scheduled, each already carrying
+ * its competitors in registration order.
+ *
+ * Ring durations and conflict badges recompute on every move — see
+ * {@link "components/event-builder/utils"} — so an organizer sees a clash the
+ * moment they create it rather than on save.
+ *
+ * The two Google Sheets exports are built here, client-side, and posted to
+ * `exportSheetTabs` as finished grids.
+ */
 export default function BuildView({
     rawRegistrations = [],
     initialOrder = null,
     orderPublic = false,
     regYear = null,
 }: {
+    /** The year's registrations, resolved on the server. */
     rawRegistrations?: OrganizerRegistrationDTO[];
+    /** The saved order, or null when none exists for this year. */
     initialOrder?: OrderData | null;
+    /** Whether competitors can currently see the order. */
     orderPublic?: boolean;
-    // Only labels the exported sheet's tabs, so it is optional.
+    /** Stamps the exported tabs' titles. Labels the export and nothing else. */
     regYear?: number | null;
 }) {
 

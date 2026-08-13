@@ -55,7 +55,7 @@ export default function Register({
         && new Date().getTime() < new Date(settings.reg_start ?? 0).getTime();
     const baseCost = isEarly ? settings.early_reg_cost_base : settings.reg_cost_base;
     const eventCost = isEarly ? settings.early_reg_cost_event : settings.reg_cost_event;
-    // The base fee is charged once, on top of a fee for every event entered.
+    // The registration fee is charged once, on top of a fee for every event entered.
     const totalCost = events.length > 0 && baseCost != null
         ? baseCost + (eventCost ?? 0) * events.length
         : null;
@@ -112,6 +112,9 @@ export default function Register({
                     // Back goes to the profile, the step before this one. Safe to return to: it only bounces to
                     // the dashboard once registrations exist, and reaching this page means there are none.
                     onBack={() => nav("/competitor/profile")}
+                    // The profile is already saved by the time this page loads, so leaving without
+                    // picking events loses nothing — the dashboard links back in to register later.
+                    onExit={() => nav("/competitor")}
                     onSubmit={() => setConfirming(true)}
                 />
             )}

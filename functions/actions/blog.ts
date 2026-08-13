@@ -1,6 +1,15 @@
 "use server";
 
-// Blog server actions: public reads and organizer-gated writes.
+/**
+ * Blog server actions: public reads and organizer-gated writes.
+ *
+ * @remarks
+ * Every read here shares Next's Data Cache under the `blog` tag, plus a
+ * `blog-<id>` tag per post, so a write invalidates the list and the single post
+ * together.
+ *
+ * @packageDocumentation
+ */
 
 import { unstable_cache, updateTag } from "next/cache";
 import { Prisma } from "@prisma/client";
@@ -11,8 +20,15 @@ import type { BlogDTO } from "@/lib/api";
 import { READ_CACHE_TTL, organizerGate, reBlog, actionError } from "./shared";
 import type { Mutation, BlogBody } from "./shared";
 
-// The organizer console's post list. Blog content is public (see data.ts's getBlogPosts), but
-// this is the management view, so it takes the same gate as the writes below.
+/**
+ * The organizer console's post list.
+ *
+ * @remarks
+ * Blog content is public, but this is the management view, so it takes the same
+ * gate as the writes below.
+ *
+ * @returns The posts as excerpts, or `[]` for a denied read.
+ */
 export async function getOrganizerBlogPosts(): Promise<BlogDTO[]> {
   const { error } = await organizerGate();
   if (error) return [];
@@ -27,6 +43,12 @@ export async function getOrganizerBlogPosts(): Promise<BlogDTO[]> {
   return posts.map(reBlog);
 }
 
+/**
+ * One post with its complete body, for the reader and the editor.
+ *
+ * @param blogId - The post's id.
+ * @returns The post, or `null` when the id is blank or matches nothing.
+ */
 export async function getBlogPostById(blogId: string): Promise<BlogDTO | null> {
   if (!blogId) return null;
   const post = await unstable_cache(
@@ -40,14 +62,27 @@ export async function getBlogPostById(blogId: string): Promise<BlogDTO | null> {
   return post ? reBlog(post) : null;
 }
 
-// The public post list, client-callable. data.ts's copy is `server-only` and reaches the browser
-// only as props, so a component that binds the `blogPosts` cache entry needs this to refill it
-// after an editor save drops the key. Same Data Cache entry, so a refetch hits it unless a write
-// invalidated the "blog" tag.
+/**
+ * The public post list, callable from the browser.
+ *
+ * @remarks
+ * {@link "functions/data"} has the same read, but that module is `server-only`
+ * and reaches the browser only as props. A component binding the `blogPosts`
+ * cache entry needs this to refill it after an editor save drops the key.
+ *
+ * It shares that Data Cache entry, so a refetch is a cache hit unless a write
+ * has invalidated the `blog` tag.
+ */
 export async function getSharedBlogPosts(): Promise<BlogDTO[]> {
   return getBlogPosts();
 }
 
+/**
+ * Publishes a new post. Organizer-gated.
+ *
+ * @param body - Title and content are required; author and category default to `""`.
+ * @returns The created post, or field errors.
+ */
 export async function createBlogPost(body: BlogBody): Promise<Mutation<BlogDTO>> {
   const { error } = await organizerGate();
   if (error) return { error };
@@ -69,6 +104,14 @@ export async function createBlogPost(body: BlogBody): Promise<Mutation<BlogDTO>>
   }
 }
 
+/**
+ * Edits an existing post. Organizer-gated.
+ *
+ * @param blogId - The post to edit.
+ * @param body - Only the fields present are written; absent ones are left alone.
+ * @returns The updated post, or field errors — including the case where another
+ * organizer deleted it while this editor had it open.
+ */
 export async function updateBlogPost(blogId: string, body: BlogBody): Promise<Mutation<BlogDTO>> {
   const { error } = await organizerGate();
   if (error) return { error };
@@ -92,6 +135,13 @@ export async function updateBlogPost(blogId: string, body: BlogBody): Promise<Mu
   }
 }
 
+/**
+ * Deletes a post. Organizer-gated.
+ *
+ * @param blogId - The post to delete.
+ * @returns A confirmation, or an error. Deleting an already-deleted post is
+ * reported rather than treated as success.
+ */
 export async function deleteBlogPost(blogId: string): Promise<Mutation<{ detail: string }>> {
   const { error } = await organizerGate();
   if (error) return { error };

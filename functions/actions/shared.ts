@@ -1,30 +1,49 @@
-// Shared internals for this directory's server actions: body/result types,
-// cache tags, helpers. Deliberately not "use server" — that only allows actions.
+/**
+ * Shared internals for the server actions: request/result types, cache tags,
+ * gates, and failure handling.
+ *
+ * @remarks
+ * Deliberately **not** marked `"use server"`. That directive restricts a module
+ * to exporting async functions only, which would rule out the types and
+ * constants below.
+ *
+ * @packageDocumentation
+ */
 
 import { updateTag } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { getCurrentUser, canAccessOrganizer, isAdmin, isCompetitor } from "@/lib/auth";
-import { parseSettingsDate } from "@/lib/dates";
+import { formatSettingsDate, parseSettingsDate } from "@/lib/dates";
+import { totalOwedFor } from "@/lib/fees";
+import { shapeSettings } from "@/lib/api";
 import type { Cell } from "@/lib/sheetGrid";
 import type { CurrentUser } from "@/lib/auth";
 import type { User } from "@prisma/client";
+import type { RegistrationLine, RegistrationBilling } from "@/lib/email-templates";
 import type {
-  CompetitorDTO, RegistrationDTO, BlogDTO,
+  CompetitorDTO, RegistrationDTO, BlogDTO, SettingsWithHost,
   GroupsetDTO, OrganizerGroupsetDTO, OrganizerRegistrationDTO,
 } from "@/lib/api";
 
 // ---------- result / body types ----------
 
+/**
+ * Errors keyed by form field, plus two special keys.
+ *
+ * @remarks
+ * `detail` carries a general message with no field to attach it to. `confirm`
+ * marks a warning the action will write past if re-submitted with
+ * `override: true` — see `confirmMessage` in {@link "functions/actionErrors"}.
+ */
 export type FieldErrors = Record<string, string>;
+
+/** What every mutation returns: `{ data }` on success, `{ error }` on failure. */
 export type Mutation<T> = { data: T; error?: undefined } | { data?: undefined; error: FieldErrors };
 
 // ---------- failure handling ----------
 
-// A mutation that throws is useless to the client: Next replaces the message with an opaque digest
-// and the caller's `await` rejects instead of yielding { error }. So each mutation catches.
-
-// Prisma failures a correct caller can still plausibly hit — a race against the pre-check, a row
-// deleted in another tab. Anything not listed is a bug or an outage: generic message, logged.
+// Prisma failures a correct caller can still plausibly hit — a race against a pre-check, a row
+// deleted in another tab. Anything unlisted is a bug or an outage: generic message, logged.
 const PRISMA_MESSAGES: Record<string, string> = {
   P2002: "That value is already taken.",
   P2003: "That change conflicts with a related record.",
@@ -38,8 +57,27 @@ function isNextControlFlow(err: unknown): boolean {
   return typeof digest === "string" && (digest === "NEXT_NOT_FOUND" || digest.startsWith("NEXT_REDIRECT"));
 }
 
-// Maps a thrown error to the FieldErrors a mutation returns. `where` identifies
-// the action in the server log; the client only ever sees the mapped message.
+/**
+ * Maps a thrown error to the {@link FieldErrors} a mutation returns.
+ *
+ * @remarks
+ * Every mutation catches, because a mutation that throws is useless to the
+ * client: Next replaces the message with an opaque digest and the caller's
+ * `await` rejects instead of yielding `{ error }`.
+ *
+ * Read actions are deliberately **not** wrapped in this. They return `[]` or
+ * `null` for a denied read, and catching a database outage into that would
+ * render an empty dashboard as though it were correct. A throw should reach
+ * `app/error.tsx`.
+ *
+ * @param where - Identifies the action in the server log. The client never sees it.
+ * @param err - The thrown value.
+ * @param fallback - Shown for anything not specifically recognized.
+ * @returns The errors to hand back to the form.
+ * @throws Re-throws Next's own control flow — `redirect()` and `notFound()`
+ * signal by throwing, and must keep propagating rather than being reported to
+ * the user as a failed save.
+ */
 export function actionError(
   where: string,
   err: unknown,
@@ -57,11 +95,13 @@ export function actionError(
   return { detail: fallback };
 }
 
-// Read actions are deliberately NOT wrapped: they return [] / null for a denied read, so catching a
-// database failure into that would render an empty dashboard. A throw reaches app/error.tsx.
-
-// Sign-up only creates the account; the competitor profile is filled in
-// afterward via createCompetitorProfile — see CompetitorProfileBody.
+/**
+ * Sign-up input.
+ *
+ * @remarks
+ * Sign-up creates the account only; the competitor profile is filled in
+ * afterwards — see {@link CompetitorProfileBody}.
+ */
 export interface RegisterBody {
   email?: string;
   password?: string;
@@ -69,7 +109,13 @@ export interface RegisterBody {
   last_name?: string;
 }
 
-// Fields collected in the separate profile-setup step after sign-up.
+/**
+ * The profile-setup step after sign-up, and the yearly re-confirmation.
+ *
+ * @remarks
+ * Every value is a DTO code, not a Prisma enum member. These fields freeze once
+ * the competitor holds a registration for the year.
+ */
 export interface CompetitorProfileBody {
   gender?: string;
   school?: string;
@@ -77,6 +123,7 @@ export interface CompetitorProfileBody {
   skill_level?: string;
 }
 
+/** A competitor editing their own details. Absent fields are left unchanged. */
 export interface UpdateMeBody {
   first_name?: string;
   last_name?: string;
@@ -86,6 +133,14 @@ export interface UpdateMeBody {
   school?: string | null;
 }
 
+/**
+ * The writable competition-settings columns.
+ *
+ * @remarks
+ * Dates arrive as `yyyy-mm-dd` and are anchored to the competition's time zone
+ * on the way in — see {@link "lib/dates"}. `host` is an email, and writing it is
+ * admin-only, since it grants organizer access.
+ */
 export interface SettingsBody {
   reg_year?: number;
   early_reg_start?: string | null;
@@ -103,6 +158,7 @@ export interface SettingsBody {
   order_public?: boolean;
 }
 
+/** A blog post being created or edited. */
 export interface BlogBody {
   author?: string;
   category?: string;
@@ -110,46 +166,72 @@ export interface BlogBody {
   blog_content?: string;
 }
 
-// Admin: promotes an existing user (matched by email) to a school account —
-// user_type "School" plus its one-to-one CollegeProfile linking a college.
+/**
+ * Creating a School account.
+ *
+ * @remarks
+ * The address must be unused — this creates the account rather than promoting
+ * an existing one. The new user has `user_type` `"School"`, a college linked
+ * through the one-to-one `CollegeProfile`, and an emailed invitation to set its
+ * first password.
+ *
+ * No name is carried: the account's `first_name` is taken from the college, so
+ * the chosen college is the only thing that names it.
+ */
 export interface CreateSchoolAccountBody {
   email?: string;
-  first_name?: string;
-  last_name?: string;
-  college?: string; // college_id (Dropdown value)
+  /** A `college_id`, which is what the Dropdown's value carries. */
+  college?: string;
 }
 
+/** Filters for the organizer's registration list. */
 export interface OrganizerRegFilters {
-  // true keeps competitors who have paid something, false those who have paid
-  // nothing at all — amt_paid is an amount, but this filter is still a yes/no.
+  /**
+   * True keeps competitors who have paid something, false those who have paid
+   * nothing at all. `amt_paid` is an amount, but this filter stays a yes/no.
+   */
   paid?: boolean;
   proof_of_reg?: boolean;
   is_competing?: boolean;
+  /** A `college_id`. */
   school?: string;
 }
 
+/** One event in a registration payload, with its nandu difficulty if it has one. */
 export interface RegistrationInputItem {
   event: string;
   nandu_str?: string;
 }
 
+/** An organizer editing a competitor's registrations, payment, and profile. */
 export interface UpdateOrganizerRegBody {
+  /** Replaces the year's registrations wholesale. Omit to leave them alone. */
   registration_input?: RegistrationInputItem[];
-  // Whole dollars received in total, not a delta — the organizer types the
-  // figure they have on record and it replaces whatever was there.
+  /**
+   * Whole dollars received **in total, not a delta** — the organizer types the
+   * figure they have on record and it replaces whatever was stored.
+   */
   amt_paid?: number;
   proof_of_reg?: boolean;
   is_competing?: boolean;
-  // Profile edits from the registrations view. Unlike the competitor-facing
-  // flow, an organizer can correct these at any time.
+  /**
+   * Profile corrections. Unlike the competitor-facing flow, an organizer can
+   * change these at any time, including after the competitor's profile locks.
+   */
   gender?: string;
   school?: string;
   student_type?: string;
   skill_level?: string;
 }
 
-// `override` confirms a save the member rules warned about. Without it, a roster that breaks an
-// eligibility rule comes back under `confirm` — see memberProblems in organizer-groupsets.ts.
+/**
+ * Creating a group set from the organizer console.
+ *
+ * @remarks
+ * `override` confirms a save the member rules warned about. Without it, a roster
+ * that breaks an eligibility rule comes back under `confirm` — see
+ * `memberProblems` in {@link "functions/actions/organizer-groupsets"}.
+ */
 export interface CreateOrganizerGroupsetBody {
   team_name: string;
   school: string;
@@ -158,6 +240,7 @@ export interface CreateOrganizerGroupsetBody {
   override?: boolean;
 }
 
+/** Editing a group set. Only members being added are re-checked. */
 export interface UpdateOrganizerGroupsetBody {
   team_name?: string;
   school?: string;
@@ -166,70 +249,121 @@ export interface UpdateOrganizerGroupsetBody {
   override?: boolean;
 }
 
-// Event-order write payload. A ring item is either an event (event_id +
-// competitor_list) or a break; `id` is present when re-saving an existing slot.
+/** Which ring a slot belongs to. */
 export type RingKey = "ring1" | "ring2" | "ring3";
 
+/** One competitor's place in a slot's running order. */
 export interface EventOrderCompetitorInput {
   id?: string;
   order?: number;
 }
 
+/**
+ * One slot of a ring: an event with a running order, or a break.
+ *
+ * @remarks
+ * `id` is present when re-saving an existing slot, and carrying it across rings
+ * is what makes a cross-ring drag a move rather than a delete and recreate.
+ *
+ * Omitted fields keep their stored values, and an omitted `competitor_list` is
+ * not a request to clear one — see `saveOrder`.
+ */
 export interface EventOrderInput {
   id?: string;
   order?: number;
-  event_id?: string; // event_code; absent for breaks
+  /** An `event_code`. Absent for breaks. */
+  event_id?: string;
   name?: string;
   break_length?: number;
   competitor_list?: EventOrderCompetitorInput[];
 }
 
+/** An event-order save. A ring omitted here is left untouched. */
 export interface OrderBody {
   ring1?: EventOrderInput[];
   ring2?: EventOrderInput[];
   ring3?: EventOrderInput[];
 }
 
-// Google Sheets export for both the event order and the scoring sheets: the browser sends finished
-// cells, so the action re-derives nothing. Still validated at the boundary — see cleanTabs in ./order.
+/**
+ * One tab of a Google Sheets export.
+ *
+ * @remarks
+ * Used by both the event-order and scoring exports. The browser sends finished
+ * cells and the action re-derives nothing — but it is still bounded and
+ * sanitized at the boundary, since a payload from a browser is untrusted
+ * whatever built it. See `cleanTabs` in {@link "functions/actions/order"}.
+ */
 export interface SheetTabInput {
   title?: string;
   rows?: Cell[][];
 }
 
+/** A Google Sheets export: one tab per ring. */
 export interface SheetExportBody {
   tabs?: SheetTabInput[];
 }
 
 // ---------- session-tied user-data cache ----------
 
-// The current user's payload is expensive (auth + nested query) and re-run on
-// every navigation, so it is cached by user_id, TTL-expired, and tag-dropped.
-export const USER_DATA_TTL = 60; // seconds
+/** How long a user's cached payload lives, in seconds. */
+export const USER_DATA_TTL = 60;
+
+/** The Data Cache tag scoping every read of one user's own data. */
 export const userDataTag = (userId: string) => `user-data-${userId}`;
 
-// Drop a user's cached payload. Call on logout and after any mutation to their
-// profile, registrations, or group set.
+/**
+ * Drops one user's cached payload.
+ *
+ * @remarks
+ * The current user's payload is expensive — auth plus a deeply nested query —
+ * and is re-read on every navigation, so it is cached per user id. Call this on
+ * logout, and after **any** mutation to their profile, registrations, or group
+ * set, including one made by an organizer on their behalf.
+ *
+ * @param userId - Whose payload to drop.
+ */
 export function revalidateUserData(userId: string): void {
   updateTag(userDataTag(userId));
 }
 
 // ---------- shared read cache (Data Cache) ----------
 
-// Same short-TTL-plus-tags model as above. Auth/gating reads cookies, so it runs
-// OUTSIDE the cached callback — only primitive-keyed Prisma reads go inside.
-export const READ_CACHE_TTL = USER_DATA_TTL; // 60s, matching the user-data cache
+/**
+ * How long a shared (non-user-scoped) read is cached, in seconds.
+ *
+ * @remarks
+ * Matches {@link USER_DATA_TTL}, so the two layers expire together.
+ *
+ * A rule that holds for every cached read in this directory: **auth and gating
+ * run outside the cached callback**, because they read cookies. Only
+ * primitive-keyed Prisma reads go inside one.
+ */
+export const READ_CACHE_TTL = USER_DATA_TTL;
 
-// Global tags for shared (non-user-scoped) reads, plus a per-groupset tag.
+/** Data Cache tag for every group-set read. */
 export const TAG_GROUPSETS = "groupsets";
+
+/** Data Cache tag for every registration read. */
 export const TAG_REGISTRATIONS = "registrations";
+
+/** Data Cache tag for every event-catalogue read. */
 export const TAG_EVENTS = "events";
+
+/** Data Cache tag for one group set, alongside {@link TAG_GROUPSETS}. */
 export const groupsetTag = (uuid: string) => `groupset-${uuid}`;
 
 // ---------- date rehydration ----------
 
-// unstable_cache serializes through JSON, flattening Date to an ISO string.
-// These rebuild it so the returned DTOs honor their Date-typed contracts.
+/**
+ * Rebuilds the `Date` fields a cached competitor payload lost.
+ *
+ * @remarks
+ * `unstable_cache` serializes through JSON, which flattens `Date` to an ISO
+ * string. The DTOs are typed as carrying real `Date`s, so every cached read
+ * rehydrates before returning — otherwise a `.getTime()` downstream throws on a
+ * cache hit but not on a miss.
+ */
 export function rehydrateCompetitor(c: CompetitorDTO): CompetitorDTO {
   return {
     ...c,
@@ -238,10 +372,19 @@ export function rehydrateCompetitor(c: CompetitorDTO): CompetitorDTO {
   };
 }
 
+/** Rebuilds a blog post's `Date` fields after a cached read. */
 export const reBlog = (b: BlogDTO): BlogDTO => ({ ...b, date_created: new Date(b.date_created) });
+
+/** Rebuilds a registration's `Date` fields after a cached read. */
 export const reRegistration = (r: RegistrationDTO): RegistrationDTO => ({ ...r, date_created: new Date(r.date_created) });
+
+/** Rebuilds a group set's `Date` fields after a cached read. */
 export const reGroupset = (g: GroupsetDTO): GroupsetDTO => ({ ...g, date_created: new Date(g.date_created) });
+
+/** Rebuilds an organizer group set's `Date` fields after a cached read. */
 export const reOrganizerGroupset = (g: OrganizerGroupsetDTO): OrganizerGroupsetDTO => ({ ...g, date_created: new Date(g.date_created) });
+
+/** Rebuilds an organizer registration's nested `Date` fields after a cached read. */
 export const reOrganizerRegistration = (u: OrganizerRegistrationDTO): OrganizerRegistrationDTO => ({
   ...u,
   registration: u.registration.map(reRegistration),
@@ -249,20 +392,43 @@ export const reOrganizerRegistration = (u: OrganizerRegistrationDTO): OrganizerR
 
 // ---------- action gates ----------
 
-// Named *Gate, not require*, to keep them distinct from lib/auth's page gates:
-// those redirect, these return an { error } an action can hand back to the form.
+/**
+ * The result of an action gate: the authorized user, or the error to return.
+ *
+ * @remarks
+ * These are named `*Gate` rather than `require*` to keep them distinct from
+ * {@link "lib/auth"}'s page gates. Those **redirect**; these return an
+ * `{ error }` an action can hand straight back to the form, because a server
+ * action has no page to redirect.
+ */
 export type OrganizerGate = { user: User; error?: undefined } | { user?: undefined; error: FieldErrors };
 
 // ---------- email links ----------
 
-// Base URL for links embedded in transactional email (activation, password
-// reset). Must be set to the deployed origin, e.g. https://collegiates.example.com.
+/**
+ * The base URL for links embedded in transactional email.
+ *
+ * @remarks
+ * Must be the deployed origin, e.g. `https://collegiates.example.com`. Actions
+ * that write before they send call this up front, for its throw, so a missing
+ * value fails while nothing is persisted — see `registerUser`.
+ *
+ * @returns The origin, without a trailing slash.
+ * @throws When `NEXT_PUBLIC_APP_URL` is unset.
+ */
 export function appUrl(): string {
   const url = process.env.NEXT_PUBLIC_APP_URL;
   if (!url) throw new Error("NEXT_PUBLIC_APP_URL is not set.");
   return url.replace(/\/$/, "");
 }
 
+/**
+ * Authorizes an action for the organizer console.
+ *
+ * @remarks
+ * Organizer access is the host named on the current settings row, plus admins —
+ * not a `user_type`. See `canAccessOrganizer`.
+ */
 export async function organizerGate(): Promise<OrganizerGate> {
   const user = await getCurrentUser();
   if (!user) return { error: { detail: "Not authenticated." } };
@@ -270,10 +436,16 @@ export async function organizerGate(): Promise<OrganizerGate> {
   return { user };
 }
 
-// Admin gate for server actions (mirrors organizerGate's shape). Admin access
-// is strictly user_type "Admin", independent of the organizer host rule.
+/** The result of {@link adminGate}, mirroring {@link OrganizerGate}'s shape. */
 export type AdminGate = { user: User; error?: undefined } | { user?: undefined; error: FieldErrors };
 
+/**
+ * Authorizes an admin-only action.
+ *
+ * @remarks
+ * Admin access is strictly `user_type` `"Admin"`, independent of the organizer
+ * host rule — an organizer is not an admin.
+ */
 export async function adminGate(): Promise<AdminGate> {
   const user = await getCurrentUser();
   if (!user) return { error: { detail: "Not authenticated." } };
@@ -281,12 +453,24 @@ export async function adminGate(): Promise<AdminGate> {
   return { user };
 }
 
-// Competitor gate for the actions that write competitor-owned data. Same shape
-// again; carries competitor_profile because callers read school/gender off it.
+/**
+ * The result of {@link competitorGate}.
+ *
+ * @remarks
+ * Carries a {@link CurrentUser} rather than a bare `User`, because the callers
+ * read school, gender, and the payment flags off `competitor_profile`.
+ */
 export type CompetitorGate =
   | { user: CurrentUser; error?: undefined }
   | { user?: undefined; error: FieldErrors };
 
+/**
+ * Authorizes an action that writes competitor-owned data.
+ *
+ * @remarks
+ * A School or Admin account has no competitor profile, so this keeps one from
+ * creating a profile for itself by calling such an action directly.
+ */
 export async function competitorGate(): Promise<CompetitorGate> {
   const user = await getCurrentUser();
   if (!user) return { error: { detail: "Not authenticated." } };
@@ -294,26 +478,89 @@ export async function competitorGate(): Promise<CompetitorGate> {
   return { user };
 }
 
-// parseSettingsDate maps an unparseable day to null, which settingsWritable then treats as "not
-// supplied" — so check the supplied ones up front and report them on their own fields.
+// ---------- registration email bodies ----------
+
+/**
+ * The events-and-money body the two registration emails share.
+ *
+ * @remarks
+ * Both the receipt sent at sign-up and the notice sent when an organizer edits a
+ * registration state the same three things: the events, what is owed, and the
+ * deadline. Building them here keeps a competitor's receipt, their dashboard,
+ * and the organizer's payments table quoting one figure — {@link totalOwedFor}
+ * is what all three price against.
+ *
+ * @param registrations - The competitor's registrations for the year, as they
+ * stand *after* whatever write is being reported.
+ * @param settings - The current settings row, for the fee schedule and deadline.
+ * @param onTeam - Whether the competitor belongs to a group set, which can carry
+ * a charge of its own.
+ */
+export function registrationEmailBody(
+  registrations: RegistrationDTO[],
+  settings: SettingsWithHost,
+  onTeam: boolean,
+): { events: RegistrationLine[]; billing: RegistrationBilling } {
+  const dto = shapeSettings(settings)!;
+  return {
+    events: registrations.map((reg) => ({
+      name: reg.event_name ?? reg.event_code,
+      nandu: reg.nandu_str,
+    })),
+    billing: {
+      total: totalOwedFor(registrations, onTeam, dto),
+      // On the competition's clock, like every other settings date the
+      // competitor is shown — see the confirm screen's identical fallback.
+      dueDate: formatSettingsDate("due_date", dto.due_date, undefined, "the posted deadline"),
+      contactEmail: dto.contact_email,
+    },
+  };
+}
+
 const SETTINGS_DATE_FIELDS = [
   "early_reg_start", "reg_start", "reg_end", "due_date", "comp_date",
 ] as const;
 
+/**
+ * Validates the date fields of a settings payload.
+ *
+ * @remarks
+ * Necessary because `parseSettingsDate` maps an unparseable day to `null`, which
+ * {@link settingsWritable} then treats as "not supplied" — so a typo would
+ * silently leave the old date in place. Checking up front lets each bad value be
+ * reported on its own field.
+ *
+ * @param body - The settings payload.
+ * @returns The errors, or `null` when every supplied date parses. Absent and
+ * explicitly-cleared fields are both fine; only a non-empty unparseable value is
+ * an error.
+ */
 export function settingsDateErrors(body: SettingsBody): FieldErrors | null {
   const errors: FieldErrors = {};
   for (const field of SETTINGS_DATE_FIELDS) {
     const value = body[field];
-    // Absent or explicitly cleared is fine; only a non-empty unparseable value
-    // is an error.
     if (value == null || value === "") continue;
     if (parseSettingsDate(field, value) === null) errors[field] = "Enter a valid date.";
   }
   return Object.keys(errors).length ? errors : null;
 }
 
-// Writable Settings columns from a request body, shared by the organizer save and admin create.
-// Dates arrive as yyyy-mm-dd and are Pacific-anchored — a bare new Date() would land a day early.
+/**
+ * The writable Settings columns, extracted from a request body.
+ *
+ * @remarks
+ * Shared by the organizer's save and the admin's create, so the two cannot
+ * disagree about which columns a payload may set. `host_id` is **not** among
+ * them: it grants organizer access, and each caller handles it separately under
+ * its own authorization.
+ *
+ * Dates arrive as `yyyy-mm-dd` and are anchored to the competition's time zone —
+ * a bare `new Date()` would land them a day early. See {@link "lib/dates"}.
+ *
+ * @param body - The settings payload, ideally after {@link settingsDateErrors}.
+ * @returns A Prisma update input. Undefined values mean "leave alone" and should
+ * be stripped before an update; nulls are genuine clears.
+ */
 export function settingsWritable(body: SettingsBody): Prisma.SettingsUncheckedUpdateInput {
   return {
     reg_year: body.reg_year,

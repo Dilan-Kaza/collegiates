@@ -4,14 +4,23 @@ import { useEffect, useRef, useState } from "react";
 import { useAppDispatch } from "@/store/hooks";
 import { setErrorMsg } from "@slices";
 
-// Copies a list as tab-separated rows — the format a paste into Sheets or Excel splits into
-// columns. `getRows` runs on click, so a re-rendering view doesn't rebuild the export.
-
+/**
+ * Copies a list to the clipboard as tab-separated rows.
+ *
+ * @remarks
+ * TSV is what a paste into Sheets or Excel splits back into columns, which is
+ * how an organizer turns a filtered view into a working spreadsheet.
+ */
 export default function CopyButton({
     getRows,
     label = "Copy list",
 }: {
+    /**
+     * Builds the rows. Called **on click**, not on render, so a frequently
+     * re-rendering view does not rebuild an export it may never copy.
+     */
     getRows: () => string[][];
+    /** Button text. Defaults to `"Copy list"`. */
     label?: string;
 }) {
 

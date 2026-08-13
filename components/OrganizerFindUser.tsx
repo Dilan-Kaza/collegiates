@@ -10,6 +10,13 @@ interface OrganizerFindUserProps {
   onFound?: (userId: string, name: string) => void;
 }
 
+/**
+ * An email lookup box for pulling one competitor into an organizer view.
+ *
+ * @param onFound - Called with the competitor's id and display name on a match.
+ * A miss raises a toast instead — and is distinguished from a failed lookup,
+ * which must not be reported as "not found".
+ */
 export default function OrganizerFindUser({ onFound }: OrganizerFindUserProps) {
 
     const dispatch = useAppDispatch();

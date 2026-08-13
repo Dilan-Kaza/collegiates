@@ -21,10 +21,8 @@ function NavBar({ firstName = "", liveScores = false }: { firstName?: string; li
       <div className="justify-between flex w-full">
         <div className="flex gap-10 items-center">
 
-          {/* width/height are the source PNG's intrinsic 1382x511 so the full
-              logo renders uncropped; CSS pins the height and lets the width
-              follow the aspect ratio. next/image still serves it downscaled
-              rather than shipping the whole 656KB original. */}
+          {/* The source PNG's intrinsic 1382x511, so it renders uncropped; CSS
+              pins the height and next/image still serves it downscaled. */}
           <Link to="/" className="shrink-0"><Image
                     src="/wushu_logo.png"
                     alt="logo"
@@ -39,9 +37,8 @@ function NavBar({ firstName = "", liveScores = false }: { firstName?: string; li
             </Link>
           ))}
         </div>
-        {/* Links, not buttons: an `href` is what lets Next prefetch the destination
-            before the click, and it restores middle-click / open-in-new-tab. The
-            click itself still routes through NavigationProvider — see routerCompat. */}
+        {/* Links, not buttons: an `href` lets Next prefetch and restores
+            middle-click. The click still routes through NavigationProvider. */}
         {username ?
           <Link to={accountHref} className="btn btn-outline [--btn-color:var(--color-off-white)]">{username}</Link> :
           <Link to="/signin" className="btn btn-outline [--btn-color:var(--color-off-white)]">Sign In</Link>

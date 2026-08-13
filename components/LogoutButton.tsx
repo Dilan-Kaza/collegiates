@@ -7,9 +7,19 @@ import { setErrorMsg, setSuccessMsg } from "@slices";
 import { clearAllSessionCache } from "@functions/sessionCache";
 import { useAppDispatch } from "@/store/hooks";
 import LoadingScreen from "./LoadingScreen";
-// logout button
 
-
+/**
+ * Signs the user out and clears every cached trace of them.
+ *
+ * @remarks
+ * Three things have to happen together: the session cookie is cleared
+ * server-side, the whole `sessionStorage` cache is dropped — it holds the
+ * previous user's data — and `router.refresh()` re-seeds `SessionProvider` as
+ * unauthenticated so the session hooks respond.
+ *
+ * If the sign-out **fails**, none of that happens: the cookie may well still be
+ * set, and clearing the cache would show a signed-out UI over a live session.
+ */
 export default function LogoutButton() {
     const dispatch = useAppDispatch();
     const router = useRouter();
@@ -18,13 +28,9 @@ export default function LogoutButton() {
     const handleLogout = async () => {
         if (loggingOut) return;
         setLoggingOut(true);
-        // logoutAction clears the session cookie server-side; router.refresh()
-        // re-seeds SessionProvider as unauthenticated so the hooks respond.
         try {
             const res = await logoutAction();
             if (!res.ok) {
-                // The cookie may still be set, so clearing the cache here would
-                // show a signed-out UI over a live session. Leave both alone.
                 dispatch(setErrorMsg(res.error ?? "Could not log you out. Please try again."));
                 return;
             }
