@@ -15,7 +15,7 @@ registrations, build the event order, and publish blog posts.
 | Styling   | Tailwind CSS 4 + daisyUI, Bootstrap Icons, Typekit fonts |
 
 There are no API route handlers. All reads and mutations go through server
-actions in [`functions/actions/`](functions/actions/), and the session is read
+actions in [`functions/actions/`](functions/actions/index.ts), and the session is read
 server-side via `auth()`.
 
 ## Getting started
@@ -38,8 +38,19 @@ DATABASE_URL="postgres://<id>:<key>@db.prisma.io:5432/postgres?sslmode=require"
 # Auth.js session signing secret (`npx auth secret` generates one).
 AUTH_SECRET="..."
 
-# Google Sheets API key, used by the sheets client in lib/apiClient.ts.
+# Google Sheets API key, for the browser-side sheet *read* in lib/apiClient.ts.
+# An API key carries no identity, so it only works against a publicly viewable
+# sheet. Restrict it to your own domains in the Google Cloud console — it ships
+# in the bundle by design.
 NEXT_PUBLIC_GOOGLE_API_KEY="..."
+
+# Service account for the Google Sheets *writes* (lib/sheets.ts) — the event-order
+# and scoring-sheet exports. Optional: without them the exports report that they
+# are not configured on this deployment, and nothing else is affected. The
+# spreadsheet in Settings → Scoring Link must be shared with the client email as
+# an Editor.
+GOOGLE_SHEETS_CLIENT_EMAIL="...@....iam.gserviceaccount.com"
+GOOGLE_SHEETS_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 ```
 
 Then set up the database:
@@ -91,4 +102,5 @@ Path aliases (see [`tsconfig.json`](tsconfig.json)): `@/*` → repo root, plus
 
 Vercel, using `vercel-build` so migrations are applied ahead of the build.
 `DATABASE_URL`, `AUTH_SECRET`, and `NEXT_PUBLIC_GOOGLE_API_KEY` must be set in
-the project's environment variables.
+the project's environment variables, plus `GOOGLE_SHEETS_CLIENT_EMAIL` and
+`GOOGLE_SHEETS_PRIVATE_KEY` for the Sheets exports.

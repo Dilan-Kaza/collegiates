@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import type { ChangeEvent, Dispatch, MouseEventHandler, SetStateAction } from "react";
 import type { RegEventItem } from "@/types";
 import type { EventDTO } from "@/lib/api";
+import AllAroundStatus from "./AllAroundStatus";
 
 interface EventSelectionProps {
   events: RegEventItem[];
@@ -13,40 +14,86 @@ interface EventSelectionProps {
   catalogEvents?: EventDTO[];
   registeredEvents?: string[];
   isEarly?: boolean;
-  firstCost?: number | null;
-  extraCost?: number | null;
+  baseCost?: number | null;
+  eventCost?: number | null;
+  // Profile fields the All-Around readout is gated on, so the
+  // picker can tell the competitor how close the current selection is to a title.
+  studentType?: string | null;
+  skillLevel?: string | null;
+  // Step back out of the flow (to profile setup). Omitted when there is nowhere
+  // to go back to, which hides the button — same shape as RegistrationConfirm's.
+  onBack?: MouseEventHandler<HTMLButtonElement>;
+  // Leave the flow entirely (to the dashboard), for a competitor who finished the
+  // profile step but is not registering events right now. Optional like onBack.
+  onExit?: MouseEventHandler<HTMLButtonElement>;
   onSubmit?: MouseEventHandler<HTMLButtonElement>;
 }
 
-export default function EventSelection({ events, setEvents, catalogEvents = [], registeredEvents, isEarly, firstCost, extraCost, onSubmit }: EventSelectionProps) {
+/**
+ * The registration flow's event picker, tabbed by category.
+ *
+ * @remarks
+ * Only events the competitor is eligible for are offered — the catalogue is
+ * already filtered to their level and gender by `getCompetitorEvents` — and
+ * events they hold a registration for are shown as taken rather than hidden.
+ *
+ * Nandu events prompt for a difficulty string, and All-Around progress updates
+ * beside the list as selections change, so a competitor can see what a fourth
+ * form would earn them before committing.
+ */
+export default function EventSelection({ events, setEvents, catalogEvents = [], registeredEvents, isEarly, baseCost, eventCost, studentType, skillLevel, onBack, onExit, onSubmit }: EventSelectionProps) {
 
-    const [eventOrder, setEventOrder] = useState<string[]>([]);
-    const [remainingEvents, setRemainingEvents] = useState<string[]>(["Northern Barehand Nandu", "Southern Barehand Nandu", "Northern Barehand", "Southern Barehand", "Northern Staff", "Southern Staff"]);
-    // Active event-type filter for the picker ("" = show all types).
-    const [typeFilter, setTypeFilter] = useState("");
+    // Active event-type filter for the picker. Exactly one type is always selected — the chips
+    // pick between them rather than toggling off — so the picker offers one category at a time.
+    const [typeFilter, setTypeFilter] = useState("E");
 
     const eventsFromApi = catalogEvents;
+
+    // Indexed once per catalogue instead of an Array.find per lookup — the
+    // helpers below are called from inside the option and row render loops.
+    const eventsByCode = useMemo(
+        () => new Map(eventsFromApi.map((e) => [e.event_code, e] as const)),
+        [eventsFromApi],
+    );
+
+    const getEventFromCode = (eventCode: string) => eventsByCode.get(eventCode);
+
+    const selectedCodes = useMemo(
+        () => new Set(events.map((e) => e.event_code)),
+        [events],
+    );
+
+    // The picked events resolved back to their catalogue entries, which is what All-Around
+    // progress is scored over — so the readout moves as events are added and removed.
+    const selectedEvents = useMemo(
+        () =>
+            events
+                .map((e) => eventsByCode.get(e.event_code))
+                .filter((e): e is EventDTO => e !== undefined),
+        [events, eventsByCode],
+    );
+
+    // Derived, not mirrored in state. Kept in state and reset from an effect, an RSC refresh
+    // re-offered already-picked events, letting one be added twice. Catalogue order comes free.
+    const remainingEvents = useMemo(
+        () =>
+            eventsFromApi
+                .map((e) => e.event_code)
+                .filter((code) => !selectedCodes.has(code) && !registeredEvents?.includes(code)),
+        [eventsFromApi, selectedCodes, registeredEvents],
+    );
 
     // Picking an event in the dropdown adds it straight to the list; the select
     // stays pinned to the placeholder so it always reads as "add another".
     const onAdd = (e: ChangeEvent<HTMLSelectElement>) => {
         const eventCode = e.target.value;
-        if (eventCode == ""){
-            return;
-        }
-        setEvents([...events, {'event_code': eventCode, 'nandu_str': ""}]);
-        const rest = (remainingEvents: string[]) => remainingEvents.filter(e => e !== eventCode);
-        setRemainingEvents(rest);
+        if (eventCode === "" || selectedCodes.has(eventCode)) return;
+        setEvents([...events, { event_code: eventCode, nandu_str: "" }]);
     }
 
     const onRemove = (event: RegEventItem) => {
-        setRemainingEvents([...remainingEvents, event.event_code].sort((a, b) => eventOrder.indexOf(a) - eventOrder.indexOf(b)));
         const rest = (events: RegEventItem[]) => events.filter(e => e.event_code !== event.event_code);
         setEvents(rest);
-    }
-
-    const getEventFromCode = (eventCode: string) =>{
-        return eventsFromApi.find(e => e.event_code === eventCode);
     }
 
     const isNandu = (eventCode: string) =>{
@@ -67,20 +114,20 @@ export default function EventSelection({ events, setEvents, catalogEvents = [], 
     // Labels for the dropdown sections. Filters cover gender/skill, so events
     // are organised by weapon (the section) and type (the suffix).
     const WEAPON_LABELS: Record<string, string> = { B: "Barehand", S: "Short Weapon", L: "Long Weapon", O: "Other Weapon" };
-    const TYPE_LABELS: Record<string, string> = { E: "External", I: "Internal" };
+    const TYPE_LABELS: Record<string, string> = { E: "External", I: "Internal", G: "Groupset" };
 
-    // Suffix an option with its type so the categories coexist within a weapon
-    // group.
-    const getOptionLabel = (eventCode: string) => {
-        const event = getEventFromCode(eventCode);
-        const type = event?.event_category ? TYPE_LABELS[event.event_category] : null;
-        return type ? `${getEventName(eventCode)} (${type})` : getEventName(eventCode);
-    }
+    // Only types this competitor has events in get a filter button: the catalogue carries groupset
+    // events for Class 1 only, so a Class 2 competitor would get a button filtering to nothing.
+    const availableTypes = Object.keys(TYPE_LABELS).filter(code => eventsFromApi.some(e => e.event_category === code));
 
-    // Narrow the pickable events to the active type filter (External/Internal).
-    // An empty filter keeps every type.
-    const filteredRemainingEvents = typeFilter
-        ? remainingEvents.filter(code => getEventFromCode(code)?.event_category === typeFilter)
+    // External is the usual start, falling back to the first type this competitor
+    // has events in. Stays "" only for a catalogue with no categories at all.
+    const activeType = availableTypes.includes(typeFilter) ? typeFilter : (availableTypes[0] ?? "");
+
+    // Narrow the pickable events to the selected type. Since a type is always
+    // selected, the sections below only ever hold one category's events.
+    const filteredRemainingEvents = activeType
+        ? remainingEvents.filter(code => getEventFromCode(code)?.event_category === activeType)
         : remainingEvents;
 
     // Bucket remaining events by weapon, keeping catalogue order within each.
@@ -107,85 +154,89 @@ export default function EventSelection({ events, setEvents, catalogEvents = [], 
             setEvents(newEvents);
     }
 
-    const getEventCost = (index: number) => index === 0 ? firstCost : extraCost;
-
-    useEffect(()=>{
-        const eventsList = eventsFromApi.map(({event_code})=>event_code);
-        if (registeredEvents){
-            const rest = (eventsList: string[]) => eventsList.filter(e => !registeredEvents?.includes(e));
-            setRemainingEvents(rest);
-        } else {
-            setRemainingEvents(eventsList);
-        }
-        setEventOrder(eventsList);
-    },[eventsFromApi]);
-
     return (
         <div>
             <div className="bg-off-white rounded-lg mx-[10%] px-[5%] py-5">
                 <div className="text-4xl text-secondary py-10">
                     Registration
                 </div>
-                {firstCost != null && (
+                {baseCost != null && (
                     <div className="text-sm text-gray-500 -mt-6 mb-6">
-                        {isEarly ? "Early registration rate" : "Standard registration rate"} — ${firstCost} for the first event, ${extraCost} each additional event
+                        {isEarly ? "Early registration rate" : "Standard registration rate"} — ${baseCost} registration fee, ${eventCost} each event
                     </div>
                 )}
-                {events.map((event, index) => (
-                    <div key={event.event_code} className="flex flex-row rounded-lg border border-gray-300 py-[10px] px-2 items-center">
-                        <div className="flex-1 flex-col">
-                            <div className="flex mx-4 items-center gap-2">
-                                <span>{getEventName(event.event_code)}</span>
-                                {firstCost != null && <span className="text-sm text-secondary">${getEventCost(index)}</span>}
+                {/* Sits beside the events it is scored from, stacking under them
+                    when narrow. Renders nothing for an ineligible competitor. */}
+                <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                        {events.map((event) => (
+                            <div key={event.event_code} className="flex flex-row rounded-lg border border-gray-300 py-[10px] px-2 items-center">
+                                <div className="flex-1 flex-col">
+                                    <div className="flex mx-4 items-center gap-2">
+                                        <span>{getEventName(event.event_code)}</span>
+                                        {eventCost != null && <span className="text-sm text-secondary">${eventCost}</span>}
+                                    </div>
+                                    {isNandu(event.event_code) ? <div className="flex flex-1flex-row flex-nowrap">
+                                        <div className="flex mx-4">
+                                            Nandu Code:
+                                        </div>
+                                        <div className="flex flex-1 border-b">
+                                            <input
+                                                className="w-full"
+                                                onChange={(e) => onNandu(e, event)}
+                                                value={getNanduStr(event)}
+                                                />
+                                        </div>
+                                    </div> : <></>}
+                                </div>
+                                <div className="flex justify-start">
+                                    <button className="btn btn-circle btn-primary btn-ghost" onClick={()=>onRemove(event)}>x</button>
+                                </div>
                             </div>
-                            {isNandu(event.event_code) ? <div className="flex flex-1flex-row flex-nowrap">
-                                <div className="flex mx-4">
-                                    Nandu Code:
-                                </div>
-                                <div className="flex flex-1 border-b">
-                                    <input
-                                        className="w-full"
-                                        onChange={(e) => onNandu(e, event)}
-                                        value={getNanduStr(event)}
-                                        />
-                                </div>
-                            </div> : <></>}
-                        </div>
-                        <div className="flex justify-start">
-                            <button className="btn btn-circle btn-primary btn-ghost" onClick={()=>onRemove(event)}>x</button>
-                        </div>
+                        ))}
                     </div>
-                ))}
-                <div>
+                    <AllAroundStatus
+                        events={selectedEvents}
+                        studentType={studentType}
+                        skillLevel={skillLevel}
+                        className="cg-list-row w-full sm:w-[38%] sm:shrink-0"
+                    />
+                </div>
+                <div className="mt-3">
                     Add an Event!
                 </div>
                 <div className="flex flex-row flex-wrap gap-2 my-2">
-                    {[{ code: "", label: "All" }, ...Object.entries(TYPE_LABELS).map(([code, label]) => ({ code, label }))].map(({ code, label }) => (
+                    {availableTypes.map((code) => (
                         <button
-                            key={code || "all"}
-                            className={`btn btn-sm ${typeFilter === code ? "btn-primary" : "btn-outline btn-primary"}`}
+                            key={code}
+                            className={`btn btn-sm ${activeType === code ? "btn-primary" : "btn-outline btn-primary"}`}
                             onClick={() => setTypeFilter(code)}>
-                            {label}
+                            {TYPE_LABELS[code]}
                         </button>
                     ))}
                 </div>
-                <div className="cg-field">
-                    <select
-                        onChange={onAdd}
-                        value="">
-                        <option value="" disabled hidden>Select an event to add</option>
-                            {groupedRemainingEvents.map((group) => (
-                                <optgroup label={group.label} key={group.label}>
-                                    {group.codes.map((eventCode) => (
-                                        <option value={eventCode} key={eventCode}>
-                                            {getOptionLabel(eventCode)}
-                                        </option>
-                                    ))}
-                                </optgroup>
+                <select
+                    className="select w-full"
+                    onChange={onAdd}
+                    value="">
+                    <option value="" disabled hidden>Select an event to add</option>
+                    {groupedRemainingEvents.map((group) => (
+                        <optgroup label={group.label} key={group.label}>
+                            {group.codes.map((eventCode) => (
+                                <option value={eventCode} key={eventCode}>
+                                    {getEventName(eventCode)}
+                                </option>
                             ))}
-                    </select>
-                </div>
-                <div className="flex flex-row justify-end">
+                        </optgroup>
+                    ))}
+                </select>
+                {/* Back sits opposite Submit, matching the confirm step's row so
+                    both steps of the flow read the same way. */}
+                <div className={`flex flex-row flex-wrap gap-2 ${onBack || onExit ? "justify-between" : "justify-end"}`}>
+                    <div className="flex flex-row flex-wrap gap-2">
+                        {onBack && <button className="btn btn-ghost my-4" onClick={onBack}>Back</button>}
+                        {onExit && <button className="btn btn-ghost my-4" onClick={onExit}>Return to dashboard</button>}
+                    </div>
                     <button className="btn btn-primary my-4" onClick={onSubmit}>Submit</button>
                 </div>
             </div>

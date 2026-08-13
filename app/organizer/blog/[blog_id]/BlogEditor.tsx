@@ -3,9 +3,10 @@
 import { MtHeader } from "@components";
 import { cacheKeys } from "@functions";
 import { clearSessionCache } from "@functions/sessionCache";
-import { setErrorMsg } from "@slices";
+import { setErrorMsg, setSuccessMsg } from "@slices";
 import { updateBlogPost } from "@functions/actions";
-import { useNavigate } from "@/routerCompat";
+import { errorMessage, runAction } from "@functions/actionErrors";
+import { Link } from "@/routerCompat";
 import { useState } from "react";
 import { useAppDispatch } from "@/store/hooks";
 import type { BlogDTO } from "@/lib/api";
@@ -21,7 +22,6 @@ export default function BlogEditor({
     post: BlogDTO;
 }) {
 
-    const nav = useNavigate();
     const dispatch = useAppDispatch();
 
     const [post, setPost] = useState<BlogDTO>(initialPost);
@@ -36,10 +36,15 @@ export default function BlogEditor({
 
     const handleSave = async () => {
         setLoading(true);
-        const { data, error } = await updateBlogPost(blogId, form);
-        if (error || !data) {
-            dispatch(setErrorMsg(error?.detail ?? "Failed to save post"));
-        } else {
+        const fallback = "Failed to save post";
+        try {
+            const { data, error } = await runAction(() => updateBlogPost(blogId, form), fallback);
+            if (error || !data) {
+                dispatch(setErrorMsg(errorMessage(error, fallback)));
+                // Stay in edit mode so the unsaved draft isn't replaced by the
+                // last-known-good post.
+                return;
+            }
             setPost(data);
             setEditing(false);
             // The saved post is now stale in the cache: drop its own entry and the
@@ -47,8 +52,10 @@ export default function BlogEditor({
             clearSessionCache(cacheKeys.blogPost(blogId));
             clearSessionCache(cacheKeys.organizerBlogPosts);
             clearSessionCache(cacheKeys.blogPosts);
+            dispatch(setSuccessMsg("Post saved"));
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     return (
@@ -56,7 +63,7 @@ export default function BlogEditor({
             <div className="hidden md:block"><MtHeader /></div>
             <div className="max-w-3xl mx-auto w-full px-4 py-8 flex flex-col gap-6">
                 <div className="flex items-center justify-between">
-                    <button className="btn btn-primary btn-sm" onClick={() => nav("/organizer/blog")}>← Back</button>
+                    <Link to="/organizer/blog" className="btn btn-primary btn-sm">← Back</Link>
                     <button className="btn btn-sm btn-secondary" onClick={() => setEditing(e => !e)}>
                         {editing ? "Cancel" : "Edit"}
                     </button>

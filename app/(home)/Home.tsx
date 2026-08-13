@@ -1,21 +1,60 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Carousel, Timeline, Heading, CWCReps, BlogPosts } from "@components";
 import { Link } from "@/routerCompat";
+import { useCachedResource, cacheKeys, fetchSettings, fetchBlogPosts } from "@functions";
 import type { SettingsDTO, BlogDTO } from "@/lib/api";
 // home landing content
 
-export default function Home({ settings = {}, posts = [] }: { settings?: Partial<SettingsDTO>; posts?: BlogDTO[] }) {
-  // TODO: make more flexible to add/remove/change images
-  const carouselImages = ["carousel/2025NQ.jpg", "carousel/2025QS.jpg", "carousel/2025GS.jpg", "carousel/2026QS.JPG"];
+// To add/remove a carousel image, drop the file in `public/carousel/` and list
+// its name here. Built once at module load rather than on every render.
+const CAROUSEL_IMAGES = [
+  "2025NQ.jpg",
+  "2025QS.jpg",
+  "2025GS.jpg",
+  "2026QS.jpg",
+  "2026DS.jpg",
+  "2026JS.jpg",
+  "2026JS2.jpg",
+  "2026ND.jpg",
+  "2026OW.jpg",
+].map((file) => `carousel/${file}`);
+
+function shuffled(imgs: readonly string[]) {
+  const out = [...imgs];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+export default function Home({
+  settings: initialSettings = {},
+  posts: initialPosts = [],
+}: {
+  settings?: Partial<SettingsDTO>;
+  posts?: BlogDTO[];
+}) {
+  // Server data for first paint, then the cache entry — an organizer's settings save or a blog
+  // edit in another tab drops these keys, and the timeline and post list re-read them.
+  const settings = useCachedResource(cacheKeys.settings, fetchSettings, initialSettings);
+  const posts = useCachedResource(cacheKeys.blogPosts, fetchBlogPosts, initialPosts);
+
+  // Scrambled after hydration, not during render, so the first client render
+  // still matches the server HTML. Same nine files, so no extra requests.
+  const [carouselImages, setCarouselImages] = useState<string[]>(CAROUSEL_IMAGES);
+  useEffect(() => {
+    setCarouselImages(shuffled(CAROUSEL_IMAGES));
+  }, []);
 
   return (
     <>
       <div className="relative overflow-hidden">
-        {/* The above-the-fold hero: `priority` preloads it instead of letting it
-            load lazily, and next/image serves a right-sized, modern-format file
-            in place of the 1.4MB PNG. */}
+        {/* Above the fold, so `priority` preloads it; next/image also serves a
+            right-sized modern format in place of the 1.4MB PNG. */}
         <Image
           className="w-full object-center object-fit -z-10"
           src="/test_img_4.png"

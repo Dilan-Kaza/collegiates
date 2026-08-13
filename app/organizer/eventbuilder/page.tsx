@@ -2,8 +2,6 @@ import EventBuilder from "./EventBuilder";
 import { getOrganizerRegistrations, getOrganizerOrder } from "@functions/actions";
 import { getSettings } from "@functions/data";
 import { requireOrganizer } from "@/lib/auth";
-import CacheSeed from "@functions/CacheSeed";
-import { cacheKeys } from "@functions/cacheKeys";
 
 export default async function Page() {
   // Gate to organizers and resolve registrations, order, and settings server-side
@@ -14,16 +12,14 @@ export default async function Page() {
     getOrganizerOrder(),
     getSettings(),
   ]);
+  // No seeding: the builder owns unsaved ring state and must not be reached by a
+  // mid-edit refetch. The console re-reads from its own server props on return.
   return (
-    <>
-      <CacheSeed
-        entries={{
-          [cacheKeys.organizerRegistrations]: registrations,
-          [cacheKeys.organizerOrder]: order,
-          [cacheKeys.settings]: settings,
-        }}
-      />
-      <EventBuilder registrations={registrations} order={order} orderPublic={settings?.order_public ?? false} />
-    </>
+    <EventBuilder
+      registrations={registrations}
+      order={order}
+      orderPublic={settings?.order_public ?? false}
+      regYear={settings?.reg_year ?? null}
+    />
   );
 }

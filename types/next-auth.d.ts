@@ -1,17 +1,27 @@
 import type { DefaultSession } from "next-auth";
 
-// Module augmentation so the extra fields we embed in the JWT/session
-// (user_id + user_type, set in auth.ts callbacks) are strongly typed.
+/**
+ * Module augmentation for the extra fields embedded in the JWT and session.
+ *
+ * @remarks
+ * `user_id`, `user_type`, and `token_version` are set by the callbacks in
+ * {@link "auth"}. Declaring them here is what makes them typed at every read
+ * site rather than needing a cast.
+ *
+ * @packageDocumentation
+ */
 declare module "next-auth" {
   interface Session {
     user: {
       user_id: string;
       user_type: string;
+      token_version: number;
     } & DefaultSession["user"];
   }
 
   interface User {
     user_type?: string;
+    token_version?: number;
   }
 }
 
@@ -21,5 +31,6 @@ declare module "@auth/core/jwt" {
   interface JWT {
     user_id?: string;
     user_type?: string;
+    token_version?: number;
   }
 }

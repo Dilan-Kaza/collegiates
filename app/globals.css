@@ -48,9 +48,21 @@
   --color-inner: #faf9f7;
   --color-primary: #0C2340;
   --color-secondary: #FFC72C;
-  --color-tertiary: #393759;
+  --color-tertiary: #5dbdde;
   --color-dark: rgb(33, 30, 47);
   --color-brown: #1c1513;
+}
+
+/* Layout chrome in normal flow: the wrapper's my-2 plus the Footer. Subtract from
+   100dvh to fill the viewport. Coupled to layout.tsx and Footer.tsx. */
+:root {
+  --cg-layout-chrome: 5.25rem;
+}
+@media (width < 48rem) {
+  /* Below `md` the fixed dock's in-flow spacer is also on the page. */
+  :root {
+    --cg-layout-chrome: calc(9.25rem + env(safe-area-inset-bottom));
+  }
 }
 
 /* Custom component classes distilled from repeated utility combos in the app.
@@ -62,6 +74,44 @@
   }
   .cg-card-bordered {
     @apply bg-off-white rounded-lg px-6 py-5 flex flex-col gap-4 border border-gray-200;
+  }
+
+  /* Translucent `cg-card`: same geometry over a blur, with a hairline edge. For
+     stacks reading as panes above the page rather than sheets on it. */
+  .cg-card-glass {
+    @apply bg-off-white/60 backdrop-blur-sm border border-white/40 rounded-lg px-6 py-5 flex flex-col gap-4;
+  }
+
+  /* Edge fade on all four sides. The gradients are intersected so each axis fades
+     independently; stacking them would brighten the corners. Background only. */
+  .cg-fade-edges {
+    --cg-fade: 1rem;
+    -webkit-mask-image:
+      linear-gradient(to right, transparent, black var(--cg-fade), black calc(100% - var(--cg-fade)), transparent),
+      linear-gradient(to bottom, transparent, black var(--cg-fade), black calc(100% - var(--cg-fade)), transparent);
+    -webkit-mask-composite: source-in;
+    mask-image:
+      linear-gradient(to right, transparent, black var(--cg-fade), black calc(100% - var(--cg-fade)), transparent),
+      linear-gradient(to bottom, transparent, black var(--cg-fade), black calc(100% - var(--cg-fade)), transparent);
+    mask-composite: intersect;
+  }
+  @media (width >= 40rem) {
+    .cg-fade-edges {
+      --cg-fade: 1.75rem;
+    }
+  }
+
+  /* Vertical-only fade for a scrolling element, sized to the container's padding
+     so at either end the ramp covers empty space and nothing looks faded. */
+  .cg-fade-scroll {
+    --cg-scroll-fade: 0.5rem;
+    -webkit-mask-image: linear-gradient(to bottom, transparent, black var(--cg-scroll-fade), black calc(100% - var(--cg-scroll-fade)), transparent);
+    mask-image: linear-gradient(to bottom, transparent, black var(--cg-scroll-fade), black calc(100% - var(--cg-scroll-fade)), transparent);
+  }
+  @media (width >= 40rem) {
+    .cg-fade-scroll {
+      --cg-scroll-fade: 2rem;
+    }
   }
 
   /* Highlighted / accented card with the secondary left rail */
@@ -79,12 +129,6 @@
     @apply border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-primary;
   }
 
-  /* Focus-within field wrapper (for multi-element fields) */
-  .cg-field {
-    @apply relative flex flex-col gap-2 border border-gray-300 rounded-md py-[10px] px-2
-      transition-[outline] ease-in-out duration-200 focus-within:outline-2 focus-within:outline-primary;
-  }
-
   /* Dashed chip / draggable tag */
   .cg-chip {
     @apply rounded border border-dashed border-gray-300 bg-gray-50 px-3 py-2
@@ -98,15 +142,6 @@
   .cg-eyebrow-muted {
     @apply text-xs uppercase tracking-wide text-gray-400;
   }
-}
-
-input:focus {
-  outline: none;
-  border: none;
-}
-
-select {
-  outline: none; /* Remove the outline when focused */
 }
 
 /* @keyframes scroll {
@@ -159,17 +194,17 @@ select {
   animation-fill-mode: both;
 }
 
+/* Opacity and transform only. Animating `filter` here promoted each CWC logo slot
+   to its own composited layer, which mobile browsers painted empty. */
 @keyframes fade {
   0%,
   100% {
     opacity: 0;
     transform: scale(0.9);
-    filter: blur(4px);
   }
   10%,
   90% {
     opacity: 1;
     transform: scale(1);
-    filter: blur(0);
   }
 }

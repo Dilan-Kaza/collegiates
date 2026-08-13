@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import CopyButton from "./CopyButton";
 import type { OrganizerRegistrationDTO } from "@/lib/api";
 
 const TABS = [
@@ -35,7 +36,14 @@ const eventRank = (name: string) => {
     return idx === -1 ? EVENT_ORDER.length : idx;
 };
 
-// `registrations` is resolved on the server and passed in (was fetched on mount).
+/**
+ * Registrations regrouped by event rather than by competitor, tabbed by skill
+ * level.
+ *
+ * @remarks
+ * The view an organizer needs when building the schedule or briefing judges:
+ * who is in each event, in the conventional running order. Copyable as TSV.
+ */
 export default function OrganizerRegistrationByEvent({ registrations = [] }: { registrations?: OrganizerRegistrationDTO[] }) {
 
     const [activeLevel, setActiveLevel] = useState("B");
@@ -88,6 +96,24 @@ export default function OrganizerRegistrationByEvent({ registrations = [] }: { r
                     </button>
                 ))}
             </div>
+            {sorted.length > 0 && (
+                <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">
+                        {sorted.length} event{sorted.length === 1 ? "" : "s"} in this view
+                    </span>
+                    {/* The active level/gender tab only — the same rows on screen,
+                        flattened to one line per athlete under their event. */}
+                    <CopyButton
+                        label="Copy these events"
+                        getRows={() => [
+                            ["Event", "Name", "College", "Nandu"],
+                            ...sorted.flatMap(([, { event_name, athletes }]) =>
+                                athletes.map((a) => [event_name, a.name, a.school ?? "", a.nandu_str ?? ""]),
+                            ),
+                        ]}
+                    />
+                </div>
+            )}
             {sorted.length === 0 ? (
                 <div className="text-sm text-gray-400">No events.</div>
             ) : (

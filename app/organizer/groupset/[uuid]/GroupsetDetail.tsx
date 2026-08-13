@@ -1,17 +1,19 @@
 "use client";
 
 import { MtHeader, OrganizerFindUser } from "@components";
-import { setErrorMsg } from "@slices";
+import { setErrorMsg, setSuccessMsg } from "@slices";
 import { clearSessionCache } from "@functions/sessionCache";
 import { updateOrganizerGroupset } from "@functions/actions";
-import { useNavigate } from "@/routerCompat";
-import { useState, useEffect } from "react";
+import { confirmMessage, errorMessage, runAction } from "@functions/actionErrors";
+import { useCachedResource, cacheKeys, fetchOrganizerGroupset } from "@functions";
+import { Link } from "@/routerCompat";
+import { useState } from "react";
 import { useAppDispatch } from "@/store/hooks";
 import type { OrganizerGroupsetDTO, OrganizerMemberDTO } from "@/lib/api";
 // organizer groupset detail/edit page
 
-// The group set arrives from the server by uuid. A save applies what
-// updateOrganizerGroupset returns rather than re-running the page.
+// The group set arrives from the server by uuid; a save applies what updateOrganizerGroupset
+// returns. Edit fields seed once at mount, so an RSC re-render can't discard an in-progress edit.
 export default function GroupsetDetail({
     uuid,
     groupset,
@@ -20,57 +22,81 @@ export default function GroupsetDetail({
     groupset: OrganizerGroupsetDTO;
 }) {
 
-    const nav = useNavigate();
     const dispatch = useAppDispatch();
 
+    // Read-only view of the group set, kept in step with its cache entry.
+    const server = useCachedResource(
+        cacheKeys.organizerGroupset(uuid),
+        () => fetchOrganizerGroupset(uuid),
+        groupset,
+    );
+
     // The displayed group set: the server's copy until a save replaces it.
-    const [current, setCurrent] = useState<OrganizerGroupsetDTO>(groupset);
+    const [saved, setSaved] = useState<OrganizerGroupsetDTO | null>(null);
+    const current = saved ?? server ?? groupset;
+
     const [editing, setEditing] = useState(false);
     const [teamName, setTeamName] = useState(groupset.team_name ?? "");
     const [leaderId, setLeaderId] = useState(groupset.leader?.user_id ?? "");
     const [members, setMembers] = useState<OrganizerMemberDTO[]>(groupset.members ?? []);
     const [loading, setLoading] = useState(false);
-
-    // Adopt fresh server data whenever the page re-renders with a new group set
-    // (a navigation back onto this route, or any other refresh).
-    useEffect(() => {
-        setCurrent(groupset);
-        setTeamName(groupset.team_name ?? "");
-        setLeaderId(groupset.leader?.user_id ?? "");
-        setMembers(groupset.members ?? []);
-    }, [groupset]);
+    // An eligibility rule this roster breaks, held until the organizer confirms or fixes it.
+    // Allowed through on purpose: a hand edit is usually fixing the very gap the rule reports.
+    const [confirm, setConfirm] = useState("");
 
     const handleAdd = (user_id: string, name: string) => {
         if (members.some(m => m.user_id === user_id)) return;
+        setConfirm("");
         setMembers(prev => [...prev, { user_id, name }]);
     };
 
     const handleRemove = (user_id: string) => {
         if (leaderId === user_id) setLeaderId("");
+        setConfirm("");
         setMembers(prev => prev.filter(m => m.user_id !== user_id));
     };
 
-    const handleSave = async () => {
+    const handleSave = async (override = false) => {
         setLoading(true);
-        const { data, error } = await updateOrganizerGroupset(uuid, {
-            team_name: teamName,
-            leader: leaderId,
-            school: current.school?.school_id,
-            members: members.map(m => m.user_id),
-        });
-        if (error || !data) {
-            dispatch(setErrorMsg(error?.detail ?? "Failed to save"));
-        } else {
-            clearSessionCache(`groupset_${uuid}`);
-            clearSessionCache("organizerGroupsets");
+        const fallback = "Failed to save";
+        try {
+            const { data, error } = await runAction(
+                () => updateOrganizerGroupset(uuid, {
+                    team_name: teamName,
+                    leader: leaderId,
+                    school: current.school?.school_id,
+                    members: members.map(m => m.user_id),
+                    override,
+                }),
+                fallback,
+            );
+            if (error || !data) {
+                // A `confirm` error is a rule the action will write past once the
+                // organizer says so, so it becomes a prompt rather than a failure.
+                const needsConfirm = confirmMessage(error);
+                if (needsConfirm) {
+                    setConfirm(needsConfirm);
+                    return;
+                }
+                // The action reports roster problems under `groupset`, not
+                // `detail`, so reading only `detail` lost them.
+                dispatch(setErrorMsg(errorMessage(error, fallback)));
+                // Stay in edit mode: the pending changes are still unsaved.
+                return;
+            }
+            setConfirm("");
+            clearSessionCache(cacheKeys.organizerGroupset(uuid));
+            clearSessionCache(cacheKeys.organizerGroupsets);
             setEditing(false);
             // The action returns the saved group set, so adopt it directly.
-            setCurrent(data);
+            setSaved(data);
             setTeamName(data.team_name ?? "");
             setLeaderId(data.leader?.user_id ?? "");
             setMembers(data.members ?? []);
+            dispatch(setSuccessMsg("Group set saved"));
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     return (
@@ -78,7 +104,7 @@ export default function GroupsetDetail({
             <div className="hidden md:block"><MtHeader /></div>
             <div className="min-h-screen bg-off-white max-w-3xl mx-auto w-full px-4 py-8 flex flex-col gap-6 rounded-2xl">
                 <div className="flex items-center justify-between">
-                    <button className="btn btn-ghost w-fit" onClick={() => nav("/organizer/groupset")}>← Back</button>
+                    <Link to="/organizer/groupset" className="btn btn-ghost w-fit">← Back</Link>
                     <button className="btn btn-secondary btn-sm" onClick={() => setEditing(e => !e)}>
                         {editing ? "Cancel" : "Edit"}
                     </button>
@@ -121,9 +147,20 @@ export default function GroupsetDetail({
                                 <OrganizerFindUser onFound={handleAdd} />
                             </div>
                         </div>
-                        <div className="flex justify-end">
-                            <button className="btn btn-primary" onClick={handleSave} disabled={loading}>
-                                {loading ? "Saving..." : "Save"}
+                        {confirm && (
+                            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex flex-col gap-2">
+                                <span>{confirm}</span>
+                                <span className="text-xs text-amber-700">Save anyway?</span>
+                            </div>
+                        )}
+                        <div className="flex justify-end gap-2">
+                            {confirm && (
+                                <button className="btn btn-ghost" onClick={() => setConfirm("")} disabled={loading}>
+                                    Keep editing
+                                </button>
+                            )}
+                            <button className="btn btn-primary" onClick={() => handleSave(!!confirm)} disabled={loading}>
+                                {loading ? "Saving..." : confirm ? "Save anyway" : "Save"}
                             </button>
                         </div>
                     </>

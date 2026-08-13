@@ -4,8 +4,13 @@ import { Link } from "@/routerCompat";
 import { useState } from "react";
 import type { BlogDTO } from "@/lib/api";
 
-// `posts` is resolved on the server and passed in (was fetched on mount). The
-// parent server page re-fetches (via router.refresh) after a create.
+/**
+ * The organizer's post list, each linking to its editor.
+ *
+ * @remarks
+ * Shows three at a time behind a "show more", since the list only grows. The
+ * parent server page re-fetches via `router.refresh()` after a post is created.
+ */
 export default function OrganizerBlogList({ posts = [] }: { posts?: BlogDTO[] }) {
 
     const [visible, setVisible] = useState(3);

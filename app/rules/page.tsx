@@ -1,4 +1,4 @@
-import { ImgHeader, CardCarousel } from "@components";
+import { MtHeader, CardCarousel } from "@components";
 import {
   OfficialRules,
   Eligibility,
@@ -12,7 +12,7 @@ import {
   GeneralFormat,
   Arbitration,
   Disqualification,
-} from "@components/rules";
+} from "./_components";
 
 const rules = [
   { id: "official-rules",    title: "Official Rule Sets",         content: <OfficialRules /> },
@@ -29,25 +29,22 @@ const rules = [
   { id: "disqualification",  title: "11. Disqualification",       content: <Disqualification /> },
 ];
 
-export default function Page() {
+// `?section=<id>` opens straight to one rule, so pages that ask a competitor to
+// self-report something rule-bound (profile setup) can link to the rule itself.
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ section?: string | string[] }>;
+}) {
+  const { section } = await searchParams;
+  const initialId = Array.isArray(section) ? section[0] : section;
+
   return (
-    <div className="bg-off-white sm:min-h-screen relative overflow-hidden">
-      <div className="pointer-events-none absolute inset-0 z-0">
-        <div className="absolute -bottom-40 -right-40 w-[32rem] h-[32rem] rounded-full border-[3rem] border-primary/60" />
-        <div className="absolute -top-24 -left-24 w-[22rem] h-[22rem] rounded-full border-[2.5rem] border-primary/50" />
-        <div className="absolute top-[38%] -left-10 w-40 h-40 rounded-full bg-primary/40" />
-        <div className="absolute top-16 right-24 w-20 h-20 rounded-full bg-primary/50" />
-        <div className="absolute top-[50%] left-[45%] w-10 h-10 rounded-full bg-primary/55" />
-        <div className="absolute top-[42%] right-10 w-36 h-36 rounded-full border-[1.5rem] border-secondary/40" />
-        <div className="absolute -bottom-10 -left-10 w-[16rem] h-[16rem] rounded-full border-[2rem] border-secondary/25" />
-        <div className="absolute top-8 left-[38%] w-8 h-8 rounded-full bg-secondary/50" />
-        <div className="absolute bottom-[32%] right-[30%] w-5 h-5 rounded-full bg-secondary/40" />
-      </div>
-      <div className="relative z-10">
-        <div className="hidden sm:block"><ImgHeader /></div>
-        <CardCarousel cards={rules} />
-        <div className="hidden sm:block px-1 text-primary/20 text-xs pb-2">this page is vibecoded, pls take your complaints to dilan for now</div>
-      </div>
+    // Exactly the viewport minus the layout's own chrome, so the document never
+    // scrolls and the card's internal scroll is the only scrollbar on the page.
+    <div className="h-[calc(100dvh-var(--cg-layout-chrome))] flex flex-col">
+      <div className="hidden sm:block shrink-0"><MtHeader /></div>
+      <CardCarousel cards={rules} initialId={initialId} />
     </div>
   );
 }

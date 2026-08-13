@@ -1,7 +1,17 @@
-// Shared UI-facing types (not Prisma/DTO shapes — those live in lib/api/).
+/**
+ * Shared UI-facing types.
+ *
+ * @remarks
+ * Prisma payloads and DTO shapes are **not** here — those live in
+ * {@link "lib/api"}.
+ *
+ * @packageDocumentation
+ */
 
-// A single event row as tracked by the registration UI while a competitor
-// builds up their selection, and the shape createRegistrations accepts.
+/**
+ * One event row as the registration UI tracks it while a competitor builds up
+ * their selection, and the shape `createRegistrations` accepts.
+ */
 export interface RegEventItem {
   event_code: string;
   nandu_str?: string;

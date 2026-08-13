@@ -3,8 +3,26 @@
 import { useSyncExternalStore } from "react";
 import superjson from "superjson";
 
-// Per-tab sessionStorage cache replacing the old Redux `sessionCache` slice.
-// A subscription layer keeps reads reactive via `useSessionCache`.
+/**
+ * The per-tab `sessionStorage` cache, with reactive reads.
+ *
+ * @remarks
+ * This is the client half of the caching story: server data arrives as props,
+ * gets seeded here, and is read from here on later navigations, so moving
+ * between pages repaints instantly instead of refetching.
+ *
+ * Entries live until a mutation clears them or the tab closes. A subscription
+ * layer makes reads reactive through {@link useSessionCache}, and a `storage`
+ * listener keeps sibling tabs in step.
+ *
+ * Values are serialized with **superjson**, not `JSON`, so the DTOs' `Date`
+ * fields survive the round trip instead of flattening to strings.
+ *
+ * See {@link "functions/cacheKeys"} for the key registry and the rules for
+ * adding one.
+ *
+ * @packageDocumentation
+ */
 
 // Namespaced so clearAll() never stomps unrelated sessionStorage keys.
 const PREFIX = "sc:";
@@ -18,8 +36,6 @@ const listeners = new Map<string, Set<Listener>>();
 // the parsed value is cached per key and re-parsed only when the raw differs.
 const snapshots = new Map<string, { raw: string | null; value: unknown }>();
 
-// superjson, not JSON, so the DTOs' Date fields survive the round-trip instead
-// of flattening to strings.
 function safeParse<T>(raw: string): T | undefined {
   try {
     return superjson.parse<T>(raw);
@@ -53,6 +69,13 @@ function attachStorageListener(): void {
   });
 }
 
+/**
+ * Reads one cache entry.
+ *
+ * @param key - A key from `cacheKeys`.
+ * @returns The value, or `undefined` during SSR and for a key that is absent.
+ * A parse failure also reads as absent rather than throwing.
+ */
 export function getSessionCache<T>(key: string): T | undefined {
   if (typeof window === "undefined") return undefined;
   const raw = window.sessionStorage.getItem(namespaced(key));
@@ -65,6 +88,13 @@ export function getSessionCache<T>(key: string): T | undefined {
   return value as T | undefined;
 }
 
+/**
+ * Writes one cache entry and notifies its subscribers.
+ *
+ * @param key - A key from `cacheKeys`.
+ * @param data - The value. Store `null` rather than `undefined` for "nothing" —
+ * an undefined entry reads back as a miss, which would re-arm a refetch.
+ */
 export function setSessionCache<T>(key: string, data: T): void {
   if (typeof window === "undefined") return;
   window.sessionStorage.setItem(namespaced(key), superjson.stringify(data));
@@ -72,6 +102,15 @@ export function setSessionCache<T>(key: string, data: T): void {
   emit(key);
 }
 
+/**
+ * Drops one cache entry, so its binding refetches.
+ *
+ * @remarks
+ * The standard follow-up to a successful mutation: clear the keys the write
+ * invalidated and let `useCachedResource` refill them.
+ *
+ * @param key - A key from `cacheKeys`.
+ */
 export function clearSessionCache(key: string): void {
   if (typeof window === "undefined") return;
   window.sessionStorage.removeItem(namespaced(key));
@@ -79,6 +118,14 @@ export function clearSessionCache(key: string): void {
   emit(key);
 }
 
+/**
+ * Drops every entry this cache owns.
+ *
+ * @remarks
+ * For sign-out, where the whole tab's view of the data belongs to someone who is
+ * no longer signed in. Only prefixed keys are removed, so unrelated
+ * `sessionStorage` entries survive.
+ */
 export function clearAllSessionCache(): void {
   if (typeof window === "undefined") return;
   const keys: string[] = [];
@@ -105,8 +152,18 @@ function subscribe(key: string, listener: Listener): () => void {
   };
 }
 
-// Reactive read: re-renders whenever `key` changes (same tab or cross-tab).
-// Returns undefined during SSR and when the key is absent.
+/**
+ * Reactive read: re-renders the component whenever `key` changes, in this tab or
+ * another.
+ *
+ * @remarks
+ * Most components should use `useCachedResource` instead, which binds a
+ * server-rendered value to its entry and handles refilling. Reach for this
+ * directly only to observe an entry you are not responsible for seeding.
+ *
+ * @param key - A key from `cacheKeys`.
+ * @returns The value, or `undefined` during SSR and when the key is absent.
+ */
 export function useSessionCache<T>(key: string): T | undefined {
   return useSyncExternalStore(
     (listener) => subscribe(key, listener),

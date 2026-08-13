@@ -4,8 +4,6 @@ import prisma from "./prisma";
 import { SETTINGS_INCLUDE } from "./api";
 import type { SettingsWithHost } from "./api";
 
-// The Settings row in Next's Data Cache: rarely written, read on nearly every
-// request. Tagged "settings", which every write path already invalidates.
 const loadSettingsCached = unstable_cache(
   (): Promise<SettingsWithHost | null> =>
     prisma.settings.findFirst({
@@ -31,14 +29,43 @@ function rehydrate(s: SettingsWithHost): SettingsWithHost {
   };
 }
 
-// Mirrors Settings.load() — the most-recently created settings row. React
-// `cache()` collapses a request's several callers to one read plus rehydration.
+/**
+ * The current competition's Settings row, with its host and the host's college.
+ *
+ * @remarks
+ * "Current" means the most recently created row — the port of Django's
+ * `Settings.load()`. A new competition year is a new row, so history is kept.
+ *
+ * Two caches sit in front of the query, because this is read on nearly every
+ * request and written a handful of times a year:
+ *
+ * - Next's Data Cache, tagged `settings`, which every write path invalidates.
+ * - React's `cache()`, which collapses a single request's several callers
+ *   (layout, page gate, action) down to one read plus one rehydration.
+ *
+ * The Data Cache round-trips through JSON, which flattens `DateTime` to a
+ * string, so the date columns are rebuilt on the way out. Without that
+ * {@link regActive}'s `<=` would compare strings and silently misjudge the
+ * window.
+ *
+ * @returns The settings row, or `null` before a first competition is created.
+ */
 export const loadSettings = cache(async (): Promise<SettingsWithHost | null> => {
   const s = await loadSettingsCached();
   return s ? rehydrate(s) : null;
 });
 
-// Mirrors Settings.reg_active
+/**
+ * Whether registration is open right now — the port of `Settings.reg_active`.
+ *
+ * @remarks
+ * When an early window is configured, the open period runs from
+ * `early_reg_start` all the way to `reg_end`; early and regular registration
+ * differ in price, not in availability. With no early window it is
+ * `reg_start`..`reg_end`.
+ *
+ * @param s - A settings row, or null/undefined when none exists.
+ */
 export function regActive(s: SettingsWithHost | null | undefined): boolean {
   if (!s) return false;
   const now = new Date();
@@ -48,7 +75,17 @@ export function regActive(s: SettingsWithHost | null | undefined): boolean {
   return s.reg_start <= now && now <= s.reg_end;
 }
 
-// Mirrors Settings.early_reg_active
+/**
+ * Whether the discounted early window is open — the port of
+ * `Settings.early_reg_active`.
+ *
+ * @remarks
+ * True only between `early_reg_start` and `reg_start`; once regular
+ * registration opens, the early tier has closed even though
+ * {@link regActive} stays true.
+ *
+ * @param s - A settings row, or null/undefined when none exists.
+ */
 export function earlyRegActive(s: SettingsWithHost | null | undefined): boolean {
   if (!s || !s.early_reg_start) return false;
   const now = new Date();

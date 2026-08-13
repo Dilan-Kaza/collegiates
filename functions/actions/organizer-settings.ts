@@ -1,62 +1,119 @@
 "use server";
 
-// Organizer server actions for competition settings and the event catalogue.
+/**
+ * Server actions for the competition settings and the event catalogue.
+ *
+ * @remarks
+ * The settings write and the catalogue read are organizer-gated. The settings
+ * *read* is not: it returns the same public payload the home and tournament
+ * pages already render to anonymous visitors.
+ *
+ * @packageDocumentation
+ */
 
 import { unstable_cache, updateTag } from "next/cache";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { loadSettings } from "@/lib/settings";
 import { isAdmin } from "@/lib/auth";
-import { shapeSettings, shapeEvent, SETTINGS_INCLUDE } from "@/lib/api";
-import type { SettingsDTO, EventDTO } from "@/lib/api";
-import { READ_CACHE_TTL, TAG_EVENTS, organizerGate, settingsWritable } from "./shared";
+import { getSettings } from "@functions/data";
+import { shapeEvent } from "@/lib/api";
+import type { EventDTO, SettingsDTO } from "@/lib/api";
+import {
+  READ_CACHE_TTL, TAG_EVENTS, organizerGate, settingsWritable, settingsDateErrors, actionError,
+} from "./shared";
 import type { Mutation, SettingsBody } from "./shared";
 
-export async function saveSettings(body: SettingsBody): Promise<Mutation<SettingsDTO | null>> {
+/**
+ * Saves the competition settings, creating the row if there is none yet.
+ *
+ * @remarks
+ * Changing `host` is an **admin-only** operation, not an ordinary setting:
+ * `host_id` is what `canAccessOrganizer` resolves organizer access from, so
+ * writing it grants permissions. The organizer settings form never submits it.
+ *
+ * Dates are validated before the write and reported on their own fields —
+ * `parseSettingsDate` maps an unparseable day to null, which `settingsWritable`
+ * would otherwise treat as "not supplied" and silently ignore.
+ *
+ * @param body - The writable settings columns. Absent fields are left alone.
+ * @returns `{ data: null }` on success. No row is returned: callers only read
+ * `error`, and the `settings` tag update refreshes the page. Returning one would
+ * need an `include`, forcing an interactive transaction over a WebSocket.
+ */
+export async function saveSettings(body: SettingsBody): Promise<Mutation<null>> {
   const { user, error } = await organizerGate();
   if (error) return { error };
 
-  // host_id is what organizerGate resolves organizer access from, so writing it
-  // is a permission grant, not a setting: only an admin may. An organizer host
-  // could otherwise hand its own console to any account, or take it from itself.
-  // The organizer settings form never submits `host` — the admin console does.
+  // Writing host_id grants organizer access, so it is admin-only.
   if (body.host !== undefined && !isAdmin(user)) {
     return { error: { host: "Only an admin can change the settings host." } };
   }
 
-  // The host lookup and the current settings row are independent, so they go out
-  // together rather than one after the other.
-  const [host, existing] = await Promise.all([
-    body.host !== undefined
-      ? prisma.user.findUnique({ where: { email: body.host }, select: { user_id: true } })
-      : null,
-    loadSettings(),
-  ]);
-  let host_id: string | undefined;
-  if (body.host !== undefined) {
-    if (!host) return { error: { host: "Host user not found." } };
-    host_id = host.user_id;
-  }
+  const dateErrors = settingsDateErrors(body);
+  if (dateErrors) return { error: dateErrors };
 
-  let s;
-  if (existing) {
-    const data = settingsWritable(body);
-    if (host_id) data.host_id = host_id;
-    (Object.keys(data) as (keyof typeof data)[]).forEach((k) => {
-      if (data[k] === undefined) delete data[k];
-    });
-    s = await prisma.settings.update({ where: { id: existing.id }, data, include: SETTINGS_INCLUDE });
-  } else {
-    if (!host_id) return { error: { host: "Host user not found." } };
-    s = await prisma.settings.create({
-      data: { ...settingsWritable(body), host_id } as Prisma.SettingsUncheckedCreateInput,
-      include: SETTINGS_INCLUDE,
-    });
+  try {
+    // The host lookup and the current settings row are independent, so they go out
+    // together rather than one after the other.
+    const [host, existing] = await Promise.all([
+      body.host !== undefined
+        ? prisma.user.findUnique({ where: { email: body.host }, select: { user_id: true } })
+        : null,
+      loadSettings(),
+    ]);
+    let host_id: string | undefined;
+    if (body.host !== undefined) {
+      if (!host) return { error: { host: "Host user not found." } };
+      host_id = host.user_id;
+    }
+
+    if (existing) {
+      const data = settingsWritable(body);
+      if (host_id) data.host_id = host_id;
+      (Object.keys(data) as (keyof typeof data)[]).forEach((k) => {
+        if (data[k] === undefined) delete data[k];
+      });
+      await prisma.settings.update({ where: { id: existing.id }, data });
+    } else {
+      if (!host_id) return { error: { host: "Host user not found." } };
+      await prisma.settings.create({
+        data: { ...settingsWritable(body), host_id } as Prisma.SettingsUncheckedCreateInput,
+      });
+    }
+    updateTag("settings");
+    return { data: null };
+  } catch (err) {
+    return { error: actionError("saveSettings", err, "Could not save the settings.") };
   }
-  updateTag("settings");
-  return { data: shapeSettings(s) };
 }
 
+/**
+ * The competition settings, callable from the browser.
+ *
+ * @remarks
+ * {@link "functions/data"} has the same read, but that module is `server-only`
+ * and reaches the browser only as props. A component binding the `settings`
+ * cache entry needs this to refill it after a save drops the key.
+ *
+ * Ungated for the same reason the home page is: this DTO is already serialized
+ * to anonymous visitors. It shares the `settings` Data Cache entry.
+ *
+ * @returns The settings, or `null` before a first competition exists.
+ */
+export async function getSharedSettings(): Promise<SettingsDTO | null> {
+  return getSettings();
+}
+
+/**
+ * The whole event catalogue, unfiltered, for the event builder.
+ *
+ * @remarks
+ * Unlike `getCompetitorEvents`, nothing is filtered by gender, level, or
+ * eligibility — an organizer schedules every event that exists.
+ *
+ * @returns Every event, or `[]` for a denied read.
+ */
 export async function getOrganizerEvents(): Promise<EventDTO[]> {
   const { error } = await organizerGate();
   if (error) return [];

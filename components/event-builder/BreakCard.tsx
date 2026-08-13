@@ -9,6 +9,10 @@ interface BreakCardProps {
   onUpdate?: (updated: BreakItem) => void;
 }
 
+/**
+ * A break slot in a ring — editable in place, with a name and a duration in
+ * minutes.
+ */
 export default function BreakCard({ item, onRemove, onUpdate }: BreakCardProps) {
     const [editing, setEditing] = useState(false);
     const [name, setName] = useState(item.name);

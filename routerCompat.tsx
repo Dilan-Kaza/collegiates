@@ -1,35 +1,57 @@
 "use client";
-// Compatibility shims so the ported react-router call sites keep working on
-// top of the Next.js App Router (next/navigation).
+
+/**
+ * react-router shims over the Next.js App Router.
+ *
+ * @remarks
+ * The app was ported from a react-router SPA. Rather than rewrite every call
+ * site, these keep `useNavigate`, `useLocation`, `useParams`, and
+ * `<Link to="…">` working on top of `next/navigation`.
+ *
+ * They are not bare re-exports: navigation routes through
+ * {@link "components/NavigationProvider"}, so every route change runs in a
+ * transition and raises the global loading overlay.
+ *
+ * @packageDocumentation
+ */
 import NextLink from "next/link";
 import { usePathname, useParams as useNextParams } from "next/navigation";
 import type { ComponentProps, MouseEvent } from "react";
 import { useNavigateContext } from "@components/NavigationProvider";
 
-// react-router's useNavigate() returns a function: nav("/path") or nav(-1).
-// Backed by NavigationProvider, which runs the navigation inside a transition
-// and shows the global loading overlay while the server produces the next page.
+/**
+ * react-router's `useNavigate()`.
+ *
+ * @returns `nav("/path")` to push, `nav("/path", { replace: true })` to replace,
+ * or `nav(-1)` to go back.
+ */
 export function useNavigate() {
   return useNavigateContext();
 }
 
-// react-router's useLocation() -> { pathname, ... }
+/** react-router's `useLocation()`, narrowed to the `pathname` the call sites read. */
 export function useLocation(): { pathname: string } {
   const pathname = usePathname();
   return { pathname };
 }
 
-// next/navigation's useParams has the same shape ({ [key]: value }).
+/** react-router's `useParams()`. Re-exported as-is — the shapes already match. */
 export const useParams = useNextParams;
 
 type LinkProps = Omit<ComponentProps<typeof NextLink>, "href"> & { to: string };
 
-// react-router's <Link to="/x"> -> next/link's <Link href="/x">.
-// A plain left-click is routed through NavigationProvider's transition (so the
-// loading overlay shows while the server produces the page) instead of Link's
-// own navigation. Modifier clicks, middle-clicks and target="_blank" fall
-// through to the browser's default so open-in-new-tab still works, and NextLink
-// keeps prefetching the route either way.
+/**
+ * react-router's `<Link to="/x">`, over `next/link`.
+ *
+ * @remarks
+ * A plain left-click is intercepted and routed through
+ * {@link "components/NavigationProvider"}, so it runs in a transition with the
+ * loading overlay. Everything else falls through to the browser: modifier
+ * clicks, middle clicks, and `target="_blank"` all behave normally.
+ *
+ * It renders a real `<a href>` either way, which is what lets Next prefetch the
+ * destination and keeps open-in-new-tab working.
+ */
 export function Link({ to, replace, onClick, ...props }: LinkProps) {
   const navigate = useNavigateContext();
 

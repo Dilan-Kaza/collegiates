@@ -1,14 +1,21 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { Session } from "next-auth";
 import { verifySession } from "@functions/actions";
-import { clearAllSessionCache, getSessionCache } from "@functions/sessionCache";
-import { cacheKeys } from "@functions/cacheKeys";
 
-// Server-seeded replacement for next-auth/react's SessionProvider: the root
-// layout passes auth()'s result in, so no client /api/auth/session fetch runs.
+/**
+ * A server-seeded replacement for `next-auth/react`'s `SessionProvider`.
+ *
+ * @remarks
+ * The root layout resolves the session on the server and passes it in, so there
+ * is no client-side `/api/auth/session` fetch — which is just as well, since
+ * this app has no such route. The practical benefit is that the first paint
+ * already knows who is signed in: no loading state, no auth-status flash.
+ *
+ * @packageDocumentation
+ */
 
 type SessionStatus = "authenticated" | "unauthenticated";
 
@@ -22,6 +29,19 @@ const SessionContext = createContext<SessionValue>({
   status: "unauthenticated",
 });
 
+/**
+ * Provides the server-resolved session to the client tree.
+ *
+ * @remarks
+ * Also arms a revalidator: the JWT can expire mid-session, or be revoked by a
+ * password change on another device, so the session is re-verified when the tab
+ * regains focus and the tree re-renders as signed out once the server disagrees.
+ * That check is throttled to once a minute, matching the server-side user-data
+ * cache TTL — alt-tabbing fires `focus` and `visibilitychange` together.
+ *
+ * @param session - The result of `auth()`, resolved in the root layout. Pass
+ * `null` for a signed-out visitor.
+ */
 export function SessionProvider({
   session,
   children,
@@ -29,38 +49,27 @@ export function SessionProvider({
   session: Session | null;
   children: ReactNode;
 }) {
-  const value: SessionValue = {
-    data: session,
-    status: session ? "authenticated" : "unauthenticated",
-  };
+  // Memoized: a fresh object re-renders every useSession() consumer on every
+  // render of this provider, which sits at the root.
+  const value = useMemo<SessionValue>(
+    () => ({ data: session, status: session ? "authenticated" : "unauthenticated" }),
+    [session],
+  );
 
-  useSessionCacheReconciler(value.status);
+  useSessionRevalidator(value.status);
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }
 
-// Shortest gap between two server-side session checks. Matches the 60s TTL the
-// server-side user-data cache uses.
+// Shortest gap between two server-side session checks, matching the user-data
+// cache TTL.
 const SESSION_RECHECK_MS = 60_000;
 
-// Drops the per-tab sessionStorage that makes the client act "logged in" once the
-// server disagrees. See the two divergence cases handled in the effects below.
-function useSessionCacheReconciler(status: SessionStatus) {
+function useSessionRevalidator(status: SessionStatus) {
   const router = useRouter();
   const lastChecked = useRef(0);
   const inFlight = useRef(false);
 
-  // Case 1 — server says unauthenticated but stale signed-in data lingers. Gated
-  // on the currentUser marker so an anonymous visitor's public cache is untouched.
-  useEffect(() => {
-    if (status !== "unauthenticated") return;
-    if (getSessionCache(cacheKeys.currentUser) !== undefined) {
-      clearAllSessionCache();
-    }
-  }, [status]);
-
-  // Case 2 — the JWT may have expired mid-session; re-verify on focus. Throttled
-  // because alt-tab fires `focus` and `visibilitychange` together.
   useEffect(() => {
     if (status !== "authenticated") return;
     let cancelled = false;
@@ -71,29 +80,41 @@ function useSessionCacheReconciler(status: SessionStatus) {
       inFlight.current = true;
       try {
         const { authenticated } = await verifySession();
-        lastChecked.current = Date.now();
         if (cancelled || authenticated) return;
-        clearAllSessionCache();
         router.refresh();
+      } catch (err) {
+        // "Couldn't tell", not "signed out" — leave the session alone. Caught
+        // because a rejection from an event listener escapes unhandled.
+        console.error("[verifySession]", err);
       } finally {
+        // Stamped whatever the outcome: advancing only on success left a failing
+        // check unthrottled, firing a request on every later tab switch.
+        lastChecked.current = Date.now();
         inFlight.current = false;
       }
     };
 
+    const onFocus = () => void revalidate();
     const onVisibility = () => {
-      if (document.visibilityState === "visible") revalidate();
+      if (document.visibilityState === "visible") void revalidate();
     };
 
-    window.addEventListener("focus", revalidate);
+    window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
       cancelled = true;
-      window.removeEventListener("focus", revalidate);
+      window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [status, router]);
 }
 
+/**
+ * Reads the current session.
+ *
+ * @returns `data` (the session or null) and `status`. There is no `"loading"`
+ * status: the session is server-seeded, so it is known at first paint.
+ */
 export function useSession(): SessionValue {
   return useContext(SessionContext);
 }

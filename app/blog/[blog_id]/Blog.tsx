@@ -2,6 +2,7 @@
 
 import { MtHeader, BlogList } from "@components";
 import { Link, useParams } from "@/routerCompat";
+import { useCachedResource, cacheKeys, fetchBlogPostById, fetchBlogPosts } from "@functions";
 import type { BlogDTO } from "@/lib/api";
 // public blog post view
 
@@ -15,9 +16,28 @@ function renderContent(content: string) {
     });
 }
 
-export default function Blog({ post = {}, posts = [] }: { post?: Partial<BlogDTO>; posts?: BlogDTO[] }) {
+export default function Blog({
+    post: initialPost = null,
+    posts: initialPosts = [],
+}: {
+    post?: BlogDTO | null;
+    posts?: BlogDTO[];
+}) {
 
     const blog_id = useParams().blog_id as string | undefined;
+
+    // Follows the post's own cache entry, which the organizer editor drops on
+    // save — so an edit is picked up here without a full navigation.
+    const post = useCachedResource(
+        cacheKeys.blogPost(blog_id ?? ""),
+        () => fetchBlogPostById(blog_id ?? ""),
+        initialPost,
+    );
+
+    // The sidebar list follows the shared `blogPosts` entry, which the same save drops —
+    // a retitled post is relabelled here too, not just in the body above.
+    const posts = useCachedResource(cacheKeys.blogPosts, fetchBlogPosts, initialPosts);
+
     const category = post?.category ?? null;
     const categoryPath = category === "Multimedia" ? "/multimedia" : "/news";
 
@@ -33,12 +53,12 @@ export default function Blog({ post = {}, posts = [] }: { post?: Partial<BlogDTO
                 <div className="flex flex-col gap-6 flex-1">
                     <div className="bg-off-white rounded-2xl px-6 py-5 flex flex-col gap-4 min-h-[20rem]">
                         <div className="flex items-baseline gap-3">
-                            <div className="text-3xl text-primary font-semibold">{post.title}</div>
-                            {post.date_created && <div className="text-xs text-gray-400">{new Date(post.date_created).toLocaleDateString()}</div>}
+                            <div className="text-3xl text-primary font-semibold">{post?.title}</div>
+                            {post?.date_created && <div className="text-xs text-gray-400">{new Date(post.date_created).toLocaleDateString()}</div>}
                         </div>
-                        {post.author && <div className="text-sm text-gray-400">By {post.author}</div>}
+                        {post?.author && <div className="text-sm text-gray-400">By {post.author}</div>}
                         <div className="border-t border-gray-200 pt-4 text-dark text-sm whitespace-pre-wrap">
-                            {renderContent(post.blog_content || "")}
+                            {renderContent(post?.blog_content || "")}
                         </div>
                     </div>
                 </div>

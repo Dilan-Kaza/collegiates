@@ -10,6 +10,13 @@ interface OrganizerFindUserProps {
   onFound?: (userId: string, name: string) => void;
 }
 
+/**
+ * An email lookup box for pulling one competitor into an organizer view.
+ *
+ * @param onFound - Called with the competitor's id and display name on a match.
+ * A miss raises a toast instead — and is distinguished from a failed lookup,
+ * which must not be reported as "not found".
+ */
 export default function OrganizerFindUser({ onFound }: OrganizerFindUserProps) {
 
     const dispatch = useAppDispatch();
@@ -19,14 +26,22 @@ export default function OrganizerFindUser({ onFound }: OrganizerFindUserProps) {
     const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setLoading(true);
-        const user = await findUserByEmail(email);
-        if (user) {
-            onFound?.(user.user_id, user.name);
-            setEmail("");
-        } else {
-            dispatch(setErrorMsg("User not found"));
+        try {
+            const user = await findUserByEmail(email);
+            if (user) {
+                onFound?.(user.user_id, user.name);
+                setEmail("");
+            } else {
+                dispatch(setErrorMsg("User not found"));
+            }
+        } catch (err) {
+            // findUserByEmail returns null for "no such competitor", so reaching
+            // here means the lookup itself failed — don't report it as not found.
+            console.error("[findUserByEmail]", err);
+            dispatch(setErrorMsg("Could not search for that user. Please try again."));
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     return (

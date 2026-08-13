@@ -1,8 +1,6 @@
 import BlogEditor from "./BlogEditor";
 import { getBlogPostById } from "@functions/actions";
 import { requireOrganizer } from "@/lib/auth";
-import CacheSeed from "@functions/CacheSeed";
-import { cacheKeys } from "@functions/cacheKeys";
 // organizer blog post editor (server component)
 
 export default async function Page({ params }: { params: Promise<{ blog_id: string }> }) {
@@ -16,10 +14,7 @@ export default async function Page({ params }: { params: Promise<{ blog_id: stri
     return <div className="text-sm text-gray-400 max-w-3xl mx-auto w-full px-4 py-8">Post not found.</div>;
   }
 
-  return (
-    <>
-      <CacheSeed entries={{ [cacheKeys.blogPost(blog_id)]: post }} />
-      <BlogEditor blogId={blog_id} post={post} />
-    </>
-  );
+  // No seeding: the editor owns the post as local state, so an unsaved draft is
+  // never replaced by a refetch. It drops the key on save for the public view.
+  return <BlogEditor blogId={blog_id} post={post} />;
 }

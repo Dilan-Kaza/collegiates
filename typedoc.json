@@ -1,0 +1,60 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "name": "Collegiate Wushu",
+  "readme": "README.md",
+  "out": "docs/api",
+  "entryPoints": [
+    "auth.ts",
+    "routerCompat.tsx",
+    "lib",
+    "functions",
+    "components",
+    "store",
+    "types"
+  ],
+  "entryPointStrategy": "expand",
+  "exclude": [
+    "**/node_modules/**",
+    "**/.next/**",
+    "**/*.d.ts"
+  ],
+  "categorizeByGroup": true,
+  "excludeExternals": true,
+  "excludePrivate": true,
+  "skipErrorChecking": true,
+  "githubPages": false,
+  "hideGenerator": true,
+  "sort": ["source-order"],
+  "externalSymbolLinkMappings": {
+    ".prisma": { "PrismaClient": "https://www.prisma.io/docs/orm/prisma-client" },
+    "@prisma/client": { "PrismaClient": "https://www.prisma.io/docs/orm/prisma-client" }
+  },
+  "intentionallyNotExported": [
+    "LoadingState",
+    "NotifState",
+    "SessionValue",
+    "FormControl",
+    "FormData",
+    "FormErrors",
+    "NavigateFn",
+    "UserTypeHolder",
+    "SheetsCredentials",
+    "SheetsRequestConfig",
+    "SheetsResponse",
+    "Row",
+    "LinkProps",
+    "AllAroundStatusProps",
+    "AuthPanelProps",
+    "BlogListProps",
+    "EventSelectionProps",
+    "ShortAnswerProps",
+    "LongAnswerProps",
+    "DropdownProps",
+    "FieldProps",
+    "OrganizerFindUserProps",
+    "RegistrationConfirmProps",
+    "BreakCardProps",
+    "EventCardProps",
+    "SortableRingProps"
+  ]
+}

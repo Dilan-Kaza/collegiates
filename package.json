@@ -8,13 +8,16 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
+    "docs": "typedoc",
+    "docs:watch": "typedoc --watch",
     "seed": "prisma db seed",
     "create-admin": "node prisma/create-admin.ts",
     "postinstall": "prisma generate",
     "vercel-build": "prisma migrate deploy && next build"
   },
   "dependencies": {
-    "@prisma/adapter-ppg": "^7.9.0",
+    "@aws-sdk/client-sesv2": "^3.1097.0",
+    "@prisma/adapter-ppg": "^7.9.1",
     "@prisma/client": "^7.9.0",
     "@reduxjs/toolkit": "^2.12.0",
     "bootstrap-icons": "^1.13.1",
@@ -39,6 +42,7 @@
     "eslint-config-next": "^0.2.4",
     "postcss": "^8.5.15",
     "prisma": "^7.9.0",
-    "tailwindcss": "^4.0.9"
+    "tailwindcss": "^4.0.9",
+    "typedoc": "^0.28.20"
   }
 }

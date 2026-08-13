@@ -1,24 +1,52 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { saveOrder, setOrderPublic } from "@functions/actions";
+import { saveOrder, setOrderPublic, exportSheetTabs } from "@functions/actions";
+import { errorMessage, runAction } from "@functions/actionErrors";
+import { clearSessionCache } from "@functions/sessionCache";
+import { cacheKeys } from "@functions";
+import { useAppDispatch } from "@/store/hooks";
+import { setErrorMsg, setSuccessMsg } from "@slices";
 import type { OrganizerRegistrationDTO } from "@/lib/api";
+import { isGroupsetCategory } from "@/lib/teams";
 import SortableRing from "./SortableRing";
 import BreakPanel from "./BreakPanel";
+import { buildOrderSheetTabs } from "./sheetExport";
+import { buildScoringSheetTabs } from "./scoringExport";
 import { eventRank, eventSeconds, toHrMin, buildIdToName, computeConflicts } from "./utils";
 import { isEventItem } from "./types";
 import type { BreakItem, Competitor, EventItem, OrderData, RingEvent, RingKey, Rings } from "./types";
 
-// `rawRegistrations` and `initialOrder` are resolved on the server and passed in.
-// `initialOrder` is null when no order has been saved for the current year yet.
+/**
+ * The event builder proper: drag events and breaks into three rings to lay out
+ * the competition day.
+ *
+ * @remarks
+ * Events are derived from the year's registrations rather than the catalogue, so
+ * only events somebody actually entered can be scheduled, each already carrying
+ * its competitors in registration order.
+ *
+ * Ring durations and conflict badges recompute on every move — see
+ * {@link "components/event-builder/utils"} — so an organizer sees a clash the
+ * moment they create it rather than on save.
+ *
+ * The two Google Sheets exports are built here, client-side, and posted to
+ * `exportSheetTabs` as finished grids.
+ */
 export default function BuildView({
     rawRegistrations = [],
     initialOrder = null,
     orderPublic = false,
+    regYear = null,
 }: {
+    /** The year's registrations, resolved on the server. */
     rawRegistrations?: OrganizerRegistrationDTO[];
+    /** The saved order, or null when none exists for this year. */
     initialOrder?: OrderData | null;
+    /** Whether competitors can currently see the order. */
     orderPublic?: boolean;
+    /** Stamps the exported tabs' titles. Labels the export and nothing else. */
+    regYear?: number | null;
 }) {
 
     const allEvents = useMemo<EventItem[]>(() => {
@@ -32,9 +60,10 @@ export default function BuildView({
                         event_level: reg.event_level,
                         is_nandu: reg.is_nandu,
                         competitors: [],
+                        is_groupset: isGroupsetCategory(reg.event_category),
                     });
                 }
-                eventMap.get(reg.event_code)!.competitors.push({ id: user.user_id, name: user.name, email: user.email, nandu_str: reg.nandu_str });
+                eventMap.get(reg.event_code)!.competitors.push({ id: user.user_id, name: user.name, email: user.email, nandu_str: reg.nandu_str, team: user.team });
             }
         }
         return [...eventMap.values()].sort((a, b) => eventRank(a.event_name) - eventRank(b.event_name));
@@ -60,7 +89,11 @@ export default function BuildView({
         const ring3 = reconstruct(orderData.ring3);
 
         const placedIds = new Set([...ring1, ...ring2, ...ring3].filter(isEventItem).map((ev) => ev.id));
-        const unplaced = allEvents.filter((ev) => !placedIds.has(ev.id));
+        // Copied, not pushed by reference: `allEvents` is memoized and hands back the same objects as
+        // `eventMap`, so ring state would share one object with the memo's cache. `competitors` too.
+        const unplaced = allEvents
+            .filter((ev) => !placedIds.has(ev.id))
+            .map((ev) => ({ ...ev, competitors: [...ev.competitors] }));
         unplaced.forEach((ev) => (ev.event_level === "A" ? ring1 : ring2).push(ev));
 
         return { ring1, ring2, ring3 };
@@ -73,6 +106,14 @@ export default function BuildView({
     const [isPublic, setIsPublic] = useState(orderPublic); // publicity now lives on Settings
     const [saving, setSaving] = useState(false);
     const [publishing, setPublishing] = useState(false);
+    // Which export is in flight, so both buttons can show their own progress and
+    // neither can be fired while the other is writing to the same spreadsheet.
+    const [exporting, setExporting] = useState<"" | "order" | "scoring">("");
+    // Sits with the conflict banners rather than only in the toast: a failed save
+    // has to stay visible while the organizer decides what to do about it.
+    const [saveError, setSaveError] = useState("");
+
+    const dispatch = useAppDispatch();
 
     useEffect(() => {
         if (allEvents.length === 0 || initialized) return;
@@ -107,21 +148,37 @@ export default function BuildView({
             : { ...base, event_id: item.id, name: item.event_name, competitor_list: item.competitors.map((c, i) => ({ id: c.id, order: i })) };
     });
 
-    // Persist all three rings for the current year, then re-hydrate from the saved
-    // order so each slot picks up its server-assigned orderId for the next save.
+    // Persist all three rings for the year, then re-hydrate so each slot picks up its server-assigned
+    // orderId. A silent failure is the costly one — the organizer would believe a day is stored.
     const handleSave = async () => {
         if (saving) return;
         setSaving(true);
-        const res = await saveOrder({
-            ring1: serializeRing(rings.ring1),
-            ring2: serializeRing(rings.ring2),
-            ring3: serializeRing(rings.ring3),
-        });
-        if (res.data) {
+        setSaveError("");
+        const fallback = "Could not save the event order.";
+        try {
+            const res = await runAction(
+                () => saveOrder({
+                    ring1: serializeRing(rings.ring1),
+                    ring2: serializeRing(rings.ring2),
+                    ring3: serializeRing(rings.ring3),
+                }),
+                fallback,
+            );
+            if (res.error || !res.data) {
+                const message = errorMessage(res.error, fallback);
+                setSaveError(message);
+                dispatch(setErrorMsg(message));
+                return;
+            }
             setExistingOrder(res.data);
             setRings(reconstructRings(res.data));
+            // The order changed, so the organizer console's cached copy is stale.
+            clearSessionCache(cacheKeys.organizerOrder);
+            clearSessionCache(cacheKeys.publicOrder);
+            dispatch(setSuccessMsg("Event order saved"));
+        } finally {
+            setSaving(false);
         }
-        setSaving(false);
     };
 
     // Toggle publishing of the event order. Publicity lives on Settings
@@ -129,10 +186,62 @@ export default function BuildView({
     const handleTogglePublic = async () => {
         if (!existingOrder || publishing) return;
         setPublishing(true);
-        const res = await setOrderPublic(!isPublic);
-        if (res.data) setIsPublic(res.data.order_public);
-        setPublishing(false);
+        const wanted = !isPublic;
+        const fallback = `Could not ${wanted ? "publish" : "unpublish"} the order.`;
+        try {
+            const res = await runAction(() => setOrderPublic(wanted), fallback);
+            if (res.error || !res.data) {
+                // Leave isPublic alone — the button must keep reflecting the
+                // server's state, not the toggle the organizer attempted.
+                dispatch(setErrorMsg(errorMessage(res.error, fallback)));
+                return;
+            }
+            setIsPublic(res.data.order_public);
+            clearSessionCache(cacheKeys.settings);
+            clearSessionCache(cacheKeys.publicOrder);
+            dispatch(setSuccessMsg(res.data.order_public ? "Event order published" : "Event order unpublished"));
+        } finally {
+            setPublishing(false);
+        }
     };
+
+    // Push a grid built here into the configured Sheet; both exports go through this, so the action
+    // only forwards finished cells. Exports what is displayed, saved or not — useful mid-edit.
+    const runExport = async (
+        kind: "order" | "scoring",
+        buildTabs: () => ReturnType<typeof buildOrderSheetTabs>,
+        success: string,
+    ) => {
+        if (exporting) return;
+        const tabs = buildTabs();
+        if (tabs.length === 0) {
+            dispatch(setErrorMsg("There is nothing to export yet."));
+            return;
+        }
+        setExporting(kind);
+        const fallback = "Could not export to Google Sheets.";
+        try {
+            const res = await runAction(() => exportSheetTabs({ tabs }), fallback);
+            if (res.error || !res.data) {
+                dispatch(setErrorMsg(errorMessage(res.error, fallback)));
+                return;
+            }
+            // Opening the sheet is the point of the export, but a blocked popup
+            // must not read as a failure — the toast confirms the write either way.
+            window.open(res.data.url, "_blank", "noopener,noreferrer");
+            dispatch(setSuccessMsg(success));
+        } finally {
+            setExporting("");
+        }
+    };
+
+    const handleExportOrder = () =>
+        runExport("order", () => buildOrderSheetTabs(rings, regYear), "Event order exported to Google Sheets");
+
+    // Separate tabs in the same spreadsheet, so the schedule and the sheets the
+    // judges score on stay one document per year.
+    const handleExportScoring = () =>
+        runExport("scoring", () => buildScoringSheetTabs(rings, regYear), "Scoring sheets exported to Google Sheets");
 
     const setRing = (key: RingKey) => (list: RingEvent[]) => setRings((prev) => ({ ...prev, [key]: list }));
 
@@ -198,6 +307,12 @@ export default function BuildView({
                         <strong>Too close:</strong> {[...new Set([...conflicts.close].map((s) => s.split(":")[0]))].map((id) => idToName.get(id) ?? id).join(", ")}
                     </div>
                 )}
+                {saveError && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-2 text-sm text-red-700 flex items-start justify-between gap-4">
+                        <span><strong>Not saved:</strong> {saveError}</span>
+                        <button className="text-xs underline shrink-0" onClick={() => setSaveError("")}>Dismiss</button>
+                    </div>
+                )}
 
                 <div className="flex justify-end gap-2">
                     <button className="btn btn-ghost btn-sm" onClick={toggleThirdRing}>
@@ -213,6 +328,22 @@ export default function BuildView({
                         title={!existingOrder ? "Save the order before publishing" : undefined}
                     >
                         {publishing ? "..." : isPublic ? "Unpublish" : "Publish"}
+                    </button>
+                    <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={handleExportOrder}
+                        disabled={!!exporting}
+                        title="Write the schedule on screen to the Google Sheet"
+                    >
+                        {exporting === "order" ? "Exporting..." : "Export to Sheet"}
+                    </button>
+                    <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={handleExportScoring}
+                        disabled={!!exporting}
+                        title="Write judge scoring sheets for this schedule to the Google Sheet"
+                    >
+                        {exporting === "scoring" ? "Exporting..." : "Export Scoring"}
                     </button>
                 </div>
 

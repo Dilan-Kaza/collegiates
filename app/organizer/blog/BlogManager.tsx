@@ -1,22 +1,26 @@
 "use client";
 
 import { MtHeader, OrganizerBlogList } from "@components";
-import { setErrorMsg } from "@slices";
+import { setErrorMsg, setSuccessMsg } from "@slices";
 import { createBlogPost } from "@functions/actions";
-import { cacheKeys } from "@functions";
+import { errorMessage, runAction } from "@functions/actionErrors";
+import { cacheKeys, useCachedResource, fetchOrganizerBlogPosts } from "@functions";
 import { clearSessionCache } from "@functions/sessionCache";
 import { useState } from "react";
-import { useNavigate } from "@/routerCompat";
+import { Link } from "@/routerCompat";
 import { useAppDispatch } from "@/store/hooks";
 import type { BlogDTO } from "@/lib/api";
 
-// `posts` arrives from the server. createBlogPost returns what it created, so a
-// create prepends locally instead of a router.refresh() RSC round trip.
-export default function BlogManager({ posts = [] }: { posts?: BlogDTO[] }) {
+// `posts` arrives from the server for first paint, then follows its cache entry. A create
+// drops that entry and the server's "blog" tag, so the refetch returns the new post.
+export default function BlogManager({ posts: initialPosts = [] }: { posts?: BlogDTO[] }) {
 
-    const nav = useNavigate();
     const dispatch = useAppDispatch();
-    const [created, setCreated] = useState<BlogDTO[]>([]);
+    const posts = useCachedResource(
+        cacheKeys.organizerBlogPosts,
+        fetchOrganizerBlogPosts,
+        initialPosts,
+    );
     const [title, setTitle] = useState("");
     const [blog_content, setBlogContent] = useState("");
     const [author, setAuthor] = useState("");
@@ -26,20 +30,31 @@ export default function BlogManager({ posts = [] }: { posts?: BlogDTO[] }) {
     const handlePost = async () => {
         if (!title.trim() || !blog_content.trim() || !category) return;
         setLoading(true);
-        const { data, error } = await createBlogPost({ title, blog_content, author, category });
-        if (error || !data) {
-            dispatch(setErrorMsg(error?.detail ?? "Failed to post blog"));
-        } else {
+        const fallback = "Failed to post blog";
+        try {
+            const { error } = await runAction(
+                () => createBlogPost({ title, blog_content, author, category }),
+                fallback,
+            );
+            if (error) {
+                // createBlogPost reports missing content under `title` /
+                // `blog_content`, so errorMessage has to look past `detail`.
+                dispatch(setErrorMsg(errorMessage(error, fallback)));
+                // The draft stays in the form — clearing it would lose the post.
+                return;
+            }
             setTitle("");
             setBlogContent("");
             setAuthor("");
             setCategory("");
-            setCreated((prev) => [data, ...prev]);
-            // Drop the cached lists so other views re-read them.
+            // Dropping the list entry is what adds the post to the view: the hook above refills it from
+            // getOrganizerBlogPosts, whose "blog" tag createBlogPost just invalidated.
             clearSessionCache(cacheKeys.organizerBlogPosts);
             clearSessionCache(cacheKeys.blogPosts);
+            dispatch(setSuccessMsg("Post published"));
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     return (
@@ -47,7 +62,7 @@ export default function BlogManager({ posts = [] }: { posts?: BlogDTO[] }) {
             <div className="hidden md:block"><MtHeader /></div>
             <div className="max-w-3xl mx-auto w-full px-4 py-8 flex flex-col gap-6">
                 <div className="flex items-center gap-4">
-                    <button className="btn btn-primary btn-sm" onClick={() => nav("/organizer")}>← Back</button>
+                    <Link to="/organizer" className="btn btn-primary btn-sm">← Back</Link>
                     <div className="text-3xl text-secondary font-semibold">Blog Posts</div>
                 </div>
 
@@ -96,7 +111,7 @@ export default function BlogManager({ posts = [] }: { posts?: BlogDTO[] }) {
 
                 <div className="cg-card">
                     <div className="text-xl font-semibold text-primary border-b border-gray-200 pb-2">Posts</div>
-                    <OrganizerBlogList posts={[...created, ...posts]} />
+                    <OrganizerBlogList posts={posts} />
                 </div>
             </div>
         </>
