@@ -63,13 +63,13 @@ export default function Tournament({ settings: initialSettings = {} }: { setting
         </div>
         <div className="text-primary text-sm md:text-base pt-5 md:pt-15 px-[5%]">
           Early Registration Deadline: {dateToStr("reg_start", compData.reg_start)}<br/>
-          - Registration fees: ${compData.early_reg_cost_base} base + ${compData.early_reg_cost_event} per event<br/>
+          - Cost: ${compData.early_reg_cost_base} registration fee + ${compData.early_reg_cost_event} per event<br/>
           <br/>
           Late Registration Deadline: {dateToStr("reg_end", compData.reg_end)}<br/>
-          - Registration fees: ${compData.reg_cost_base} base + ${compData.reg_cost_event} per event<br/>
+          - Cost: ${compData.reg_cost_base} registration fee + ${compData.reg_cost_event} per event<br/>
           <br/>
           <br/>
-          **The base registration fee is charged once; every event you enter is charged on top of it.
+          **The registration fee is charged once; every event you enter is charged on top of it.
         </div>
       </div>
       <div className="bg-primary text-secondary py-5 md:py-20">

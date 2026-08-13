@@ -13,12 +13,15 @@
 import { updateTag } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { getCurrentUser, canAccessOrganizer, isAdmin, isCompetitor } from "@/lib/auth";
-import { parseSettingsDate } from "@/lib/dates";
+import { formatSettingsDate, parseSettingsDate } from "@/lib/dates";
+import { totalOwedFor } from "@/lib/fees";
+import { shapeSettings } from "@/lib/api";
 import type { Cell } from "@/lib/sheetGrid";
 import type { CurrentUser } from "@/lib/auth";
 import type { User } from "@prisma/client";
+import type { RegistrationLine, RegistrationBilling } from "@/lib/email-templates";
 import type {
-  CompetitorDTO, RegistrationDTO, BlogDTO,
+  CompetitorDTO, RegistrationDTO, BlogDTO, SettingsWithHost,
   GroupsetDTO, OrganizerGroupsetDTO, OrganizerRegistrationDTO,
 } from "@/lib/api";
 
@@ -470,6 +473,48 @@ export async function competitorGate(): Promise<CompetitorGate> {
   if (!user) return { error: { detail: "Not authenticated." } };
   if (!isCompetitor(user)) return { error: { detail: "Not a competitor." } };
   return { user };
+}
+
+// ---------- registration email bodies ----------
+
+/**
+ * The events-and-money body the two registration emails share.
+ *
+ * @remarks
+ * Both the receipt sent at sign-up and the notice sent when an organizer edits a
+ * registration state the same three things: the events, what is owed, and the
+ * deadline. Building them here keeps a competitor's receipt, their dashboard,
+ * and the organizer's payments table quoting one figure — {@link totalOwedFor}
+ * is what all three price against.
+ *
+ * @param registrations - The competitor's registrations for the year, as they
+ * stand *after* whatever write is being reported.
+ * @param settings - The current settings row, for the fee schedule and deadline.
+ * @param onTeam - Whether the competitor belongs to a group set, which can carry
+ * a charge of its own.
+ * @param amtPaid - Whole dollars recorded as received so far.
+ */
+export function registrationEmailBody(
+  registrations: RegistrationDTO[],
+  settings: SettingsWithHost,
+  onTeam: boolean,
+  amtPaid: number,
+): { events: RegistrationLine[]; billing: RegistrationBilling } {
+  const dto = shapeSettings(settings)!;
+  return {
+    events: registrations.map((reg) => ({
+      name: reg.event_name ?? reg.event_code,
+      nandu: reg.nandu_str,
+    })),
+    billing: {
+      total: totalOwedFor(registrations, onTeam, dto),
+      paid: amtPaid,
+      // On the competition's clock, like every other settings date the
+      // competitor is shown — see the confirm screen's identical fallback.
+      dueDate: formatSettingsDate("due_date", dto.due_date, undefined, "the posted deadline"),
+      contactEmail: dto.contact_email,
+    },
+  };
 }
 
 const SETTINGS_DATE_FIELDS = [

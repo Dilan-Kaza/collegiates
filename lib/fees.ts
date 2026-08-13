@@ -100,3 +100,34 @@ export function computeTotalOwed(
     hasGroupset: groupsetRegistered || !!groupsetDate,
   };
 }
+
+/**
+ * The amount owed alone, for callers that know whether the competitor is on a
+ * team but not when that team was created.
+ *
+ * @remarks
+ * Shared by the organizer's payments table and the registration emails, so the
+ * figure mailed to a competitor is the same one the organizer is checking their
+ * payment against.
+ *
+ * The team's create date is not carried on those payloads, so the competitor's
+ * earliest registration stands in for it. That only affects pricing while a team
+ * is still being assembled — once a `"G"` registration exists behind the team,
+ * {@link computeTotalOwed} bills by that row and never consults the date.
+ *
+ * @param registrations - This year's registrations.
+ * @param onTeam - Whether the competitor belongs to a group set.
+ * @param settings - The competition's settings DTO.
+ * @returns Whole dollars owed, or `null` when no fee schedule is configured.
+ */
+export function totalOwedFor(
+  registrations: RegistrationDTO[] | undefined,
+  onTeam: boolean,
+  settings: SettingsDTO,
+): number | null {
+  if (settings.reg_cost_base == null) return null;
+  const earliest = (registrations ?? [])
+    .map((reg) => reg.date_created)
+    .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0];
+  return computeTotalOwed(registrations, settings, onTeam ? earliest : null)?.total ?? null;
+}

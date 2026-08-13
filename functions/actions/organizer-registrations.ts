@@ -17,10 +17,13 @@ import { Prisma, type StudentType, type Gender, type SkillLevel } from "@prisma/
 import prisma from "@/lib/prisma";
 import { loadSettings } from "@/lib/settings";
 import { shapeOrganizerRegistration, toStudentType, toGender, toSkillLevel } from "@/lib/api";
-import type { OrganizerRegistrationDTO } from "@/lib/api";
+import type { OrganizerRegistrationDTO, RegistrationDTO } from "@/lib/api";
+import { sendEmail } from "@/lib/email";
+import { registrationUpdatedEmail } from "@/lib/email-templates";
 import {
   READ_CACHE_TTL, TAG_REGISTRATIONS, userDataTag,
   organizerGate, revalidateUserData, reOrganizerRegistration, actionError,
+  registrationEmailBody,
 } from "./shared";
 import type { Mutation, OrganizerRegFilters, UpdateOrganizerRegBody } from "./shared";
 
@@ -122,6 +125,49 @@ export async function getOrganizerRegistration(uuid: string): Promise<OrganizerR
   return target ? reOrganizerRegistration(target) : null;
 }
 
+// The lines the update email lists, one per field that actually moved. An empty
+// result means the save changed nothing the competitor would notice — an
+// organizer re-saving an unedited row, say — and no mail goes out.
+function describeChanges(before: OrganizerRegistrationDTO, after: OrganizerRegistrationDTO): string[] {
+  const changes: string[] = [];
+  const eventName = (reg: RegistrationDTO) => reg.event_name ?? reg.event_code;
+
+  const had = new Map(before.registration.map((r) => [r.event_code, r]));
+  const has = new Map(after.registration.map((r) => [r.event_code, r]));
+  const added = after.registration.filter((r) => !had.has(r.event_code)).map(eventName);
+  const removed = before.registration.filter((r) => !has.has(r.event_code)).map(eventName);
+  if (added.length) changes.push(`Added to ${added.join(", ")}`);
+  if (removed.length) changes.push(`Removed from ${removed.join(", ")}`);
+  // Difficulty edits on an event that was already there — invisible in the two
+  // lists above, but they change what the competitor is judged on.
+  for (const reg of after.registration) {
+    const prior = had.get(reg.event_code);
+    if (prior && (prior.nandu_str ?? "") !== (reg.nandu_str ?? "")) {
+      changes.push(`Nandu code for ${eventName(reg)} changed to ${reg.nandu_str || "(none)"}`);
+    }
+  }
+
+  if (before.amt_paid !== after.amt_paid) changes.push(`Payment on record changed to $${after.amt_paid} (was $${before.amt_paid})`);
+  if (before.proof_of_reg !== after.proof_of_reg) {
+    changes.push(after.proof_of_reg ? "Proof of enrollment marked as received" : "Proof of enrollment marked as not received");
+  }
+  if (before.is_competing !== after.is_competing) {
+    changes.push(after.is_competing ? "Marked as competing" : "Marked as not competing");
+  }
+
+  // Profile corrections. Organizers can make these after the competitor's own
+  // profile has locked, so this notice is the only way they learn of one.
+  const corrected = (label: string, was: string | null, now: string | null) => {
+    if ((was ?? null) !== (now ?? null)) changes.push(`${label} changed to ${now ?? "(none)"}`);
+  };
+  corrected("Skill level", before.skill_level, after.skill_level);
+  corrected("Gender category", before.gender, after.gender);
+  corrected("Student type", before.student_type, after.student_type);
+  corrected("College", before.school, after.school);
+
+  return changes;
+}
+
 /**
  * Edits a competitor's registrations, payment state, and profile.
  *
@@ -129,6 +175,11 @@ export async function getOrganizerRegistration(uuid: string): Promise<OrganizerR
  * The organizer's counterpart to the competitor's own screens, and deliberately
  * less restricted: the profile fields freeze for a competitor once they hold a
  * registration, but an organizer can correct them at any time.
+ *
+ * Every edit that lands is mailed to the competitor, since they cannot see the
+ * organizer console and would otherwise have no notice of it. The send is
+ * best-effort and happens after the write, and a save that changed nothing sends
+ * nothing.
  *
  * `amt_paid` is a **total, not a delta** — the organizer types the figure they
  * have on record and it replaces whatever was stored.
@@ -153,12 +204,12 @@ export async function updateOrganizerRegistration(
 
   try {
     // Resolve the target before any write: this action edits competitor rows, so a School or Admin
-    // user_id must be rejected rather than have a competitor profile written onto it.
-    const isCompetitorTarget = await prisma.user.findFirst({
-      where: { user_id: uuid, user_type: "Competitor" },
-      select: { user_id: true },
-    });
-    if (!isCompetitorTarget) return { error: { detail: "User not found." } };
+    // user_id must be rejected rather than have a competitor profile written onto it. The full row
+    // rather than a bare existence check, because the update email reports what changed — and it
+    // carries this year's registrations, which the registration diff below would otherwise re-query.
+    const current = await loadOrganizerUser(uuid, year);
+    if (!current) return { error: { detail: "User not found." } };
+    const before = shapeOrganizerRegistration(current, year);
 
     // Registration row edits; the profile write and read-back join this batch below.
     const regOps: Prisma.PrismaPromise<unknown>[] = [];
@@ -180,8 +231,8 @@ export async function updateOrganizerRegistration(
       const events = newReg.map((r) => r.event);
       if (new Set(events).size !== events.length) return { error: { detail: "No duplicate events" } };
 
-      const old = await prisma.registration.findMany({ where: { competitor_id: uuid, comp_year: year } });
-      const oldEvents = new Set(old.map((r) => r.event_code));
+      // Already in hand from the read above, so no second query for them.
+      const oldEvents = new Set(before.registration.map((r) => r.event_code));
 
       const toDelete = [...oldEvents].filter((e) => !events.includes(e));
       const toAdd = newReg.filter((r) => !oldEvents.has(r.event));
@@ -231,7 +282,27 @@ export async function updateOrganizerRegistration(
     revalidateUserData(uuid);
     updateTag(TAG_REGISTRATIONS); // and the organizer registration lists
     if (!target) return { error: { detail: "User not found." } };
-    return { data: shapeOrganizerRegistration(target, year) };
+    const after = shapeOrganizerRegistration(target, year);
+
+    // The competitor never sees this console, so an edit made here is otherwise
+    // silent. Best-effort, like the registration receipt: the edit is already
+    // committed, and a delivery failure must not report it as having failed.
+    const changes = describeChanges(before, after);
+    if (changes.length) {
+      try {
+        const { events, billing } = registrationEmailBody(
+          after.registration,
+          settings,
+          !!after.team,
+          after.amt_paid,
+        );
+        await sendEmail(after.email, registrationUpdatedEmail(changes, events, billing));
+      } catch (err) {
+        console.error("Failed to send registration update email", err);
+      }
+    }
+
+    return { data: after };
   } catch (err) {
     // An event_code the catalogue no longer has, or a school_id that was removed,
     // both arrive here as P2003 rather than being caught by a check above.

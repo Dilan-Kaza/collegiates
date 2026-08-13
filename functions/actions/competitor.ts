@@ -25,6 +25,7 @@ import { registrationConfirmedEmail } from "@/lib/email-templates";
 import {
   READ_CACHE_TTL, TAG_EVENTS, TAG_REGISTRATIONS, TAG_GROUPSETS,
   userDataTag, groupsetTag, revalidateUserData, reRegistration, reGroupset, actionError,
+  registrationEmailBody,
 } from "./shared";
 import type { Mutation } from "./shared";
 import type { RegEventItem } from "@/types";
@@ -107,9 +108,10 @@ export async function getRegistrations(): Promise<RegistrationDTO[]> {
  * and skill level must match exactly. Group-set events have neither, so Class 1
  * eligibility gates them instead, mirroring {@link getCompetitorEvents}.
  *
- * Registering also flips `is_competing`, and sends a confirmation email on a
- * best-effort basis: a delivery failure is logged, never allowed to fail a
- * registration that already succeeded.
+ * Registering also flips `is_competing`, and mails the competitor a receipt —
+ * their events, what they owe, and the deadline — on a best-effort basis: a
+ * delivery failure is logged, never allowed to fail a registration that already
+ * succeeded.
  *
  * @param items - Event codes, each with an optional nandu difficulty string.
  * @returns The created registrations, shaped from what was written — the write
@@ -171,33 +173,37 @@ export async function createRegistrations(items: RegEventItem[]): Promise<Mutati
     revalidateUserData(user.user_id);
     updateTag(TAG_REGISTRATIONS); // organizer registration lists include this competitor now
 
+    // Shaped from the rows we just wrote plus the events already in hand, so the
+    // write isn't followed by a read-back query.
+    const created = items.map((item) =>
+      shapeRegistration({
+        id: 0n,
+        competitor_id: user.user_id,
+        event_code: item.event_code,
+        comp_year: year,
+        nandu_str: item.nandu_str ?? "",
+        date_created,
+        event: eventByCode.get(item.event_code)!,
+      }),
+    );
+
     // Best-effort: a delivery failure shouldn't fail a registration that already
-    // succeeded in the database.
+    // succeeded in the database. The receipt prices only what was just written —
+    // the register page bounces a competitor who already holds registrations, so
+    // this batch is their whole set for the year.
     try {
-      const eventNames = items.map((item) => {
-        const event = eventByCode.get(item.event_code)!;
-        return event.event_name ?? event.event_code;
-      });
-      await sendEmail(user.email, registrationConfirmedEmail(eventNames));
+      const { events, billing } = registrationEmailBody(
+        created,
+        settings,
+        false, // a team entry is billed by its "G" registration, which is in `created` when present
+        user.competitor_profile?.amt_paid ?? 0,
+      );
+      await sendEmail(user.email, registrationConfirmedEmail(events, billing));
     } catch (err) {
       console.error("Failed to send registration confirmation email", err);
     }
 
-    // Shaped from the rows we just wrote plus the events already in hand, so the
-    // write isn't followed by a read-back query.
-    return {
-      data: items.map((item) =>
-        shapeRegistration({
-          id: 0n,
-          competitor_id: user.user_id,
-          event_code: item.event_code,
-          comp_year: year,
-          nandu_str: item.nandu_str ?? "",
-          date_created,
-          event: eventByCode.get(item.event_code)!,
-        }),
-      ),
-    };
+    return { data: created };
   } catch (err) {
     // The "already registered" check above isn't atomic with the insert; a double
     // submit races through it and lands on the unique index instead.

@@ -33,7 +33,7 @@ export default function Dashboard ({
     const me = useCachedResource(cacheKeys.currentUser, fetchMe, userinfo);
 
     // Same binding for the fee schedule: an organizer editing settings in another tab drops
-    // this key, and the "Total Owed" figure below re-prices rather than staying stale.
+    // this key, and the "Total Cost" figure below re-prices rather than staying stale.
     const settings = useCachedResource(cacheKeys.settings, fetchSettings, initialSettings);
 
     // Registrations have their own entry as well as travelling inside `currentUser`.
@@ -163,7 +163,7 @@ export default function Dashboard ({
                 {cost ? (
                     <div className="cg-card-glass flex-row items-center justify-between text-sm">
                         <div>
-                            <div className="font-semibold">Total Owed</div>
+                            <div className="font-semibold">Total Cost</div>
                             {/* Either part can be absent — a competitor may enter the
                                 team event alone — so the two are joined, not suffixed. */}
                             <div className="text-gray-500 text-xs">

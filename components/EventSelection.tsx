@@ -162,7 +162,7 @@ export default function EventSelection({ events, setEvents, catalogEvents = [], 
                 </div>
                 {baseCost != null && (
                     <div className="text-sm text-gray-500 -mt-6 mb-6">
-                        {isEarly ? "Early registration rate" : "Standard registration rate"} — ${baseCost} base, ${eventCost} each event
+                        {isEarly ? "Early registration rate" : "Standard registration rate"} — ${baseCost} registration fee, ${eventCost} each event
                     </div>
                 )}
                 {/* Sits beside the events it is scored from, stacking under them

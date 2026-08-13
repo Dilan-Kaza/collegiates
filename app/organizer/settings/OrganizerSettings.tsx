@@ -159,7 +159,7 @@ export default function OrganizerSettings({
                             onChange={(e) => handleChange("reg_end", e.target.value)}
                         />
                         <ShortAnswer
-                            label="Base cost ($)"
+                            label="Registration fee ($)"
                             type="number"
                             min={0}
                             step={1}
@@ -190,7 +190,7 @@ export default function OrganizerSettings({
                         />
                         <div className="hidden sm:block" />
                         <ShortAnswer
-                            label="Early base cost ($)"
+                            label="Early registration fee ($)"
                             type="number"
                             min={0}
                             step={1}

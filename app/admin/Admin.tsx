@@ -131,9 +131,9 @@ export default function Admin({
             <DatePicker label="Early registration start (optional)" value={settings.early_reg_start ?? ""} onChange={(e) => settingsChange("early_reg_start", e.target.value)} />
             <DatePicker label="Payment & proof of enrollment due (optional)" value={settings.due_date ?? ""} onChange={(e) => settingsChange("due_date", e.target.value)} />
             <DatePicker label="Competition date (optional)" value={settings.comp_date ?? ""} onChange={(e) => settingsChange("comp_date", e.target.value)} />
-            <ShortAnswer label="Base cost" type="number" value={settings.reg_cost_base ?? ""} onChange={(e) => settingsChange("reg_cost_base", e.target.value)} />
+            <ShortAnswer label="Registration fee" type="number" value={settings.reg_cost_base ?? ""} onChange={(e) => settingsChange("reg_cost_base", e.target.value)} />
             <ShortAnswer label="Per-event cost" type="number" value={settings.reg_cost_event ?? ""} onChange={(e) => settingsChange("reg_cost_event", e.target.value)} />
-            <ShortAnswer label="Early base cost (optional)" type="number" value={settings.early_reg_cost_base ?? ""} onChange={(e) => settingsChange("early_reg_cost_base", e.target.value)} />
+            <ShortAnswer label="Early registration fee (optional)" type="number" value={settings.early_reg_cost_base ?? ""} onChange={(e) => settingsChange("early_reg_cost_base", e.target.value)} />
             <ShortAnswer label="Early per-event cost (optional)" type="number" value={settings.early_reg_cost_event ?? ""} onChange={(e) => settingsChange("early_reg_cost_event", e.target.value)} />
             <ShortAnswer label="Contact email" type="email" value={settings.contact_email ?? ""} onChange={(e) => settingsChange("contact_email", e.target.value)} />
             <ShortAnswer label="Scoring link (optional)" type="url" value={settings.scoring_url ?? ""} onChange={(e) => settingsChange("scoring_url", e.target.value)} />

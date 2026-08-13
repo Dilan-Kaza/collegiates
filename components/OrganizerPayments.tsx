@@ -8,7 +8,7 @@ import { clearSessionCache } from "@functions/sessionCache";
 import { cacheKeys } from "@functions";
 import { updateOrganizerRegistration } from "@functions/actions";
 import { errorMessage, runAction } from "@functions/actionErrors";
-import { computeTotalOwed } from "@/lib/fees";
+import { totalOwedFor } from "@/lib/fees";
 import type { OrganizerRegistrationDTO, SettingsDTO } from "@/lib/api";
 
 /**
@@ -53,13 +53,10 @@ const isPaid = (amt: number, due: number | null): boolean =>
     due == null ? amt > 0 : amt >= due;
 
 // Amount owed, priced exactly as the competitor's own dashboard prices it so the two figures
-// can be checked against each other. With no team date carried, the earliest registration stands in.
+// can be checked against each other. The same helper prices the registration emails.
 function owedFor(a: OrganizerRegistrationDTO, settings: Partial<SettingsDTO>): number | null {
     if (settings.reg_cost_base == null) return null;
-    const earliest = a.registration
-        .map((r) => r.date_created)
-        .sort((x, y) => new Date(x).getTime() - new Date(y).getTime())[0];
-    return computeTotalOwed(a.registration, settings as SettingsDTO, a.team ? earliest : null)?.total ?? null;
+    return totalOwedFor(a.registration, !!a.team, settings as SettingsDTO);
 }
 
 /**
@@ -226,7 +223,7 @@ export default function OrganizerPayments({
                     <CopyButton
                         label="Copy shown"
                         getRows={() => [
-                            ["Name", "Email", "College", "Events", "Due", "Paid", "Balance", "Proof", "Competing"],
+                            ["Name", "Email", "College", "Events", "Total Cost", "Paid", "Balance", "Proof", "Competing"],
                             ...rows.map((a) => {
                                 const row = stateFor(a);
                                 const due = owedFor(a, settings);
@@ -267,7 +264,7 @@ export default function OrganizerPayments({
                                         <div className="text-xs text-gray-500 mt-1">
                                             {events} event{events === 1 ? "" : "s"}
                                             {athlete.team && ` · ${athlete.team.team_name}`}
-                                            {due != null && <span className="text-dark font-medium"> · ${due} due</span>}
+                                            {due != null && <span className="text-dark font-medium"> · ${due} total cost</span>}
                                             {/* Only the shortfall is called out;
                                                 a settled row goes green. */}
                                             {balance != null && balance > 0 && (
