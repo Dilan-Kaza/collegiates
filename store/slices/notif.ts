@@ -2,8 +2,15 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
-// One notification at a time; `isError` picks the <Notif /> variant.
-// setSuccessMsg/setErrorMsg keep their old names so call sites are unchanged.
+/**
+ * The app's toast notification, rendered by `<Notif />`.
+ *
+ * @remarks
+ * Exactly one notification at a time — a new message replaces whatever was
+ * showing rather than queueing behind it. `isError` picks the variant.
+ *
+ * @packageDocumentation
+ */
 interface NotifState {
   message: string;
   isError: boolean;
@@ -14,6 +21,7 @@ const initialState: NotifState = {
   isError: false,
 };
 
+/** The notification slice. Prefer the exported actions over touching this. */
 export const notifSlice = createSlice({
   name: "notif",
   initialState,
@@ -33,6 +41,10 @@ export const notifSlice = createSlice({
   },
 });
 
+/**
+ * Dismisses the notification ({@link clearNotif}), or shows a success
+ * ({@link setSuccessMsg}) or failure ({@link setErrorMsg}) toast.
+ */
 export const { clearNotif, setSuccessMsg, setErrorMsg } = notifSlice.actions;
 
 export default notifSlice.reducer;

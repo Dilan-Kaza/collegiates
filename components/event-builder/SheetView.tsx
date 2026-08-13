@@ -3,7 +3,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { apiSheets } from "@/lib/apiClient";
-// google-sheet import view
 
 interface SheetEvent {
     name: string;
@@ -30,6 +29,15 @@ function parseEvents(values: string[][]): { compHeaders: string[]; events: Sheet
     return { compHeaders, events };
 }
 
+/**
+ * Reads an event order out of a Google Sheet, for previewing an externally
+ * maintained schedule.
+ *
+ * @remarks
+ * Uses the browser-side API-key client, so the sheet must be publicly viewable —
+ * this reads only, and writes nothing back. Rows are grouped under the last
+ * non-empty "Event" cell, which is how these sheets are conventionally laid out.
+ */
 export default function SheetView() {
     const [sheetId, setSheetId] = useState("");
     const [compHeaders, setCompHeaders] = useState<string[]>([]);

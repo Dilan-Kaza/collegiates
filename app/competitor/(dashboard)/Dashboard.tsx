@@ -36,9 +36,8 @@ export default function Dashboard ({
     // this key, and the "Total Owed" figure below re-prices rather than staying stale.
     const settings = useCachedResource(cacheKeys.settings, fetchSettings, initialSettings);
 
-    // The registered-event list has its own entry as well as travelling inside `currentUser`.
-    // Both are dropped together on every path that changes them (see Register.tsx), so this
-    // reads the dedicated key and `me` is left to the profile fields.
+    // Registrations have their own entry as well as travelling inside `currentUser`.
+    // Both drop together, so this reads the dedicated key and `me` covers the profile.
     const registrations = useCachedResource(
         cacheKeys.registrations,
         fetchRegistrations,
@@ -71,16 +70,13 @@ export default function Dashboard ({
         <>
             <div className="hidden md:block"><MtHeader /></div>
             <div className="max-w-3xl mx-auto w-full px-4 py-8 flex flex-col gap-4">
-                {/* Name and logout read as the page heading rather than card content. Every
-                    box on this page uses the translucent surface, so they read as one stack
-                    of panes over the background; this one is shorter (`py-4`) and lays out
-                    in a row, so it reads as a header rather than another card. */}
+                {/* Same translucent surface as the cards below, but shorter and laid
+                    out in a row, so it reads as a heading rather than another card. */}
                 <div className="cg-card-glass flex-row justify-between items-center gap-2 py-4">
                     <span className="text-4xl">{me?.first_name} {me?.last_name}</span>
                     <div className="flex items-center gap-2">
-                        {/* Email and password are account credentials rather than competition
-                            details, so they sit with logout here rather than in the competitor
-                            card. Icon-only, so the label carries the accessible name. */}
+                        {/* Credentials, not competition details, so they sit with logout
+                            here. Icon-only, so the label carries the accessible name. */}
                         <Link
                             to="/edit-profile-info"
                             className="btn btn-square text-base"
@@ -92,9 +88,8 @@ export default function Dashboard ({
                         <LogoutButton />
                     </div>
                 </div>
-                {/* Profile and the registration/team column sit side by side from `md` up;
-                    below that every card is simply stacked. `items-start` keeps each card
-                    at its own height rather than stretching it to the taller neighbour. */}
+                {/* Side by side from `md` up, stacked below. `items-start` keeps each
+                    card at its own height rather than matching the taller neighbour. */}
                 <div className="grid gap-4 md:grid-cols-[1fr_2fr] md:items-start">
                     <div className="cg-card-glass gap-2">
                         <div className="flex items-center gap-2">
@@ -157,10 +152,8 @@ export default function Dashboard ({
                         ) : null}
                     </div>
                 </div>
-                {/* Scored over the events actually registered, so it reads as a standing
-                    rather than the running count the picker shows. The card surface replaces
-                    the component's default bordered row; `gap-0` because its own sections
-                    already carry the margins they want. */}
+                {/* Scored over registered events, so it reads as a standing rather than
+                    the picker's running count. `gap-0`: its sections carry own margins. */}
                 <AllAroundStatus
                     events={registrations}
                     studentType={me?.student_type}
@@ -171,9 +164,8 @@ export default function Dashboard ({
                     <div className="cg-card-glass flex-row items-center justify-between text-sm">
                         <div>
                             <div className="font-semibold">Total Owed</div>
-                            {/* Either part can be absent — a competitor can be in the
-                                team competition alone — so the two are joined rather
-                                than one being suffixed onto the other. */}
+                            {/* Either part can be absent — a competitor may enter the
+                                team event alone — so the two are joined, not suffixed. */}
                             <div className="text-gray-500 text-xs">
                                 {[
                                     cost.count > 0 && `${cost.count} event${cost.count > 1 ? "s" : ""} registered`,

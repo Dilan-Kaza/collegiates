@@ -4,18 +4,33 @@ import { canCompeteForAllAround, allAroundProgress } from "@/lib/allAround";
 import type { AllAroundEvent } from "@/lib/allAround";
 
 interface AllAroundStatusProps {
-  // Every event in play — being picked in registration, or already registered on the dashboard.
-  // EventDTO and RegistrationDTO both fit AllAroundEvent, so either can pass straight through.
+  /**
+   * Every event in play — being picked during registration, or already
+   * registered on the dashboard. `EventDTO` and `RegistrationDTO` both satisfy
+   * `AllAroundEvent`, so either passes straight through.
+   */
   events: AllAroundEvent[];
   studentType?: string | null;
   skillLevel?: string | null;
-  // The confirm screen sits on the primary background, so it swaps the default
-  // bordered card for a surface of its own.
+  /**
+   * Surface classes. The confirm screen sits on the primary background, so it
+   * swaps the default bordered card for a surface of its own.
+   */
   className?: string;
 }
 
-// Renders nothing unless the competitor could hold a title and is working toward one: a profile
-// that can't qualify shouldn't hear about the race, nor an empty picker show a row of zeros.
+/**
+ * A competitor's progress toward the All-Around titles.
+ *
+ * @remarks
+ * Renders **nothing** in two cases: a profile that could never qualify (not
+ * Class 1 and advanced), and a competitor not yet working toward any title. A
+ * competitor who cannot enter the race should not hear about it, and an empty
+ * picker should not show a row of zeros.
+ *
+ * The scoring is `allAroundProgress` in {@link "lib/allAround"}; this component
+ * only renders it.
+ */
 export default function AllAroundStatus({
   events,
   studentType,
@@ -50,9 +65,8 @@ export default function AllAroundStatus({
                 {title.met} of {title.required}
               </span>
             </div>
-            {/* The rules' numbered requirements, in their order — a bare count
-                can't say which form is still missing, which is the one thing a
-                competitor mid-registration can act on. */}
+            {/* Listed in rules order: a bare count can't say which form is
+                missing, the one thing a competitor can act on. */}
             <ul className="mt-1 space-y-0.5 text-xs">
               {title.requirements.map((req, i) => (
                 <li key={i} className={req.met ? "text-gray-600" : "text-gray-400"}>

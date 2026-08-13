@@ -25,9 +25,8 @@ export default function ForgotPassword() {
     }
 
     setLoading(true);
-    // requestPasswordReset always returns the same generic message, whether or
-    // not the email matched an account, so this can't be used to probe which
-    // emails are registered.
+    // Always the same generic message, matched or not, so this can't be used to
+    // probe which addresses are registered.
     await requestPasswordReset({ email: formData.email });
     setSent(true);
     setLoading(false);

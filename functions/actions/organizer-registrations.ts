@@ -1,7 +1,16 @@
 "use server";
 
-// Organizer server actions for competitor registrations: list, single read,
-// edit, and lookup by email.
+/**
+ * Organizer server actions for competitor registrations: list, single read,
+ * edit, and lookup by email.
+ *
+ * @remarks
+ * These back the registrations and payments screens, where an organizer records
+ * what has been paid, marks proof of enrollment, and corrects profile details
+ * the competitor can no longer change themselves.
+ *
+ * @packageDocumentation
+ */
 
 import { unstable_cache, updateTag } from "next/cache";
 import { Prisma, type StudentType, type Gender, type SkillLevel } from "@prisma/client";
@@ -32,6 +41,14 @@ function loadOrganizerUser(userId: string, year: number) {
   });
 }
 
+/**
+ * Every competitor's registration state for the current year, optionally
+ * filtered.
+ *
+ * @param filters - Payment, proof-of-enrollment, competing, and school filters.
+ * Omitted means unfiltered, which is the default organizer view.
+ * @returns The competitors, or `[]` for a denied read.
+ */
 export async function getOrganizerRegistrations(filters: OrganizerRegFilters = {}): Promise<OrganizerRegistrationDTO[]> {
   const { error } = await organizerGate();
   if (error) return [];
@@ -75,6 +92,17 @@ export async function getOrganizerRegistrations(filters: OrganizerRegFilters = {
   return users.map(reOrganizerRegistration);
 }
 
+/**
+ * One competitor's registration state.
+ *
+ * @remarks
+ * Tagged with the target's own user-data tag, so this view drops in step with
+ * their dashboard whenever their registration changes.
+ *
+ * @param uuid - The competitor's user id.
+ * @returns The competitor, or `null` for a denied read or an id that is not a
+ * competitor account.
+ */
 export async function getOrganizerRegistration(uuid: string): Promise<OrganizerRegistrationDTO | null> {
   const { error } = await organizerGate();
   if (error) return null;
@@ -94,6 +122,25 @@ export async function getOrganizerRegistration(uuid: string): Promise<OrganizerR
   return target ? reOrganizerRegistration(target) : null;
 }
 
+/**
+ * Edits a competitor's registrations, payment state, and profile.
+ *
+ * @remarks
+ * The organizer's counterpart to the competitor's own screens, and deliberately
+ * less restricted: the profile fields freeze for a competitor once they hold a
+ * registration, but an organizer can correct them at any time.
+ *
+ * `amt_paid` is a **total, not a delta** — the organizer types the figure they
+ * have on record and it replaces whatever was stored.
+ *
+ * Supplying `registration_input` replaces the competitor's registrations for the
+ * year wholesale. Omitting it leaves them alone.
+ *
+ * @param uuid - The competitor's user id. A School or Admin id is rejected
+ * rather than having a competitor profile written onto it.
+ * @param body - The fields to change; every one is optional.
+ * @returns The updated competitor, or field errors.
+ */
 export async function updateOrganizerRegistration(
   uuid: string,
   body: UpdateOrganizerRegBody
@@ -195,6 +242,17 @@ export async function updateOrganizerRegistration(
   }
 }
 
+/**
+ * Finds one competitor by email address, for the organizer's lookup box.
+ *
+ * @remarks
+ * Competitor-scoped like the rest of this module: it exists to pull a competitor
+ * into the registration views, not to resolve arbitrary accounts. Matched
+ * case-insensitively. Uncached, since it is a one-off lookup by a typed value.
+ *
+ * @param email - The address to look up.
+ * @returns The competitor, or `null` for a denied read or no match.
+ */
 export async function findUserByEmail(email: string): Promise<OrganizerRegistrationDTO | null> {
   const { error } = await organizerGate();
   if (error) return null;

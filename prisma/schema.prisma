@@ -108,9 +108,8 @@ model User {
   user_id   String   @id @default(uuid()) @db.Uuid
   email     String   @unique @db.VarChar(254)
   user_type UserType @default(Competitor)
-  // Bumped whenever the password changes; compared against the value embedded
-  // in the session token by getCurrentUser() to revoke stale sessions on other
-  // devices without needing a server-side session table.
+  // Bumped on every password change. getCurrentUser() compares it against the
+  // session token's copy, revoking stale sessions without a session table.
   token_version Int @default(0)
 
   competitor_profile CompetitorProfile?
@@ -157,9 +156,8 @@ model CollegeProfile {
   @@map("college_profile")
 }
 
-// Single-use tokens for account activation ("A") and password reset ("P").
-// Only the sha256 hash of the token is stored — the raw value lives solely in
-// the emailed link, mirroring how passwords are never stored in the clear.
+// Single-use tokens for account activation ("A") and password reset ("P"). Only
+// the sha256 hash is stored; the raw value lives solely in the emailed link.
 model VerificationToken {
   id         String    @id @default(uuid()) @db.Uuid
   user       User      @relation(fields: [user_id], references: [user_id], onDelete: Cascade)

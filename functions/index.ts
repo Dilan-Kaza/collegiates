@@ -1,3 +1,14 @@
+/**
+ * The client-side data layer: cache-first fetchers, the cache-key registry, and
+ * the action-result helpers.
+ *
+ * @remarks
+ * Import from `"@functions"`. Server-side readers live in
+ * {@link "functions/data"}, which is `server-only` and deliberately not
+ * re-exported here.
+ *
+ * @packageDocumentation
+ */
 export {
   useCachedResource,
   fetchSettings,

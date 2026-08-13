@@ -2,21 +2,36 @@
 
 import { useState } from "react";
 import type { ComponentProps, ReactNode } from "react";
-// Labeled form controls: a daisyUI `fieldset` label stack around the matching daisyUI control,
-// so borders, focus ring and sizing come from the theme rather than hand-rolled utilities.
+
+/**
+ * Labeled form controls.
+ *
+ * @remarks
+ * Each is a daisyUI `fieldset` label stack wrapped around the matching daisyUI
+ * control, so borders, focus ring, spacing, and error styling all come from the
+ * theme rather than hand-rolled utilities.
+ *
+ * Errors are React-held rather than native. daisyUI's `validator` class keys off
+ * `aria-invalid` as well as `:user-invalid`, so passing an `error` drives exactly
+ * the same error border the browser's own validation would.
+ *
+ * @packageDocumentation
+ */
 
 interface FieldShellProps {
   label?: ReactNode;
-  // Width floor for the field. "min-w-[11rem]" keeps a lone control from collapsing to its
-  // label; "min-w-0" lets the caller's own grid or flex track decide the width.
+  /**
+   * Width floor for the field. `"min-w-[11rem]"` keeps a lone control from
+   * collapsing to its label; `"min-w-0"` lets the caller's own grid or flex
+   * track decide.
+   */
   labelClass?: string;
   error?: string;
   children: ReactNode;
 }
 
-// The hint is a sibling *after* the control because daisyUI reveals it through
-// `.validator[aria-invalid] ~ .validator-hint` — moving it outside the fieldset,
-// as the old callers did, both breaks that selector and loses the theme spacing.
+// The hint is a sibling *after* the control: daisyUI reveals it through
+// `.validator[aria-invalid] ~ .validator-hint`.
 function FieldShell({ label, labelClass = "", error, children }: FieldShellProps) {
   return (
     <label className={`fieldset ${labelClass}`}>
@@ -27,8 +42,6 @@ function FieldShell({ label, labelClass = "", error, children }: FieldShellProps
   );
 }
 
-// daisyUI's `validator` keys off `aria-invalid` as well as `:user-invalid`, so our
-// React-held errors can drive the same error border the browser's own validation would.
 const invalid = (error?: string) => (error ? true : undefined);
 
 interface ShortAnswerProps extends ComponentProps<"input"> {
@@ -37,6 +50,7 @@ interface ShortAnswerProps extends ComponentProps<"input"> {
   error?: string;
 }
 
+/** A single-line text input with a label and an error hint. */
 function ShortAnswer({ label, labelClass, error, className = "", ...props }: ShortAnswerProps) {
   return (
     <FieldShell label={label} labelClass={labelClass} error={error}>
@@ -45,23 +59,37 @@ function ShortAnswer({ label, labelClass, error, className = "", ...props }: Sho
   );
 }
 
-// Only differs from ShortAnswer by its input type; kept as its own export
-// because `<DatePicker>` reads better at the call sites than a bare type prop.
+/**
+ * A date input.
+ *
+ * @remarks
+ * Only differs from {@link ShortAnswer} by its `type`, but kept as its own
+ * export because `<DatePicker>` reads better at a call site than a bare type
+ * prop. Its value is `yyyy-mm-dd`, which round-trips with `settingsDateInput`
+ * and `parseSettingsDate`.
+ */
 function DatePicker(props: ShortAnswerProps) {
   return <ShortAnswer type="date" {...props} />;
 }
 
-// A password field the user can read back, which is what lets a form ask for the
-// password once instead of pairing it with a confirm field. Unlike the other
-// controls the `input` class goes on a wrapper, so the toggle sits inside the
-// control's border and focus ring — daisyUI styles the nested `input` and grows
-// it to fill the space the button leaves.
+/**
+ * A password field with a show/hide toggle.
+ *
+ * @remarks
+ * Being able to read the password back is what lets a form ask for it **once**
+ * instead of pairing it with a confirm field — which is why sign-up has no
+ * second password input.
+ *
+ * Unlike the other controls, the `input` class goes on a wrapper rather than the
+ * `<input>` itself, so the toggle sits inside the control's border and focus
+ * ring; daisyUI styles the nested input and grows it to fill the space the
+ * button leaves. `validator` goes on that wrapper too, so the error border
+ * follows the whole control — daisyUI matches it via `:has([aria-invalid])`.
+ */
 function PasswordAnswer({ label, labelClass, error, className = "", ...props }: ShortAnswerProps) {
   const [revealed, setRevealed] = useState(false);
   return (
     <FieldShell label={label} labelClass={labelClass} error={error}>
-      {/* `validator` sits on the wrapper, not the inner input, so the error border
-          follows the whole control; daisyUI matches it via `:has([aria-invalid])`. */}
       <div className={`input validator w-full ${className}`}>
         <input {...props} aria-invalid={invalid(error)} type={revealed ? "text" : "password"} />
         <button
@@ -84,6 +112,7 @@ interface LongAnswerProps extends ComponentProps<"textarea"> {
   error?: string;
 }
 
+/** A multi-line textarea, vertically resizable. */
 function LongAnswer({ label, labelClass, error, className = "", ...props }: LongAnswerProps) {
   return (
     <FieldShell label={label} labelClass={labelClass} error={error}>
@@ -98,11 +127,22 @@ function LongAnswer({ label, labelClass, error, className = "", ...props }: Long
 
 interface DropdownProps extends ComponentProps<"select"> {
   label?: ReactNode;
+  /**
+   * Display label → submitted value. Matches the `*_CHOICES` constants in
+   * {@link "lib/api/enums"} and the college map's `{ name: id }`.
+   */
   options: Record<string, string>;
   labelClass?: string;
   error?: string;
 }
 
+/**
+ * A `<select>` built from a label→value map.
+ *
+ * @remarks
+ * Renders a hidden, disabled blank option first, so an unset field shows empty
+ * rather than silently defaulting to whichever option happens to be first.
+ */
 function Dropdown({
   label,
   options,

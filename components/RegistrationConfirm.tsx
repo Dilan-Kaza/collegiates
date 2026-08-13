@@ -8,9 +8,9 @@ import type { EventDTO } from "@/lib/api";
 import AllAroundStatus from "./AllAroundStatus";
 
 interface RegistrationConfirmProps {
+  /** The events the competitor selected, with any nandu difficulty strings. */
   events: RegEventItem[];
-  // The event catalogue, resolved on the server and passed in (was fetched on
-  // mount here).
+  /** The catalogue, for resolving names and All-Around scoring. */
   catalogEvents?: EventDTO[];
   isEarly?: boolean;
   baseCost?: number | null;
@@ -29,6 +29,14 @@ interface RegistrationConfirmProps {
   error?: string;
 }
 
+/**
+ * The registration flow's confirm step: the chosen events, the fee, and the
+ * payment deadline, before anything is written.
+ *
+ * @remarks
+ * The cost shown here is the same `computeTotalOwed` figure the organizer's
+ * payments screen checks payments against, so the two never disagree.
+ */
 export default function RegistrationConfirm({ events, catalogEvents = [], isEarly, baseCost, eventCost, totalCost, studentType, skillLevel, dueDate, onBack, onConfirm, error }: RegistrationConfirmProps) {
     const eventsFromApi = catalogEvents;
     const [submitting, setSubmitting] = useState(false);

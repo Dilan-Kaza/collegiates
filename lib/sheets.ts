@@ -1,8 +1,22 @@
-// Google Sheets writes for the exports: finished grids in, no schedule or score maths here. REST
-// over fetch, with a GOOGLE_SHEETS_CLIENT_EMAIL/_PRIVATE_KEY service account the sheet is shared with.
+/**
+ * Google Sheets access for the event-order and scoring exports, and for the
+ * live-scores read.
+ *
+ * @remarks
+ * Finished grids go in; no schedule or score arithmetic happens here. The API is
+ * spoken over plain `fetch` rather than `googleapis`, authenticated with a
+ * `GOOGLE_SHEETS_CLIENT_EMAIL` / `GOOGLE_SHEETS_PRIVATE_KEY` service account
+ * that the target spreadsheet must be shared with as an Editor.
+ *
+ * The whole module is optional: with no credentials configured,
+ * {@link sheetsCredentials} returns null and the callers report the export as
+ * unconfigured rather than failing.
+ *
+ * @packageDocumentation
+ */
 
-// The credentials must never be reachable from a bundle — this fails the build if
-// a client module imports it.
+// The credentials must never reach a bundle — this fails the build if a client
+// module imports it.
 import "server-only";
 import { isFormulaCell } from "./sheetGrid";
 import type { Cell, SheetTabData } from "./sheetGrid";
@@ -16,8 +30,16 @@ interface SheetsCredentials {
   privateKey: string;
 }
 
-// Null when the deployment has no service account configured, so the caller can
-// report that state rather than a failed write.
+/**
+ * The configured service account, or null.
+ *
+ * @remarks
+ * Returning null rather than throwing lets callers distinguish "this deployment
+ * has no Sheets integration" — a configuration state worth telling the organizer
+ * about plainly — from "the write failed", which is worth logging.
+ *
+ * @returns The credentials, or `null` when either environment variable is unset.
+ */
 export function sheetsCredentials(): SheetsCredentials | null {
   const clientEmail = process.env.GOOGLE_SHEETS_CLIENT_EMAIL;
   // Dashboards and .env files store the PEM as one line with literal "\n"; the
@@ -27,8 +49,20 @@ export function sheetsCredentials(): SheetsCredentials | null {
   return { clientEmail, privateKey };
 }
 
-// The spreadsheet id out of what an organizer pasted into Settings — a browser URL far more often
-// than a bare id, so both are accepted. A "published to web" /d/e/ link is excluded: not an id.
+/**
+ * Extracts a spreadsheet id from whatever an organizer pasted into the Scoring
+ * Link field.
+ *
+ * @remarks
+ * Far more often a browser URL than a bare id, so both are accepted. A
+ * *published-to-web* link (`/spreadsheets/d/e/...`) is deliberately rejected:
+ * the segment after `/d/e/` is a publication id, not a spreadsheet id, and the
+ * API cannot use it. The caller turns that into an instruction to paste the
+ * sheet's normal address instead.
+ *
+ * @param raw - The pasted value, or null.
+ * @returns The spreadsheet id, or `null` when nothing usable was pasted.
+ */
 export function spreadsheetIdFromUrl(raw: string | null | undefined): string | null {
   const value = raw?.trim();
   if (!value) return null;
@@ -160,8 +194,24 @@ interface SheetProperties {
 // that itself contains one escapes it by doubling.
 const tabRange = (title: string): string => `'${title.replace(/'/g, "''")}'`;
 
-// Reads whole tabs for the live scoring page, formulas resolved to their current values — which
-// is the live result. Service-account authed since the sheet is private; unknown titles skipped.
+/**
+ * Reads whole tabs out of a spreadsheet, for the live scoring page.
+ *
+ * @remarks
+ * Formulas come back resolved to their current values — which *is* the live
+ * result, since every derived score in the sheet is a formula. Values are
+ * requested `UNFORMATTED_VALUE` so a score stays a number rather than arriving
+ * as a locale-formatted string the page would have to parse back.
+ *
+ * Titles that do not exist are skipped rather than erroring, so a competition
+ * running two rings is not a failure.
+ *
+ * @param spreadsheetId - The target spreadsheet.
+ * @param titles - Tab titles to read, typically built by `scoringTabTitle`.
+ * @returns Title → grid, for the tabs that existed. The API omits trailing empty
+ * rows and cells, so every reader must tolerate short rows.
+ * @throws When Sheets is unconfigured or the API call fails.
+ */
 export async function readSheetTabs(
   spreadsheetId: string,
   titles: string[],
@@ -198,8 +248,29 @@ export async function readSheetTabs(
 
 // ---------- the write ----------
 
-// Writes each tab starting at A1, creating the tab when it does not exist yet, and returns the
-// spreadsheet URL. Throws on a Sheets failure — the action wraps this in actionError.
+/**
+ * Writes grids into a spreadsheet, one tab each, anchored at A1.
+ *
+ * @remarks
+ * Create, clear, and fill are issued as a single `batchUpdate`, whose requests
+ * run in order. That is why sheet ids for new tabs are assigned locally instead
+ * of being read back from a separate `addSheet` call, and why the fills are held
+ * until after every create and clear.
+ *
+ * Tabs that already exist are **cleared first**, so re-exporting a shorter
+ * schedule cannot leave the previous run's tail sitting below it. Only values
+ * are cleared — an organizer's formatting survives. Grids are grown when the new
+ * export is larger, because `updateCells` fails against the existing grid rather
+ * than extending it.
+ *
+ * @param spreadsheetId - The target spreadsheet.
+ * @param tabs - Tabs to write. Titles must already be sanitized and unique;
+ * `exportSheetTabs` does that at the action boundary.
+ * @returns The spreadsheet's edit URL, to show the organizer.
+ * @throws When Sheets is unconfigured or the API call fails. Note the write is
+ * not atomic — a failure mid-batch can leave tabs created or cleared, so the
+ * caller's message should send the organizer to look at the sheet.
+ */
 export async function writeSheetTabs(spreadsheetId: string, tabs: SheetTabData[]): Promise<string> {
   const credentials = sheetsCredentials();
   if (!credentials) throw new Error("Google Sheets is not configured");

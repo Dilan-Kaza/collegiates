@@ -23,14 +23,29 @@ interface EventSelectionProps {
   // Step back out of the flow (to profile setup). Omitted when there is nowhere
   // to go back to, which hides the button — same shape as RegistrationConfirm's.
   onBack?: MouseEventHandler<HTMLButtonElement>;
+  // Leave the flow entirely (to the dashboard), for a competitor who finished the
+  // profile step but is not registering events right now. Optional like onBack.
+  onExit?: MouseEventHandler<HTMLButtonElement>;
   onSubmit?: MouseEventHandler<HTMLButtonElement>;
 }
 
-export default function EventSelection({ events, setEvents, catalogEvents = [], registeredEvents, isEarly, baseCost, eventCost, studentType, skillLevel, onBack, onSubmit }: EventSelectionProps) {
+/**
+ * The registration flow's event picker, tabbed by category.
+ *
+ * @remarks
+ * Only events the competitor is eligible for are offered — the catalogue is
+ * already filtered to their level and gender by `getCompetitorEvents` — and
+ * events they hold a registration for are shown as taken rather than hidden.
+ *
+ * Nandu events prompt for a difficulty string, and All-Around progress updates
+ * beside the list as selections change, so a competitor can see what a fourth
+ * form would earn them before committing.
+ */
+export default function EventSelection({ events, setEvents, catalogEvents = [], registeredEvents, isEarly, baseCost, eventCost, studentType, skillLevel, onBack, onExit, onSubmit }: EventSelectionProps) {
 
-    // Active event-type filter for the picker ("" = every type shows). There is no "All" chip:
-    // the chips toggle, so clicking the active one clears the filter.
-    const [typeFilter, setTypeFilter] = useState("");
+    // Active event-type filter for the picker. Exactly one type is always selected — the chips
+    // pick between them rather than toggling off — so the picker offers one category at a time.
+    const [typeFilter, setTypeFilter] = useState("E");
 
     const eventsFromApi = catalogEvents;
 
@@ -105,18 +120,14 @@ export default function EventSelection({ events, setEvents, catalogEvents = [], 
     // events for Class 1 only, so a Class 2 competitor would get a button filtering to nothing.
     const availableTypes = Object.keys(TYPE_LABELS).filter(code => eventsFromApi.some(e => e.event_category === code));
 
-    // Suffix an option with its type so the categories coexist within a weapon group. Only the
-    // External/Internal split needs it — a groupset event would just read "Groupset (Groupset)".
-    const getOptionLabel = (eventCode: string) => {
-        const category = getEventFromCode(eventCode)?.event_category;
-        const type = category === "E" || category === "I" ? TYPE_LABELS[category] : null;
-        return type ? `${getEventName(eventCode)} (${type})` : getEventName(eventCode);
-    }
+    // External is the usual start, falling back to the first type this competitor
+    // has events in. Stays "" only for a catalogue with no categories at all.
+    const activeType = availableTypes.includes(typeFilter) ? typeFilter : (availableTypes[0] ?? "");
 
-    // Narrow the pickable events to the active type filter (External/Internal).
-    // An empty filter keeps every type.
-    const filteredRemainingEvents = typeFilter
-        ? remainingEvents.filter(code => getEventFromCode(code)?.event_category === typeFilter)
+    // Narrow the pickable events to the selected type. Since a type is always
+    // selected, the sections below only ever hold one category's events.
+    const filteredRemainingEvents = activeType
+        ? remainingEvents.filter(code => getEventFromCode(code)?.event_category === activeType)
         : remainingEvents;
 
     // Bucket remaining events by weapon, keeping catalogue order within each.
@@ -154,10 +165,8 @@ export default function EventSelection({ events, setEvents, catalogEvents = [], 
                         {isEarly ? "Early registration rate" : "Standard registration rate"} — ${baseCost} base, ${eventCost} each event
                     </div>
                 )}
-                {/* The All-Around readout sits beside the events it is scored from,
-                    stacking under them once there is no room for two columns. It
-                    renders nothing for a competitor who can't hold a title, in which
-                    case the list keeps the full width it had before. */}
+                {/* Sits beside the events it is scored from, stacking under them
+                    when narrow. Renders nothing for an ineligible competitor. */}
                 <div className="flex flex-col sm:flex-row sm:items-start gap-3">
                     <div className="flex-1 min-w-0">
                         {events.map((event) => (
@@ -200,8 +209,8 @@ export default function EventSelection({ events, setEvents, catalogEvents = [], 
                     {availableTypes.map((code) => (
                         <button
                             key={code}
-                            className={`btn btn-sm ${typeFilter === code ? "btn-primary" : "btn-outline btn-primary"}`}
-                            onClick={() => setTypeFilter(typeFilter === code ? "" : code)}>
+                            className={`btn btn-sm ${activeType === code ? "btn-primary" : "btn-outline btn-primary"}`}
+                            onClick={() => setTypeFilter(code)}>
                             {TYPE_LABELS[code]}
                         </button>
                     ))}
@@ -215,16 +224,19 @@ export default function EventSelection({ events, setEvents, catalogEvents = [], 
                         <optgroup label={group.label} key={group.label}>
                             {group.codes.map((eventCode) => (
                                 <option value={eventCode} key={eventCode}>
-                                    {getOptionLabel(eventCode)}
+                                    {getEventName(eventCode)}
                                 </option>
                             ))}
                         </optgroup>
                     ))}
                 </select>
                 {/* Back sits opposite Submit, matching the confirm step's row so
-                    the two steps of the flow read the same way. */}
-                <div className={`flex flex-row ${onBack ? "justify-between" : "justify-end"}`}>
-                    {onBack && <button className="btn btn-ghost my-4" onClick={onBack}>Back</button>}
+                    both steps of the flow read the same way. */}
+                <div className={`flex flex-row flex-wrap gap-2 ${onBack || onExit ? "justify-between" : "justify-end"}`}>
+                    <div className="flex flex-row flex-wrap gap-2">
+                        {onBack && <button className="btn btn-ghost my-4" onClick={onBack}>Back</button>}
+                        {onExit && <button className="btn btn-ghost my-4" onClick={onExit}>Return to dashboard</button>}
+                    </div>
                     <button className="btn btn-primary my-4" onClick={onSubmit}>Submit</button>
                 </div>
             </div>

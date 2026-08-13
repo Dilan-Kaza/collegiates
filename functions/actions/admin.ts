@@ -1,7 +1,20 @@
 "use server";
 
-// Admin-only actions behind /admin: create a new settings row (e.g. for a new
-// competition year) and promote an existing user to a School account.
+/**
+ * Admin-only actions behind `/admin`.
+ *
+ * @remarks
+ * Two operations, both of which change who can do what: starting a new
+ * competition year, and promoting a user to a School account eligible to host
+ * one.
+ *
+ * Several writes here are deliberately split into separate statements rather
+ * than nested Prisma writes — a nested write forces an interactive transaction,
+ * which the Postgres driver adapter serves over a WebSocket. The tradeoffs of
+ * that split are noted on each action.
+ *
+ * @packageDocumentation
+ */
 
 import { updateTag } from "next/cache";
 import { Prisma } from "@prisma/client";
@@ -9,8 +22,21 @@ import prisma from "@/lib/prisma";
 import { adminGate, settingsWritable, settingsDateErrors, actionError } from "./shared";
 import type { Mutation, SettingsBody, CreateSchoolAccountBody } from "./shared";
 
-// Always inserts a NEW settings row; loadSettings() reads the most recent, so this becomes the
-// active settings. Returns no row — an `include` would force an interactive transaction (WebSocket).
+/**
+ * Creates a new competition: a fresh settings row.
+ *
+ * @remarks
+ * Always **inserts**, never updates. `loadSettings` reads the most recently
+ * created row, so the new one immediately becomes the active competition and the
+ * previous year's settings are kept as history. Use `saveSettings` to edit the
+ * current competition instead.
+ *
+ * @param body - The settings. Year, both registration dates, both costs, contact
+ * email, and host are required; the early tier, due date, and competition date
+ * are optional.
+ * @returns `{ data: null }` on success, or field errors. No row is returned —
+ * an `include` would force an interactive transaction over a WebSocket.
+ */
 export async function createSettings(body: SettingsBody): Promise<Mutation<null>> {
   const { error } = await adminGate();
   if (error) return { error };
@@ -41,8 +67,22 @@ export async function createSettings(body: SettingsBody): Promise<Mutation<null>
   }
 }
 
-// Promotes an existing user to a School account and links its CollegeProfile. Two
-// separate statements — a nested write forces an interactive tx over a WebSocket.
+/**
+ * Promotes an existing user to a School account, linked to a college.
+ *
+ * @remarks
+ * The account must already exist — this promotes, it does not create. Being a
+ * School account does not by itself grant organizer access: that comes from
+ * being named host on the current settings row.
+ *
+ * The profile link and the promotion are **two separate statements**, so a
+ * failure on the second leaves the profile written. The error message says the
+ * setup is incomplete rather than that nothing happened; re-running the action
+ * is safe and idempotent.
+ *
+ * @param body - The user's email, the college id, and optional name corrections.
+ * @returns The promoted account, or field errors.
+ */
 export async function createSchoolAccount(
   body: CreateSchoolAccountBody,
 ): Promise<Mutation<{ user_id: string; email: string }>> {
@@ -68,8 +108,7 @@ export async function createSchoolAccount(
     if (!user) return { error: { email: "No user found with that email." } };
     if (!college) return { error: { college: "College not found." } };
 
-    // 1) Point the one-to-one CollegeProfile at the chosen college. Create vs
-    //    update stay separate single statements — never a nested write.
+    // 1) Point the one-to-one CollegeProfile at the chosen college.
     if (user.college_profile) {
       await prisma.collegeProfile.update({
         where: { user_id: user.user_id },
@@ -100,8 +139,6 @@ export async function createSchoolAccount(
     updateTag("school-accounts");
     return { data: { user_id: user.user_id, email } };
   } catch (err) {
-    // The profile insert and the promotion are separate statements, so a failure on the second
-    // leaves the profile written. Say the promotion is incomplete — re-running the action is safe.
     return { error: actionError("createSchoolAccount", err, "Could not finish setting up the school account. Check the account and try again.") };
   }
 }

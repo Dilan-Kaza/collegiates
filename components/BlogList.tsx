@@ -2,14 +2,16 @@
 
 import { Link } from "@/routerCompat";
 import type { BlogDTO } from "@/lib/api";
-// blog post sidebar list
 
 interface BlogListProps {
+  /** The post currently being read, rendered as plain highlighted text. */
   activeBlogId?: string;
+  /** Shows only this category. Omitted shows every post. */
   category?: string;
   posts?: BlogDTO[];
 }
 
+/** The blog sidebar: every post as a link, newest first. */
 export default function BlogList({ activeBlogId, category, posts = [] }: BlogListProps) {
 
     if (posts.length === 0) return (

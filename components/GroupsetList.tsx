@@ -2,9 +2,11 @@
 
 import { Link } from "@/routerCompat";
 import type { OrganizerGroupsetDTO } from "@/lib/api";
-// organizer groupset list
 
-// `groupsets` is resolved on the server and passed in (was fetched on mount).
+/**
+ * The organizer's team list: each group set with its school and roster, linking
+ * to its detail page. The leader is marked with a star.
+ */
 export default function GroupsetList({ groupsets = [] }: { groupsets?: OrganizerGroupsetDTO[] }) {
 
     return (

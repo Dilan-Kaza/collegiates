@@ -55,19 +55,14 @@ export default function EditProfileInfo({ email }: { email: string }) {
       });
       setPwError(res.error.detail || (Object.keys(res.error).length ? "" : "Something went wrong"));
     } else {
-      // Bumping token_version (server-side, to revoke other sessions) also
-      // invalidates this device's own session token, so silently sign back in
-      // with the new password to refresh this device's cookie and stay logged in.
+      // The token_version bump that revokes other sessions also invalidates this
+      // device's own, so sign back in silently to refresh its cookie.
       await loginAction({ email, password: pwData.password });
       setPwData({});
       setPwErrors({});
       dispatch(setSuccessMsg("Password updated successfully."));
-      // changePassword's revalidateUserData() already triggered an automatic
-      // re-render of the root layout right after it returned, but at that
-      // instant the browser still held the pre-change cookie, so the nav
-      // briefly showed "Sign In" (getCurrentUser() saw a token_version
-      // mismatch). Now that the re-login above has set the fresh cookie,
-      // refresh again so the layout picks it up without a manual reload.
+      // The layout re-rendered while the browser still held the old cookie, so
+      // the nav briefly read "Sign In". Refresh again now the new one is set.
       router.refresh();
     }
     setPwLoading(false);

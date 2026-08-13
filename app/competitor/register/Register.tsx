@@ -112,6 +112,9 @@ export default function Register({
                     // Back goes to the profile, the step before this one. Safe to return to: it only bounces to
                     // the dashboard once registrations exist, and reaching this page means there are none.
                     onBack={() => nav("/competitor/profile")}
+                    // The profile is already saved by the time this page loads, so leaving without
+                    // picking events loses nothing — the dashboard links back in to register later.
+                    onExit={() => nav("/competitor")}
                     onSubmit={() => setConfirming(true)}
                 />
             )}

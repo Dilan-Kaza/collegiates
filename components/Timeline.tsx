@@ -12,11 +12,10 @@ function TimelineSection({ settings = {} }: { settings?: Partial<SettingsDTO> })
 
   return (
     <>
-      {/* The timeline column sizes itself now that its entries are in normal
-          flow, so the two columns just centre — no negative margin to undo an
-          overflowing absolute layout. */}
-      <div className="mx-auto max-w-7xl flex flex-col md:flex-row md:flex-wrap items-center justify-center px-6 md:px-10 gap-10 md:gap-20">
-        <div id="left-side" className="w-full md:max-w-[30svw] flex flex-col gap-4">
+      {/* Entries are in normal flow, so the column sizes itself and the two
+          columns just centre — no negative margin to undo an absolute layout. */}
+      <div className="mx-auto max-w-7xl flex flex-col md:flex-row md:flex-wrap items-center justify-center px-6 md:px-10 gap-6 md:gap-20">
+        <div id="left-side" className="w-full md:max-w-[30svw] flex flex-col gap-2 md:gap-4">
           <Heading className="!text-2xl md:!text-7xl text-left">
             {compinfo.reg_year} Collegiate Wushu Tournament
           </Heading>
@@ -35,7 +34,9 @@ function TimelineSection({ settings = {} }: { settings?: Partial<SettingsDTO> })
           )}
         </div>
 
-        <div id="center">
+        {/* Mobile drops the timeline entirely: the dots and connectors are
+            already md-only, so the boxes were the whole column there. */}
+        <div id="center" className="hidden md:block">
           <Timeline settings={compinfo} />
         </div>
       </div>
@@ -88,9 +89,8 @@ function TimelineEntry({
 }) {
   return (
     <div className="relative flex items-center gap-10 group">
-      {/* Connector: from this dot's centre down to the next one's — its own
-          height plus the flex gap. Drawn before the dot so the dot, which is
-          positioned too, paints over it on hover. */}
+      {/* Connector to the next dot's centre: its own height plus the flex gap.
+          Drawn before the dot so the dot paints over it on hover. */}
       {!isLast && (
         <div className="hidden md:block absolute left-4 top-1/2 h-[calc(100%+2.5rem)] w-4 bg-secondary" />
       )}
@@ -104,9 +104,8 @@ function TimelineEntry({
 
       <div className="flex-shrink-0 w-full md:w-auto">
         {/* Timeline Event */}
-        {/* Fixed size at md, not min-w: every box matches, whatever the length
-            of its label. Wide enough that no title wraps, so the heights agree
-            too — the flex centring keeps the two lines put. */}
+        {/* Fixed size at md, not min-w, so every box matches whatever its label
+            length. Wide enough that no title wraps, so heights agree too. */}
         <div
           className="bg-off-white py-4 px-6 md:pr-10 md:pl-8 rounded-lg text-sm md:text-2xl
           w-full md:w-[28rem] md:h-28 md:flex md:flex-col md:justify-center

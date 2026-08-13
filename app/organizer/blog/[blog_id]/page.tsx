@@ -14,8 +14,7 @@ export default async function Page({ params }: { params: Promise<{ blog_id: stri
     return <div className="text-sm text-gray-400 max-w-3xl mx-auto w-full px-4 py-8">Post not found.</div>;
   }
 
-  // No seeding here: the editor owns the post as local state so an unsaved draft is never
-  // replaced by a refetch. The public /blog/[blog_id] view is what binds that key, and this
-  // editor drops it on save so that view re-reads.
+  // No seeding: the editor owns the post as local state, so an unsaved draft is
+  // never replaced by a refetch. It drops the key on save for the public view.
   return <BlogEditor blogId={blog_id} post={post} />;
 }

@@ -5,16 +5,30 @@ import { ReactSortable } from "react-sortablejs";
 import { groupIntoTeams, flattenTeams } from "@/lib/teams";
 import type { TeamRow } from "@/lib/teams";
 import type { Competitor, EventItem, Conflicts } from "./types";
-// draggable event card with competitor sub-list (team sub-list for groupset events)
 
 interface EventCardProps {
   ev: EventItem;
   conflicts: Conflicts;
   onSetCompetitors: (newComps: Competitor[]) => void;
   compact?: boolean;
+  /** Names shared by more than one competitor, disambiguated in the list. */
   duplicateNames?: Set<string>;
 }
 
+/**
+ * A draggable event card with its running order nested inside.
+ *
+ * @remarks
+ * The nested list is itself sortable, so an organizer reorders competitors
+ * within an event without leaving the ring view.
+ *
+ * A group-set event lists **teams** rather than individuals, since it is
+ * contested by teams. Dragging a team writes its members back out in the new
+ * team order, so `competitors` stays the stored flat list either way.
+ *
+ * The card turns red when any of its competitors has a conflict — booked in two
+ * rings, or with too little recovery time before or after this event.
+ */
 export default function EventCard({ ev, conflicts, onSetCompetitors, compact, duplicateNames }: EventCardProps) {
     const displayName = ev.event_name
         .replace(/\bAdvanced\b/g, "Adv")
@@ -24,8 +38,6 @@ export default function EventCard({ ev, conflicts, onSetCompetitors, compact, du
         .replace(/\bFemale\b/g, "F");
     const hasConflict = ev.competitors.some((c) => conflicts.twoRing.has(c.id) || conflicts.close.has(`${c.id}:${ev.id}`));
 
-    // A groupset event's entries are its teams. `competitors` stays the stored order either way —
-    // dragging a team writes its members back out in the new team order.
     const teams = useMemo<TeamRow<Competitor>[]>(
         () => (ev.is_groupset ? groupIntoTeams(ev.competitors) : []),
         [ev.is_groupset, ev.competitors],

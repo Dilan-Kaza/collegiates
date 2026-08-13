@@ -1,8 +1,19 @@
 "use server";
 
-// Account server actions: email check, registration, and the current user's
-// own profile (read/update) plus activation. The college list lives here
-// too — it is the option source for the profile's `school` field.
+/**
+ * Account server actions: email availability, sign-up, activation, and the
+ * current user's own profile.
+ *
+ * @remarks
+ * The college list lives here too, because it is the option source for the
+ * profile's `school` field.
+ *
+ * Every export is a public POST endpoint — server actions have no route file but
+ * are still reachable by anyone who can address them — so each one authorizes
+ * itself rather than trusting its caller.
+ *
+ * @packageDocumentation
+ */
 
 import { unstable_cache } from "next/cache";
 import { Prisma, type StudentType, type Gender, type SkillLevel } from "@prisma/client";
@@ -22,16 +33,37 @@ import {
 } from "./shared";
 import type { Mutation, RegisterBody, CompetitorProfileBody, UpdateMeBody } from "./shared";
 
-// The { college_name: college_id } dropdown source, client-callable. data.ts's copy is
-// `server-only` and reaches the browser only as props, so a component that binds the `colleges`
-// cache entry needs this to refill it. Signed-in only: every screen with a college picker — the
-// competitor profile, the admin console, the organizer group-set and registration views — is
-// already behind a gate. `{}` on a denied read, matching the other reads' [] / null.
+/**
+ * The `{ college_name: college_id }` dropdown source, callable from the browser.
+ *
+ * @remarks
+ * {@link "functions/data"} has the same read, but that module is `server-only`
+ * and reaches the browser only as props. A component binding the `colleges`
+ * cache entry needs a client-callable action to refill it after a mutation
+ * clears the key. Both share one Data Cache entry, so this is not a second query.
+ *
+ * Signed-in only: every screen with a college picker — the competitor profile,
+ * the admin console, the organizer group-set and registration views — is already
+ * behind a gate.
+ *
+ * @returns The colleges, or `{}` for a denied read, matching the other reads'
+ * `[]` / `null` convention.
+ */
 export async function getSharedColleges(): Promise<Record<string, string>> {
   if (!(await getCurrentUser())) return {};
   return getColleges();
 }
 
+/**
+ * Whether a competitor account already exists for an address.
+ *
+ * @remarks
+ * Backs the sign-up form's inline availability check. Matched
+ * case-insensitively, matching how sign-up normalizes the address before
+ * storing it.
+ *
+ * @param email - The address to check.
+ */
 export async function checkEmail(email: string): Promise<{ exists: boolean }> {
   const user = await prisma.user.findFirst({
     where: { email: { equals: email ?? "", mode: "insensitive" }, user_type: "Competitor" },
@@ -40,6 +72,30 @@ export async function checkEmail(email: string): Promise<{ exists: boolean }> {
   return { exists: !!user };
 }
 
+/**
+ * Creates a competitor account and emails its activation link.
+ *
+ * @remarks
+ * Sign-up creates the **account only**. The competitor profile is filled in
+ * afterwards through `saveCompetitorProfile`, so a fresh user has
+ * `competitor_profile == null`. `is_active` starts false: the account cannot
+ * sign in until the emailed link is clicked — see {@link activate}.
+ *
+ * Delivery is checked twice, because a user written without a sendable
+ * activation email is permanently stranded — inactive, so unable to sign in, yet
+ * holding the address, so unable to sign up again:
+ *
+ * - **Before the insert**, `appUrl()` and `fromAddress()` are called for their
+ *   throw, catching a missing `NEXT_PUBLIC_APP_URL` or `SES_FROM_EMAIL` while
+ *   nothing has been saved.
+ * - **After the insert**, a failed send (SES down, throttled, recipient
+ *   rejected) rolls the user back — the token rows cascade with it.
+ *
+ * Either way the form gets an error it can retry against a clean database.
+ *
+ * @param body - Email, password, and optionally the competitor's name.
+ * @returns The new competitor, or field errors to display.
+ */
 export async function registerUser(body: RegisterBody): Promise<Mutation<CompetitorDTO>> {
   const { email, password } = body ?? {};
   if (!email || !password) return { error: { detail: "Email and password are required." } };
@@ -52,19 +108,10 @@ export async function registerUser(body: RegisterBody): Promise<Mutation<Competi
     const existing = await prisma.user.findUnique({ where: { email: normalizedEmail }, select: { user_id: true } });
     if (existing) return { error: { email: "A user with this email already exists." } };
 
-    // Both halves of the activation link's delivery are checked before the
-    // insert — appUrl() throws on a missing NEXT_PUBLIC_APP_URL, fromAddress()
-    // on a missing SES_FROM_EMAIL. A user written without a sendable activation
-    // email is stranded: inactive, so unable to sign in, yet holding the address
-    // so they cannot sign up again. Failing here leaves nothing saved and the
-    // form retryable.
+    // Called for their throw: fail on missing config while nothing is saved yet.
     const baseUrl = appUrl();
     fromAddress();
 
-    // Sign-up creates the account only; the profile is filled in afterward via
-    // createCompetitorProfile, so a fresh user has competitor_profile == null.
-    // is_active starts false — the account can't sign in until the emailed
-    // activation link is clicked (see activate()).
     const user = await prisma.user.create({
       data: {
         email: normalizedEmail,
@@ -77,10 +124,8 @@ export async function registerUser(body: RegisterBody): Promise<Mutation<Competi
       include: { competitor_profile: { include: { school: true } } },
     });
 
-    // The pre-flight checks above only cover missing config; the send itself can
-    // still fail (SES down, throttled, recipient rejected). Same stranded-account
-    // problem, so undo the insert — the token rows cascade with the user — and
-    // hand the form back an error it can retry.
+    // The send itself can still fail, so undo the insert rather than strand the
+    // account; the token rows cascade with the user.
     try {
       const token = await issueToken(user.user_id, "A");
       const link = `${baseUrl}/activate/${user.user_id}/${token}`;
@@ -122,8 +167,26 @@ async function competitorProfileLock(
   return { currentYear, locked };
 }
 
-// Onboarding step two, also the yearly re-confirmation: upsert the profile and
-// stamp last_reg_year. Fields are frozen when locked, but the stamp still lands.
+/**
+ * Onboarding step two, and the yearly re-confirmation: upserts the competitor's
+ * profile and stamps `last_reg_year`.
+ *
+ * @remarks
+ * Gender and skill level drive event eligibility, so the profile **locks** as
+ * soon as the competitor holds a registration for the current year — otherwise
+ * they could register at one level and then change it. The lock is enforced here
+ * rather than in the setup UI, because the action is callable directly.
+ *
+ * When locked, the submitted fields are dropped but the `last_reg_year` stamp
+ * still lands, so a returning competitor can confirm their profile for the new
+ * year without being able to alter it.
+ *
+ * `last_reg_year` is only stamped when a competition year is configured; with no
+ * settings row yet it is left untouched so the gate re-checks once one appears.
+ *
+ * @param body - Gender, school, student type, and skill level, as DTO codes.
+ * @returns The competitor's full payload, or field errors.
+ */
 export async function saveCompetitorProfile(
   body: CompetitorProfileBody,
 ): Promise<Mutation<CompetitorDTO>> {
@@ -135,8 +198,6 @@ export async function saveCompetitorProfile(
   try {
     const { currentYear, locked } = await competitorProfileLock(current.user_id);
 
-    // last_reg_year is only stamped when a competition year is configured; if none
-    // exists yet we leave it untouched so the gate re-checks once settings appear.
     const yearPatch = currentYear != null ? { last_reg_year: currentYear } : {};
 
     const fieldPatch = {
@@ -225,6 +286,17 @@ function loadCompetitorCached(userId: string, year: number | null): Promise<Comp
   )();
 }
 
+/**
+ * The signed-in competitor's own payload: profile, school, this year's
+ * registrations, and this year's group set.
+ *
+ * @remarks
+ * Cached per user *and* per competition year, so a year rollover misses rather
+ * than serving the previous year's group set. The settings read stays outside
+ * the cached callback, since it depends on cookies.
+ *
+ * @returns The competitor, or `null` when nobody is signed in.
+ */
 export async function getMe(): Promise<CompetitorDTO | null> {
   const current = await getCurrentUser();
   if (!current) return null;
@@ -233,6 +305,21 @@ export async function getMe(): Promise<CompetitorDTO | null> {
   return data ? rehydrateCompetitor(data) : null;
 }
 
+/**
+ * Edits the signed-in competitor's own details.
+ *
+ * @remarks
+ * Name is always editable. The eligibility-driving profile fields — gender,
+ * skill level, student type, school — freeze once the competitor holds a
+ * registration this year, exactly as in {@link saveCompetitorProfile}. Organizers
+ * can still correct a locked profile through their own screens.
+ *
+ * Fields absent from `body` are left alone rather than cleared, so a partial
+ * form submit cannot blank what it did not show.
+ *
+ * @param body - The fields to change. Every one is optional.
+ * @returns The competitor's full payload, or field errors.
+ */
 export async function updateMe(body: UpdateMeBody): Promise<Mutation<CompetitorDTO>> {
   // Competitor-only, like saveCompetitorProfile: the whole payload is competitor
   // fields, so there is nothing here for a School or Admin account to update.
@@ -240,8 +327,6 @@ export async function updateMe(body: UpdateMeBody): Promise<Mutation<CompetitorD
   if (gateError) return { error: gateError };
 
   try {
-    // Eligibility-driving fields freeze once registrations exist. Enforced here,
-    // not just in the UI, so a direct call to this action can't bypass it.
     const { currentYear, locked } = await competitorProfileLock(current.user_id);
 
     const data: Prisma.UserUpdateInput = {};
@@ -284,7 +369,22 @@ export async function updateMe(body: UpdateMeBody): Promise<Mutation<CompetitorD
 }
 
 
-export async function activate({ uid, token }: { uid?: string; token?: string }): Promise<Mutation<{ detail: string }>> {
+/**
+ * Redeems an activation link, letting the account sign in.
+ *
+ * @remarks
+ * The token is single-use and expires in 24 hours; see {@link "lib/tokens"} for
+ * how a double-click is prevented from redeeming it twice.
+ *
+ * @returns A confirmation, or one generic error for every failure mode —
+ * missing, wrong, expired, or already used.
+ */
+export async function activate({ uid, token }: {
+  /** The user id from the link. */
+  uid?: string;
+  /** The raw token from the link. */
+  token?: string;
+}): Promise<Mutation<{ detail: string }>> {
   if (!uid || !token) return { error: { detail: "Invalid activation link." } };
   const ok = await consumeToken(uid, token, "A");
   if (!ok) return { error: { detail: "This activation link is invalid or has expired." } };
@@ -293,10 +393,20 @@ export async function activate({ uid, token }: { uid?: string; token?: string })
   return { data: { detail: "Account active." } };
 }
 
-// Re-sends the activation email for an inactive account. Always returns the
-// same generic response regardless of whether the email matched an account,
-// so this can't be used to enumerate registered addresses.
-export async function resendActivation({ email }: { email: string }): Promise<Mutation<{ detail: string }>> {
+/**
+ * Re-sends the activation email for an inactive account.
+ *
+ * @remarks
+ * Unauthenticated by design — someone who never received the first link cannot
+ * sign in to ask for another. It therefore returns the **same generic response**
+ * whether or not the address matched an account, so it cannot be used to
+ * enumerate registered addresses.
+ *
+ */
+export async function resendActivation({ email }: {
+  /** The address to re-send to. */
+  email: string;
+}): Promise<Mutation<{ detail: string }>> {
   const user = await prisma.user.findUnique({
     where: { email: (email ?? "").trim().toLowerCase() },
     select: { user_id: true, email: true, is_active: true },

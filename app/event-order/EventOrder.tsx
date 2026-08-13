@@ -23,9 +23,8 @@ function StaticRing({ label, items }: { label: string; items: EventOrderDTO[] })
                         <div key={item.id ?? i} className="rounded border border-gray-200 bg-white px-3 py-2">
                             <div className="font-medium text-dark text-sm">{item.name}</div>
                             <div className="flex flex-col gap-0.5 mt-1">
-                                {/* Groupset events are contested by teams, so they are listed
-                                    by team here too — a competitor looking up when they run
-                                    finds their team's slot. */}
+                                {/* Contested by teams, so listed by team — a competitor
+                                    looking up when they run finds their team's slot. */}
                                 {isGroupsetCategory(item.event_category)
                                     ? groupIntoTeams([...(item.competitor_list ?? [])].sort((a, b) => a.order - b.order)).map((team) => (
                                         <div
@@ -52,9 +51,17 @@ function StaticRing({ label, items }: { label: string; items: EventOrderDTO[] })
     );
 }
 
-// The order arrives from the server, which also gates to competitors. Bound to the shared
-// `publicOrder` entry, which the event builder drops when an organizer saves or re-publishes —
-// so a competitor with this page open gets the new running order on the next read.
+/**
+ * The published running order, as competitors see it.
+ *
+ * @remarks
+ * Gating happens on the server — `getPublicOrder` returns nothing unless the
+ * organizer has published it.
+ *
+ * Bound to the shared `publicOrder` cache entry, which the event builder drops
+ * on save or re-publish, so a competitor with this page open picks up the new
+ * running order on their next read rather than a stale one.
+ */
 export default function EventOrder({ order: initialOrder }: { order: OrderDTO }) {
     const order = useCachedResource(cacheKeys.publicOrder, fetchPublicOrder, initialOrder);
 

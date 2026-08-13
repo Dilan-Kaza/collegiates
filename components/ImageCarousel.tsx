@@ -21,10 +21,8 @@ function Carousel({ imgs }: { imgs: string[] }) {
 function CarouselSquare({ src }: { src: string }) {
   return (
     <>
-      {/* next/image serves this at the size the square actually renders. The
-          sources are full-resolution camera files (one is 5472px wide, ~7MB) and
-          were being sent to the browser untouched for an 18rem box. `sizes` tells
-          the optimizer which width to generate for each breakpoint. */}
+      {/* The sources are full-resolution camera files (up to 5472px, ~7MB) for an
+          18rem box, so `sizes` tells the optimizer what width to generate. */}
       <div className="bg-gray-400 h-[2rem] w-[2rem] sm:h-[18rem] sm:w-[18rem] sm:rounded-[2rem] relative">
         <Image
           src={`/${src}`}

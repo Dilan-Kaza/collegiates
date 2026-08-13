@@ -14,9 +14,8 @@ export default async function Page({ params }: { params: Promise<{ uuid: string 
 
   return (
     <>
-      {/* Keyed on the uuid: the detail component seeds its edit fields at mount
-          and no longer re-syncs them from props, so moving to a different group
-          set has to remount it. A refresh of the same one must not. */}
+      {/* Keyed on the uuid: the detail view seeds its edit fields at mount and
+          never re-syncs, so moving to another team must remount it. */}
       <GroupsetDetail key={uuid} uuid={uuid} groupset={groupset} />
     </>
   );

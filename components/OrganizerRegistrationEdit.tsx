@@ -28,15 +28,27 @@ const profileFrom = (a: OrganizerRegistrationDTO | null): ProfileForm => ({
     school: a?.school_id ?? "",
 });
 
-// Builds or amends a competitor's registration, from `initialAthlete` or an email
-// search. `allEvents` is the full catalogue, resolved on the server.
+/**
+ * Builds or amends one competitor's registration and profile, on their behalf.
+ *
+ * @remarks
+ * An organizer can change profile fields here at any time, including after the
+ * competitor's own profile has locked — correcting a mis-entered skill level is
+ * exactly what this screen is for.
+ */
 export default function OrganizerRegistrationEdit({
     allEvents = [],
     colleges = {},
     initialAthlete = null,
 }: {
+    /** The full catalogue, unfiltered, so a competitor can be entered into anything. */
     allEvents?: EventDTO[];
+    /** `{ name: id }` for the school picker. */
     colleges?: Record<string, string>;
+    /**
+     * Opens pre-loaded on this competitor, skipping the email search. Omitted
+     * starts at the search box.
+     */
     initialAthlete?: OrganizerRegistrationDTO | null;
 }) {
 

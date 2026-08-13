@@ -1,6 +1,16 @@
 "use server";
 
-// Auth server actions (Auth.js via the Credentials provider).
+/**
+ * Sign-in, session verification, and sign-out, over Auth.js's Credentials
+ * provider.
+ *
+ * @remarks
+ * There is no `/api/auth/[...nextauth]` route handler in this app — these
+ * actions are the entire auth surface. See {@link "auth"} for the provider
+ * configuration.
+ *
+ * @packageDocumentation
+ */
 
 import { CredentialsSignin } from "next-auth";
 import { signIn, signOut } from "@/auth";
@@ -9,20 +19,29 @@ import { getCurrentUser, landingRoute } from "@/lib/auth";
 import { verifyPassword } from "@/lib/password";
 import { actionError, revalidateUserData } from "./shared";
 
-// Signs the user in with the Credentials provider. Sets the Auth.js session cookie server-side;
-// returns { redirectTo }, { error }, or { inactive } (correct credentials, but the account hasn't
-// clicked its activation link yet). The destination is decided here, by the same lib/auth
-// landingRoute the auth-page gate uses, so a fresh sign-in and a return visit land alike.
-//
-// The credentials are checked here (not just left to the provider) only so
-// this specific case can be told apart from a wrong password — the provider
-// itself also refuses to sign in an inactive user (see auth.ts), so this is
-// purely a messaging improvement, not the actual gate.
+/**
+ * Signs a user in with the Credentials provider.
+ *
+ * @remarks
+ * Sets the Auth.js session cookie server-side and decides where to send them,
+ * using the same `landingRoute` the auth-page gate uses — so a fresh sign-in and
+ * a return visit land in the same place.
+ *
+ * The `inactive` result exists purely for messaging: the provider already
+ * refuses to sign in an unactivated account, so checking the credentials here as
+ * well is what lets "you haven't clicked your activation link" be told apart
+ * from "wrong password". It is not the gate.
+ *
+ * @returns `{ redirectTo }` on success, `{ inactive: true }` for correct
+ * credentials on an unactivated account, or `{ error }` otherwise.
+ */
 export async function loginAction({
   email,
   password,
 }: {
+  /** The submitted address; normalized before lookup. */
   email: string;
+  /** The submitted password. */
   password: string;
 }): Promise<{ redirectTo?: string; error?: string; inactive?: true }> {
   const normalizedEmail = email.trim().toLowerCase();
@@ -37,20 +56,15 @@ export async function loginAction({
   try {
     await signIn("credentials", { email: normalizedEmail, password, redirect: false });
   } catch (error) {
-    // CredentialsSignin is the *only* AuthError that means "bad credentials": Auth.js
-    // throws it when our authorize() returns null. Anything thrown inside authorize
-    // (an unreachable database) arrives as CallbackRouteError, and a bad setup as
-    // MissingSecret/UntrustedHost/AdapterError — all AuthError subclasses too, so
-    // matching the base class here would report an outage as a wrong password.
+    // The *only* AuthError meaning "bad credentials" — an outage arrives as
+    // CallbackRouteError, so matching the base class would misreport it.
     if (error instanceof CredentialsSignin) return { error: "Invalid email or password" };
     return { error: actionError("loginAction", error, "Could not sign you in. Please try again.").detail };
   }
 
   try {
-    // The Credentials provider just authenticated this email, so load the row by
-    // email rather than reading back the session cookie we set moments ago.
-    // Selected down to what landingRoute reads: the success path has no need of
-    // the password hash, so it is never loaded here.
+    // Loaded by email, not from the cookie just set — it is not readable back in
+    // the same request. Selected down to what landingRoute reads.
     const user = await prisma.user.findUnique({
       where: { email: normalizedEmail },
       select: {
@@ -69,8 +83,17 @@ export async function loginAction({
   }
 }
 
-// Whether the caller's session cookie is still valid server-side, so the client
-// can drop a per-tab cache that outlived a silently-expired JWT.
+/**
+ * Whether the caller's session is still valid server-side.
+ *
+ * @remarks
+ * Lets a tab drop a `sessionStorage` cache that outlived a silently-expired JWT,
+ * or a session revoked by a password change elsewhere.
+ *
+ * @returns `authenticated`. A **failed check reports `true`**: it means "could
+ * not tell", not "signed out", and answering false would wipe the tab's cache on
+ * every transient blip.
+ */
 export async function verifySession(): Promise<{ authenticated: boolean }> {
   try {
     const current = await getCurrentUser();
@@ -83,6 +106,13 @@ export async function verifySession(): Promise<{ authenticated: boolean }> {
   }
 }
 
+/**
+ * Clears the session cookie and drops the user's cached payload.
+ *
+ * @returns `{ ok: true }` on success. On failure `ok` is false and the caller
+ * must **not** clear its cache or present the user as signed out — the cookie
+ * may well still be set.
+ */
 export async function logoutAction(): Promise<{ ok: boolean; error?: string }> {
   try {
     // Capture the user before the session is cleared so we can drop their cached

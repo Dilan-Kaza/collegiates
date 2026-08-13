@@ -53,13 +53,8 @@
   --color-brown: #1c1513;
 }
 
-/* Height the root layout puts around every page, in normal flow: the wrapper's
-   `my-2` (1rem) plus the sign-off Footer (`py-6` = 3rem, over a `text-sm` line
-   of 1.25rem). The NavBar is `position: fixed` and contributes nothing. A page
-   that wants to fill the viewport exactly — and so own the only scrollbar on
-   the document — subtracts this from 100dvh.
-   Coupled to app/layout.tsx and components/Footer.tsx: if either changes its
-   spacing, this has to change with it. */
+/* Layout chrome in normal flow: the wrapper's my-2 plus the Footer. Subtract from
+   100dvh to fill the viewport. Coupled to layout.tsx and Footer.tsx. */
 :root {
   --cg-layout-chrome: 5.25rem;
 }
@@ -81,19 +76,14 @@
     @apply bg-off-white rounded-lg px-6 py-5 flex flex-col gap-4 border border-gray-200;
   }
 
-  /* Translucent variant of `cg-card`: same geometry, but the surface is partly
-     see-through over a blur, with a light hairline edge to hold its shape against
-     the page background. For stacks that should read as panes floating above the
-     page rather than solid sheets on it — text stays legible because the blur
-     flattens whatever shows through. */
+  /* Translucent `cg-card`: same geometry over a blur, with a hairline edge. For
+     stacks reading as panes above the page rather than sheets on it. */
   .cg-card-glass {
     @apply bg-off-white/60 backdrop-blur-sm border border-white/40 rounded-lg px-6 py-5 flex flex-col gap-4;
   }
 
-  /* Edge fade: solid through the middle, opacity ramping to zero over the outer
-     band on all four sides. The two gradients are intersected so each axis fades
-     independently — stacking them as backgrounds instead would brighten the
-     corners rather than fade them. Meant for a background layer, not for text. */
+  /* Edge fade on all four sides. The gradients are intersected so each axis fades
+     independently; stacking them would brighten the corners. Background only. */
   .cg-fade-edges {
     --cg-fade: 1rem;
     -webkit-mask-image:
@@ -111,10 +101,8 @@
     }
   }
 
-  /* Vertical-only companion for a scrolling element: content dissolves as it
-     crosses the top or bottom edge instead of being cut off mid-glyph. Sized to
-     match the scroll container's own padding, so at either end of the scroll the
-     ramp covers empty padding and nothing looks faded at rest. */
+  /* Vertical-only fade for a scrolling element, sized to the container's padding
+     so at either end the ramp covers empty space and nothing looks faded. */
   .cg-fade-scroll {
     --cg-scroll-fade: 0.5rem;
     -webkit-mask-image: linear-gradient(to bottom, transparent, black var(--cg-scroll-fade), black calc(100% - var(--cg-scroll-fade)), transparent);
@@ -206,17 +194,17 @@
   animation-fill-mode: both;
 }
 
+/* Opacity and transform only. Animating `filter` here promoted each CWC logo slot
+   to its own composited layer, which mobile browsers painted empty. */
 @keyframes fade {
   0%,
   100% {
     opacity: 0;
     transform: scale(0.9);
-    filter: blur(4px);
   }
   10%,
   90% {
     opacity: 1;
     transform: scale(1);
-    filter: blur(0);
   }
 }

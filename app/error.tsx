@@ -2,9 +2,8 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-// next/link rather than the routerCompat Link: this boundary can catch a failure
-// from anywhere in the tree, so the escape hatch shouldn't depend on
-// NavigationProvider's context being intact.
+// next/link, not routerCompat's: this boundary catches failures from anywhere, so
+// the escape hatch must not depend on NavigationProvider's context being intact.
 import NextLink from "next/link";
 
 // Route-level error boundary. The read actions deliberately don't swallow database failures

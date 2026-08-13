@@ -8,10 +8,27 @@ import { readSheetTabs } from "@/lib/sheets";
 import { parseScoringTab } from "@/lib/liveScores";
 import { RING_KEYS, RING_LABEL, scoringTabTitle } from "@/lib/scoringLayout";
 
-// Cached public-data fetchers: Prisma direct (no HTTP) through Next's Data Cache,
-// tagged so writes invalidate them. Call from Server Components, pass as props.
+/**
+ * Cached public-data readers for Server Components.
+ *
+ * @remarks
+ * These go straight to Prisma — no HTTP hop — through Next's Data Cache, tagged
+ * so a write invalidates exactly what it touched. Call them from a `page.tsx`
+ * and pass the result down as props.
+ *
+ * The module is `server-only`, so it can never be pulled into a bundle. Client
+ * components that need to *refill* one of these values after a mutation call the
+ * matching `getShared*` action instead, which shares the same cache entry.
+ *
+ * The Data Cache serializes through JSON, which flattens `Date` to a string, so
+ * readers whose DTOs carry dates rehydrate them on the way out.
+ *
+ * @packageDocumentation
+ */
 
-// { [college_name]: college_id }
+/**
+ * Every college as `{ [college_name]: college_id }`, the shape the pickers take.
+ */
 export const getColleges = unstable_cache(
   async (): Promise<Record<string, string>> => {
     const rows = await prisma.college.findMany({ orderBy: { college_name: "asc" } });
@@ -21,8 +38,13 @@ export const getColleges = unstable_cache(
   { tags: ["colleges"], revalidate: 3600 }
 );
 
-// { [label]: email } for every School account, as host options for the admin
-// console. Keyed by email because createSettings resolves the host that way.
+/**
+ * Every School account as host options for the admin console.
+ *
+ * @returns `{ [label]: email }`. Keyed by email because `createSettings` and
+ * `saveSettings` both resolve a host that way; the label prefixes the college
+ * when the account has one.
+ */
 export const getSchoolAccounts = unstable_cache(
   async (): Promise<Record<string, string>> => {
     const rows = await prisma.user.findMany({
@@ -42,12 +64,18 @@ export const getSchoolAccounts = unstable_cache(
   { tags: ["school-accounts"], revalidate: 3600 }
 );
 
-// The settings DTO for client components. loadSettings is already Data-Cache
-// backed with rehydrated Dates, so this is a pure shape — no second entry.
+/**
+ * The competition settings as a DTO.
+ *
+ * @remarks
+ * `loadSettings` is already Data-Cache backed with its dates rehydrated, so this
+ * is a pure shaping step — it adds no second cache entry.
+ */
 export async function getSettings(): Promise<SettingsDTO | null> {
   return shapeSettings(await loadSettings());
 }
 
+/** The public blog list, newest first, as excerpts. */
 export const getBlogPosts = unstable_cache(
   async (): Promise<BlogDTO[]> => {
     const rows = await prisma.blog.findMany({ orderBy: { date_created: "desc" } });
@@ -57,12 +85,29 @@ export const getBlogPosts = unstable_cache(
   { tags: ["blog"], revalidate: 3600 }
 );
 
-// The cache tag for one settings row's order, so the read below and saveOrder's
-// invalidation cannot drift apart.
+/**
+ * The cache tag for one settings row's event order.
+ *
+ * @remarks
+ * Exported so {@link getOrderForSettings} and `saveOrder`'s invalidation cannot
+ * drift apart — a mismatch would serve a stale schedule with no obvious cause.
+ */
 export const orderTag = (settingsId: string): string => `order-${settingsId}`;
 
-// The saved order for a competition year, via the Data Cache. Pure and settings-keyed — gating is
-// the caller's job. The order lives on Settings; `order_updated_at` null means "never saved".
+/**
+ * The saved event order for one competition year.
+ *
+ * @remarks
+ * Pure and settings-keyed: **gating is the caller's job**. Both the organizer
+ * and the public read go through here, and only the public one checks
+ * `order_public`.
+ *
+ * The order hangs off the settings row, and a null `order_updated_at` means it
+ * has never been saved.
+ *
+ * @param settingsId - The competition year's settings row.
+ * @returns The order, or `null` when none has been saved.
+ */
 export async function getOrderForSettings(settingsId: string): Promise<OrderDTO | null> {
   const order = await unstable_cache(
     async (): Promise<OrderDTO | null> => {
@@ -77,6 +122,7 @@ export async function getOrderForSettings(settingsId: string): Promise<OrderDTO 
   return order;
 }
 
+/** One blog post with its complete body, for the reader page. */
 export async function getBlogPost(blogId: string): Promise<BlogDTO | null> {
   if (!blogId) return null;
   const post = await unstable_cache(
@@ -91,10 +137,29 @@ export async function getBlogPost(blogId: string): Promise<BlogDTO | null> {
   return post;
 }
 
-// The live scoring read, off the competition's Google Sheet. Cached short and shared by every
-// viewer: the service account's 60-reads-a-minute quota must not scale with the audience.
-export const LIVE_SCORES_TTL = 20; // seconds
+/**
+ * How long a live-scores read is cached, in seconds.
+ *
+ * @remarks
+ * Short, because the page is watched live, but non-zero because the cache is
+ * shared by every viewer at once — the service account's 60-reads-a-minute quota
+ * must not scale with the size of the audience.
+ */
+export const LIVE_SCORES_TTL = 20;
 
+/**
+ * Reads a competition's live scores out of its Google Sheet.
+ *
+ * @remarks
+ * Ungated and undredacted: {@link "functions/actions/scoring"} decides who may
+ * call it and strips judge detail afterwards. Rings whose tab does not exist, or
+ * has no blocks in it yet, are left out rather than shown empty — so a two-ring
+ * competition is not an error.
+ *
+ * @param spreadsheetId - The competition's spreadsheet.
+ * @param year - The competition year, which stamps the tab titles.
+ * @returns Every ring that had scores, with `fetched_at` set.
+ */
 export async function getLiveScoresForSheet(
   spreadsheetId: string,
   year: number | null,

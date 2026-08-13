@@ -1,12 +1,21 @@
 import type { EmailContent } from "./email";
 
-// Plain-template transactional emails. Each returns both an HTML and a text
-// part — SendEmailCommand requires both, and mail providers weight
-// HTML-only messages as more spam-like.
+/**
+ * Bodies for every transactional email the site sends.
+ *
+ * @remarks
+ * Each builder returns both an HTML and a plain-text part: SES's
+ * `SendEmailCommand` takes both, and mail providers weight HTML-only messages
+ * as more spam-like.
+ *
+ * Interpolated values are server-generated (a signed link, event names from the
+ * catalogue) and carry no attacker-controlled markup — with one exception, a
+ * user-submitted email address, which goes through `escapeHtml`.
+ *
+ * @packageDocumentation
+ */
 
-// Escapes untrusted values (e.g. a user-submitted email address) before they're
-// interpolated into an HTML email body — unlike `link`/`eventNames` elsewhere in
-// this file, which are server-generated and never carry attacker-controlled markup.
+// Escapes untrusted values before they are interpolated into an HTML body.
 const escapeHtml = (value: string): string =>
   value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
@@ -17,6 +26,12 @@ const wrap = (title: string, body: string): string => `
   <p style="margin-top:32px;color:#888;font-size:12px">Collegiates</p>
 </div>`;
 
+/**
+ * The account-activation email sent at sign-up.
+ *
+ * @param link - The activation URL, carrying a 24-hour token from
+ * {@link "lib/tokens"}. The expiry stated in the body must match that TTL.
+ */
 export function activationEmail(link: string): EmailContent {
   return {
     subject: "Confirm your Collegiates account",
@@ -30,6 +45,11 @@ export function activationEmail(link: string): EmailContent {
   };
 }
 
+/**
+ * The password-reset email.
+ *
+ * @param link - The reset URL, carrying a one-hour token from {@link "lib/tokens"}.
+ */
 export function passwordResetEmail(link: string): EmailContent {
   return {
     subject: "Reset your Collegiates password",
@@ -43,6 +63,12 @@ export function passwordResetEmail(link: string): EmailContent {
   };
 }
 
+/**
+ * Sent to the **new** address, to prove the requester controls it.
+ *
+ * @param link - The confirmation URL, carrying a one-hour signed token from
+ * {@link "lib/signedToken"}.
+ */
 export function emailChangeConfirmationEmail(link: string): EmailContent {
   return {
     subject: "Confirm your new Collegiates email",
@@ -56,6 +82,12 @@ export function emailChangeConfirmationEmail(link: string): EmailContent {
   };
 }
 
+/**
+ * Sent to the **old** address once an email change completes, so a hijacked
+ * account still surfaces the change somewhere its owner can see it.
+ *
+ * @param newEmail - The address moved to. User-supplied, so it is HTML-escaped.
+ */
 export function emailChangedNotificationEmail(newEmail: string): EmailContent {
   return {
     subject: "Your Collegiates account email was changed",
@@ -68,6 +100,10 @@ export function emailChangedNotificationEmail(newEmail: string): EmailContent {
   };
 }
 
+/**
+ * Sent after a password change or reset, as an out-of-band warning that the
+ * credential moved.
+ */
 export function passwordChangedNotificationEmail(): EmailContent {
   return {
     subject: "Your Collegiates password was changed",
@@ -80,6 +116,12 @@ export function passwordChangedNotificationEmail(): EmailContent {
   };
 }
 
+/**
+ * The receipt sent once event registrations are written.
+ *
+ * @param eventNames - Display names of the events registered for, in the order
+ * they were submitted.
+ */
 export function registrationConfirmedEmail(eventNames: string[]): EmailContent {
   const items = eventNames.map((n) => `<li>${n}</li>`).join("");
   return {

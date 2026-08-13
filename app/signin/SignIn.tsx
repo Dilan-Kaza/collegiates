@@ -47,9 +47,8 @@ export default function SignIn() {
     setInactive(false);
     setResendState("idle");
 
-    // loginAction sets the session cookie server-side and decides where this user belongs; the
-    // navigation below re-runs the root layout against that cookie, re-seeding SessionProvider.
-    // No router.refresh().
+    // loginAction sets the cookie and picks the destination; the navigation below
+    // re-runs the root layout against it, re-seeding SessionProvider. No refresh().
     try {
       const res = await loginAction({
         email: formData.email,

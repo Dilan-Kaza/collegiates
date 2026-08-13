@@ -29,9 +29,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     <Providers session={session}>
       <html lang="en">
         <head>
-          {/* Both stylesheets are render-blocking and cross-origin, so the
-              connection setup (DNS + TCP + TLS) would otherwise happen only once
-              the parser reaches the first <link>. Warm it in parallel instead. */}
+          {/* Both stylesheets are render-blocking and cross-origin, so warm the
+              DNS + TCP + TLS setup in parallel with the rest of the head. */}
           <link rel="preconnect" href="https://use.typekit.net" />
           <link rel="preconnect" href="https://use.typekit.net" crossOrigin="anonymous" />
           <link rel="stylesheet" href="https://use.typekit.net/org5cfx.css" />
@@ -59,11 +58,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           <div className="hidden sm:block">
             <Notif />
           </div>
-          {/* The dock is `position: fixed`, so it contributes no height to the
-              document. This spacer reserves exactly the dock's own height
-              (daisyUI: 4rem + the bottom safe-area inset) at the end of the
-              page so content scrolls to a stop above the dock instead of
-              disappearing behind it. */}
+          {/* The dock is fixed, so it adds no document height. This spacer
+              reserves it (4rem + safe-area) so content stops above the dock. */}
           <div className="md:hidden h-[calc(4rem+env(safe-area-inset-bottom))]">
             <NavDock firstName={firstName} liveScores={liveScores} />
           </div>

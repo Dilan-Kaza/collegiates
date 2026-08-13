@@ -3,24 +3,41 @@
 import { useState, useRef, useEffect } from "react";
 import type { ReactNode } from "react";
 
+/** One card of a {@link CardCarousel}. */
 export interface CarouselCard {
-  // Stable slug a deep link can name (see `initialId`). Optional so callers
-  // that only ever open on the first card don't have to invent one.
+  /**
+   * Stable slug a deep link can name. Optional, so callers that only ever open
+   * on the first card need not invent one.
+   */
   id?: string;
   title: string;
   content: ReactNode;
 }
 
-// `initialId` opens the carousel on the card with that `id`, so pages can link straight to one
-// rule. An id matching nothing (a stale or hand-typed link) falls back to the first card.
-export default function CardCarousel({ cards, initialId }: { cards: CarouselCard[]; initialId?: string }) {
+/**
+ * A horizontally paged card deck with dots and a counter.
+ *
+ * @remarks
+ * Used by the rules page, where each section is a card.
+ */
+export default function CardCarousel({ cards, initialId }: {
+  /** The deck, in order. */
+  cards: CarouselCard[];
+  /**
+   * Opens on the card with this `id`, so a page can link straight to one rule.
+   * An id matching nothing — a stale or hand-typed link — falls back to the
+   * first card rather than rendering empty. Changing it while the page is
+   * already open moves the carousel.
+   */
+  initialId?: string;
+}) {
   const linkedIndex = initialId ? cards.findIndex((c) => c.id === initialId) : -1;
 
   const [current, setCurrent] = useState(linkedIndex >= 0 ? linkedIndex : 0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // A link to a different section while this page is already open changes the
-  // prop, not the mounted component, so the initial state above never re-runs.
+  // A link to another section changes the prop, not the mounted component, so
+  // the initial state above never re-runs.
   useEffect(() => {
     if (linkedIndex >= 0) setCurrent(linkedIndex);
   }, [linkedIndex]);
@@ -64,10 +81,8 @@ export default function CardCarousel({ cards, initialId }: { cards: CarouselCard
           <i className="bi bi-chevron-right" />
         </button>
 
-        {/* Dots and counter both float over the card's bottom edge rather than
-            below it, so they cost the card no height. The dot strip spans the
-            full width to stay centred, so it is click-through everywhere except
-            the dots themselves — otherwise it would swallow scroll gestures. */}
+        {/* Floated over the card's bottom edge so they cost no height. The full-
+            width strip is click-through except the dots, so it passes scroll on. */}
         <div className="pointer-events-none absolute inset-x-0 bottom-2 sm:bottom-8 flex flex-wrap justify-center gap-1.5 sm:gap-2 opacity-60">
           {cards.map((_, i) => (
             <button

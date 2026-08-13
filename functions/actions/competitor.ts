@@ -1,7 +1,16 @@
 "use server";
 
-// Competitor server actions: the current competitor's events, registrations,
-// and group set (read + create/join).
+/**
+ * Competitor-facing server actions: eligible events, registrations, and group
+ * sets.
+ *
+ * @remarks
+ * Every action here is scoped to the signed-in competitor and the current
+ * competition year — none takes a user id, so none can be pointed at somebody
+ * else's data.
+ *
+ * @packageDocumentation
+ */
 
 import { unstable_cache, updateTag } from "next/cache";
 import { Prisma } from "@prisma/client";
@@ -20,17 +29,31 @@ import {
 import type { Mutation } from "./shared";
 import type { RegEventItem } from "@/types";
 
+/**
+ * The events this competitor may register for.
+ *
+ * @remarks
+ * Filtered to their own skill level and gender category — the eligibility rule
+ * `createRegistrations` enforces on the way in, applied here so an ineligible
+ * event is never offered in the first place.
+ *
+ * Group-set events carry neither level nor gender, so they never match that
+ * slice. Class 1 competitors get them through a second branch; Class 2 stays a
+ * single branch, since the team competition is not open to them.
+ *
+ * Cached by `(level, gender, class)` — the query's only inputs — so a profile
+ * change moves to a different key rather than needing an invalidation.
+ *
+ * @returns The eligible events, or `[]` for a non-competitor.
+ */
 export async function getCompetitorEvents(): Promise<EventDTO[]> {
   const user = await getCurrentUser();
   if (!user || !isCompetitor(user)) return [];
-  // Keyed by (level, gender, class), the query's only inputs, so a profile change just moves keys.
-  // The key uses the legacy codes; the query uses Prisma's enum members.
+  // The cache key uses the legacy codes; the query uses Prisma's enum members.
   const skillLevel = user.competitor_profile?.skill_level ?? null;
   const gender = user.competitor_profile?.gender ?? null;
   const levelCode = fromSkillLevel(skillLevel) ?? "";
   const genderCode = fromGender(gender) ?? "";
-  // Groupset events carry no level or gender, so they never match the ordinary slice; Class 1
-  // competitors get them as a second branch. Class 2 stays a single branch — not eligible.
   const classOne = isClassOne(user.competitor_profile?.student_type);
   return unstable_cache(
     async (): Promise<EventDTO[]> => {
@@ -46,6 +69,12 @@ export async function getCompetitorEvents(): Promise<EventDTO[]> {
   )();
 }
 
+/**
+ * This competitor's registrations for the current competition year.
+ *
+ * @returns The registrations, or `[]` for a non-competitor or before a
+ * competition year exists.
+ */
 export async function getRegistrations(): Promise<RegistrationDTO[]> {
   const user = await getCurrentUser();
   if (!user || !isCompetitor(user)) return [];
@@ -67,6 +96,26 @@ export async function getRegistrations(): Promise<RegistrationDTO[]> {
   return regs.map(reRegistration);
 }
 
+/**
+ * Registers the competitor for a set of events, in one transaction.
+ *
+ * @remarks
+ * All-or-nothing: the whole batch is validated first, and any failure rejects
+ * the submission rather than writing part of it.
+ *
+ * Each event is checked against the competitor's own profile — gender category
+ * and skill level must match exactly. Group-set events have neither, so Class 1
+ * eligibility gates them instead, mirroring {@link getCompetitorEvents}.
+ *
+ * Registering also flips `is_competing`, and sends a confirmation email on a
+ * best-effort basis: a delivery failure is logged, never allowed to fail a
+ * registration that already succeeded.
+ *
+ * @param items - Event codes, each with an optional nandu difficulty string.
+ * @returns The created registrations, shaped from what was written — the write
+ * is not followed by a read-back. Or field errors, including a duplicate that
+ * raced past the pre-check onto the unique index.
+ */
 export async function createRegistrations(items: RegEventItem[]): Promise<Mutation<RegistrationDTO[]>> {
   const user = await getCurrentUser();
   if (!user || !isCompetitor(user)) return { error: { detail: "Not a competitor." } };
@@ -168,6 +217,12 @@ function classOneError(user: { competitor_profile: { student_type: StudentType |
   return null;
 }
 
+/**
+ * The competitor's group set for the current year.
+ *
+ * @returns An array, though a competitor may be on at most one team per year —
+ * the shape matches what the dashboard binds. `[]` when they are on none.
+ */
 export async function getMyGroupset(): Promise<GroupsetDTO[]> {
   const user = await getCurrentUser();
   if (!user || !isCompetitor(user)) return [];
@@ -189,6 +244,18 @@ export async function getMyGroupset(): Promise<GroupsetDTO[]> {
   return groupsets.map(reGroupset);
 }
 
+/**
+ * Creates a group set with the competitor as its leader.
+ *
+ * @remarks
+ * Only while registration is open, and only for Class 1 competitors (rules V).
+ * The team inherits the creator's school, so they must have one set; a
+ * competitor may be on at most one team per year, and the team name must be
+ * unique within the year.
+ *
+ * @param body - Carries `team_name`, which must be unique within the year.
+ * @returns The created group set, or a field error.
+ */
 export async function createGroupset(body: { team_name: string }): Promise<Mutation<GroupsetDTO>> {
   const user = await getCurrentUser();
   if (!user || !isCompetitor(user)) return { error: { detail: "Not a competitor." } };
@@ -233,6 +300,12 @@ export async function createGroupset(body: { team_name: string }): Promise<Mutat
   }
 }
 
+/**
+ * The teams this competitor could join: their own school's, this year.
+ *
+ * @returns The group sets, or `[]` when they have no school set — the team
+ * competition is contested by schools, so an unaffiliated competitor has none.
+ */
 export async function getJoinableGroupsets(): Promise<GroupsetDTO[]> {
   const user = await getCurrentUser();
   if (!user || !isCompetitor(user)) return [];
@@ -255,6 +328,17 @@ export async function getJoinableGroupsets(): Promise<GroupsetDTO[]> {
   return groupsets.map(reGroupset);
 }
 
+/**
+ * Joins an existing group set as an ordinary member.
+ *
+ * @remarks
+ * The same rules as {@link createGroupset} — registration open, Class 1 only,
+ * one team per year — plus the team having to be from the competitor's own
+ * school and in the current year.
+ *
+ * @param body - Carries `groupset`, the target group set's id.
+ * @returns The joined group set, or a field error.
+ */
 export async function joinGroupset(body: { groupset: string }): Promise<Mutation<GroupsetDTO>> {
   const user = await getCurrentUser();
   if (!user || !isCompetitor(user)) return { error: { detail: "Not a competitor." } };

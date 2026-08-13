@@ -43,9 +43,8 @@ export default function Home({
   const settings = useCachedResource(cacheKeys.settings, fetchSettings, initialSettings);
   const posts = useCachedResource(cacheKeys.blogPosts, fetchBlogPosts, initialPosts);
 
-  // The first client render has to match the server HTML, so the order is
-  // scrambled right after hydration instead of during render. Same nine files
-  // either way, so the reorder costs no extra image requests.
+  // Scrambled after hydration, not during render, so the first client render
+  // still matches the server HTML. Same nine files, so no extra requests.
   const [carouselImages, setCarouselImages] = useState<string[]>(CAROUSEL_IMAGES);
   useEffect(() => {
     setCarouselImages(shuffled(CAROUSEL_IMAGES));
@@ -54,9 +53,8 @@ export default function Home({
   return (
     <>
       <div className="relative overflow-hidden">
-        {/* The above-the-fold hero: `priority` preloads it instead of letting it
-            load lazily, and next/image serves a right-sized, modern-format file
-            in place of the 1.4MB PNG. */}
+        {/* Above the fold, so `priority` preloads it; next/image also serves a
+            right-sized modern format in place of the 1.4MB PNG. */}
         <Image
           className="w-full object-center object-fit -z-10"
           src="/test_img_4.png"

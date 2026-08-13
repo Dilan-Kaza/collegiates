@@ -2,8 +2,16 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
-// Global loading flag driving the root layout's <LoadingOverlay />. Any client
-// component can dispatch setLoading(true), clearing it in a .finally().
+/**
+ * The global loading flag behind the root layout's `<LoadingOverlay />`.
+ *
+ * @remarks
+ * Any client component can dispatch `setLoading(true)` before a slow operation.
+ * Clear it in a `.finally()` — an early return or a thrown error would otherwise
+ * leave the overlay covering the page.
+ *
+ * @packageDocumentation
+ */
 interface LoadingState {
   loading: boolean;
 }
@@ -12,6 +20,7 @@ const initialState: LoadingState = {
   loading: false,
 };
 
+/** The loading slice. Prefer the {@link setLoading} action over touching this. */
 export const loadingSlice = createSlice({
   name: "loading",
   initialState,
@@ -22,6 +31,7 @@ export const loadingSlice = createSlice({
   },
 });
 
+/** Shows or hides the global loading overlay. */
 export const { setLoading } = loadingSlice.actions;
 
 export default loadingSlice.reducer;

@@ -1,8 +1,15 @@
 "use server";
 
-// Server actions for competition settings and the event catalogue. The write and the catalogue
-// read are organizer-gated; the settings read below is not — it is the same public payload the
-// home and tournament pages already render.
+/**
+ * Server actions for the competition settings and the event catalogue.
+ *
+ * @remarks
+ * The settings write and the catalogue read are organizer-gated. The settings
+ * *read* is not: it returns the same public payload the home and tournament
+ * pages already render to anonymous visitors.
+ *
+ * @packageDocumentation
+ */
 
 import { unstable_cache, updateTag } from "next/cache";
 import { Prisma } from "@prisma/client";
@@ -17,14 +24,28 @@ import {
 } from "./shared";
 import type { Mutation, SettingsBody } from "./shared";
 
-// Returns no row: the caller only reads `error`, and the "settings" tag updated below refreshes the
-// page. An `include` would force an interactive transaction, served over a WebSocket.
+/**
+ * Saves the competition settings, creating the row if there is none yet.
+ *
+ * @remarks
+ * Changing `host` is an **admin-only** operation, not an ordinary setting:
+ * `host_id` is what `canAccessOrganizer` resolves organizer access from, so
+ * writing it grants permissions. The organizer settings form never submits it.
+ *
+ * Dates are validated before the write and reported on their own fields —
+ * `parseSettingsDate` maps an unparseable day to null, which `settingsWritable`
+ * would otherwise treat as "not supplied" and silently ignore.
+ *
+ * @param body - The writable settings columns. Absent fields are left alone.
+ * @returns `{ data: null }` on success. No row is returned: callers only read
+ * `error`, and the `settings` tag update refreshes the page. Returning one would
+ * need an `include`, forcing an interactive transaction over a WebSocket.
+ */
 export async function saveSettings(body: SettingsBody): Promise<Mutation<null>> {
   const { user, error } = await organizerGate();
   if (error) return { error };
 
-  // host_id is what organizerGate resolves organizer access from, so writing it is a permission
-  // grant, not a setting: admin only. The organizer settings form never submits `host`.
+  // Writing host_id grants organizer access, so it is admin-only.
   if (body.host !== undefined && !isAdmin(user)) {
     return { error: { host: "Only an admin can change the settings host." } };
   }
@@ -67,14 +88,32 @@ export async function saveSettings(body: SettingsBody): Promise<Mutation<null>> 
   }
 }
 
-// The competition settings, client-callable. data.ts's copy is `server-only` and reaches the
-// browser only as props, so a component that binds the `settings` cache entry needs this to
-// refill it after a save drops the key. Ungated for the same reason the home page is: this DTO
-// is already serialized to anonymous visitors. Shares the "settings" Data Cache entry.
+/**
+ * The competition settings, callable from the browser.
+ *
+ * @remarks
+ * {@link "functions/data"} has the same read, but that module is `server-only`
+ * and reaches the browser only as props. A component binding the `settings`
+ * cache entry needs this to refill it after a save drops the key.
+ *
+ * Ungated for the same reason the home page is: this DTO is already serialized
+ * to anonymous visitors. It shares the `settings` Data Cache entry.
+ *
+ * @returns The settings, or `null` before a first competition exists.
+ */
 export async function getSharedSettings(): Promise<SettingsDTO | null> {
   return getSettings();
 }
 
+/**
+ * The whole event catalogue, unfiltered, for the event builder.
+ *
+ * @remarks
+ * Unlike `getCompetitorEvents`, nothing is filtered by gender, level, or
+ * eligibility — an organizer schedules every event that exists.
+ *
+ * @returns Every event, or `[]` for a denied read.
+ */
 export async function getOrganizerEvents(): Promise<EventDTO[]> {
   const { error } = await organizerGate();
   if (error) return [];
