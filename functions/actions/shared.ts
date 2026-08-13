@@ -167,16 +167,19 @@ export interface BlogBody {
 }
 
 /**
- * Promoting an existing user to a School account.
+ * Creating a School account.
  *
  * @remarks
- * Matched by email — the account must already exist. Sets `user_type` to
- * `"School"` and links a college through the one-to-one `CollegeProfile`.
+ * The address must be unused — this creates the account rather than promoting
+ * an existing one. The new user has `user_type` `"School"`, a college linked
+ * through the one-to-one `CollegeProfile`, and an emailed invitation to set its
+ * first password.
+ *
+ * No name is carried: the account's `first_name` is taken from the college, so
+ * the chosen college is the only thing that names it.
  */
 export interface CreateSchoolAccountBody {
   email?: string;
-  first_name?: string;
-  last_name?: string;
   /** A `college_id`, which is what the Dropdown's value carries. */
   college?: string;
 }
@@ -492,13 +495,11 @@ export async function competitorGate(): Promise<CompetitorGate> {
  * @param settings - The current settings row, for the fee schedule and deadline.
  * @param onTeam - Whether the competitor belongs to a group set, which can carry
  * a charge of its own.
- * @param amtPaid - Whole dollars recorded as received so far.
  */
 export function registrationEmailBody(
   registrations: RegistrationDTO[],
   settings: SettingsWithHost,
   onTeam: boolean,
-  amtPaid: number,
 ): { events: RegistrationLine[]; billing: RegistrationBilling } {
   const dto = shapeSettings(settings)!;
   return {
@@ -508,7 +509,6 @@ export function registrationEmailBody(
     })),
     billing: {
       total: totalOwedFor(registrations, onTeam, dto),
-      paid: amtPaid,
       // On the competition's clock, like every other settings date the
       // competitor is shown — see the confirm screen's identical fallback.
       dueDate: formatSettingsDate("due_date", dto.due_date, undefined, "the posted deadline"),

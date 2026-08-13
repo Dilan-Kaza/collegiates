@@ -147,7 +147,10 @@ function describeChanges(before: OrganizerRegistrationDTO, after: OrganizerRegis
     }
   }
 
-  if (before.amt_paid !== after.amt_paid) changes.push(`Payment on record changed to $${after.amt_paid} (was $${before.amt_paid})`);
+  // Named without the figures on purpose: mail states costs, not the payment on
+  // record — see the note on `RegistrationBilling`. The competitor is told their
+  // record moved and can read the current amount off their dashboard.
+  if (before.amt_paid !== after.amt_paid) changes.push("Payment on record updated");
   if (before.proof_of_reg !== after.proof_of_reg) {
     changes.push(after.proof_of_reg ? "Proof of enrollment marked as received" : "Proof of enrollment marked as not received");
   }
@@ -294,7 +297,6 @@ export async function updateOrganizerRegistration(
           after.registration,
           settings,
           !!after.team,
-          after.amt_paid,
         );
         await sendEmail(after.email, registrationUpdatedEmail(changes, events, billing));
       } catch (err) {

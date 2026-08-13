@@ -196,7 +196,6 @@ export async function createRegistrations(items: RegEventItem[]): Promise<Mutati
         created,
         settings,
         false, // a team entry is billed by its "G" registration, which is in `created` when present
-        user.competitor_profile?.amt_paid ?? 0,
       );
       await sendEmail(user.email, registrationConfirmedEmail(events, billing));
     } catch (err) {

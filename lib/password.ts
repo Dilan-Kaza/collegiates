@@ -41,6 +41,19 @@ export function hashPassword(password: string, iterations: number = DEFAULT_ITER
 }
 
 /**
+ * A strong random password, for an account created on someone else's behalf.
+ *
+ * @remarks
+ * The value is generated, hashed, and discarded — nobody ever sees it. It
+ * exists so `users.password` holds 256 bits of entropy rather than a blank or
+ * guessable value during the window before the invited owner sets their own;
+ * see `createSchoolAccount`.
+ */
+export function randomPassword(): string {
+  return crypto.randomBytes(32).toString("base64url");
+}
+
+/**
  * Checks a password against a stored hash.
  *
  * @remarks

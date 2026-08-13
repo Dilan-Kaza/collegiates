@@ -47,6 +47,30 @@ export function activationEmail(link: string): EmailContent {
 }
 
 /**
+ * The invitation sent when an admin creates a school account.
+ *
+ * @remarks
+ * The account is created with a random password nobody holds, so this link is
+ * the only way in: it sets the first password and activates the account in one
+ * step.
+ *
+ * @param link - The set-password URL, carrying a seven-day token from
+ * {@link "lib/tokens"}. The expiry stated in the body must match that TTL.
+ */
+export function schoolAccountInviteEmail(link: string): EmailContent {
+  return {
+    subject: "Your Collegiates school account",
+    html: wrap(
+      "Set your password",
+      `<p>A school account has been created for you on Collegiates. Click below to choose a password and activate it:</p>
+       <p><a href="${link}" style="color:#2563eb">${link}</a></p>
+       <p>This link expires in 7 days.</p>`,
+    ),
+    text: `Set your password: ${link}\n\nThis link expires in 7 days.`,
+  };
+}
+
+/**
  * The password-reset email.
  *
  * @param link - The reset URL, carrying a one-hour token from {@link "lib/tokens"}.
@@ -133,12 +157,15 @@ export interface RegistrationLine {
  * the organizer's payments screen show, so a receipt never states an amount the
  * competitor is then billed differently for. It is null when the competition has
  * no fee schedule configured, and the whole money block is dropped.
+ *
+ * Mail carries the cost only, never the payment on record. A receipt is written
+ * once and read much later, by which time any figure it quotes for money
+ * received is stale; the dashboard is where a competitor sees where they stand.
+ * That rules out a balance line too, since a balance is the paid figure restated.
  */
 export interface RegistrationBilling {
   /** Whole dollars owed for the year, or null when no fee schedule is set. */
   total: number | null;
-  /** Whole dollars recorded as received so far. */
-  paid: number;
   /** The payment and proof-of-enrollment deadline, already formatted. */
   dueDate: string;
   /** The organizer address to reply to, when the settings carry one. */
@@ -174,14 +201,12 @@ function eventsText(events: RegistrationLine[]): string {
   return events.map((e) => `- ${e.name}${e.nandu ? ` (nandu code: ${e.nandu})` : ""}`).join("\n");
 }
 
-// A balance is only meaningful once a total exists, so with no fee schedule
+// A cost is only meaningful once a total exists, so with no fee schedule
 // configured this degrades to the deadline alone rather than claiming $0 is owed.
 function billingHtml(billing: RegistrationBilling): string {
   const rows: string[] = [];
   if (billing.total != null) {
-    rows.push(row("Total cost", money(billing.total)));
-    rows.push(row("Paid", money(billing.paid)));
-    rows.push(row("Balance due", money(Math.max(0, billing.total - billing.paid)), true));
+    rows.push(row("Total cost", money(billing.total), true));
   }
   const table = rows.length
     ? `<table style="width:100%;border-collapse:collapse;font-size:14px;border-top:1px solid #ddd;margin-top:8px;padding-top:8px">${rows.join("")}</table>`
@@ -197,8 +222,6 @@ function billingText(billing: RegistrationBilling): string {
   const lines: string[] = [];
   if (billing.total != null) {
     lines.push(`Total cost: ${money(billing.total)}`);
-    lines.push(`Paid: ${money(billing.paid)}`);
-    lines.push(`Balance due: ${money(Math.max(0, billing.total - billing.paid))}`);
     lines.push("");
   }
   lines.push(`Payment and proof of enrollment are due by ${billing.dueDate}.`);

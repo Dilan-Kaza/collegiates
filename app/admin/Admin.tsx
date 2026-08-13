@@ -7,7 +7,8 @@ import { errorMessage, runAction } from "@functions/actionErrors";
 import { setErrorMsg, setSuccessMsg } from "@slices";
 import { useCachedResource, cacheKeys, fetchColleges } from "@functions";
 import { useAppDispatch } from "@/store/hooks";
-// admin console: create new competition settings and school accounts.
+// admin console: create new competition settings and school accounts. A new
+// school account is created inactive and invited by email — see createSchoolAccount.
 // Access is enforced server-side (requireAdmin on the page + both actions).
 
 type Form = Record<string, string>;
@@ -35,13 +36,11 @@ export default function Admin({
 
   const submitSchool = async () => {
     setSavingSchool(true);
-    const fallback = "Could not set up the school account.";
+    const fallback = "Could not create the school account.";
     try {
       const { error } = await runAction(
         () => createSchoolAccount({
           email: school.email,
-          first_name: school.first_name,
-          last_name: school.last_name,
           college: school.college,
         }),
         fallback,
@@ -50,7 +49,7 @@ export default function Admin({
         dispatch(setErrorMsg(errorMessage(error, fallback)));
         return;
       }
-      dispatch(setSuccessMsg(`School account set up for ${school.email}.`));
+      dispatch(setSuccessMsg(`School account created — an activation email was sent to ${school.email}.`));
       setSchool({});
     } finally {
       setSavingSchool(false);
@@ -101,21 +100,20 @@ export default function Admin({
           <LogoutButton />
         </div>
 
-        {/* Set up school account (promotes an existing user) */}
+        {/* Create school account (new user + emailed set-password invitation) */}
         <section className="bg-off-white rounded-2xl px-6 py-5 flex flex-col gap-4">
-          <div className="text-xl font-semibold">Set Up School Account</div>
+          <div className="text-xl font-semibold">Create School Account</div>
           <p className="text-sm text-gray-500 -mt-2">
-            Promotes an existing user (matched by email) to a school account linked to the chosen college.
+            Creates a new school account named after the chosen college and emails an activation
+            link so its owner can set their own password. The email must not already have an account.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <ShortAnswer label="Email" type="email" value={school.email ?? ""} onChange={(e) => schoolChange("email", e.target.value)} />
             <Dropdown label="College" options={colleges} value={school.college ?? ""} onChange={(e) => schoolChange("college", e.target.value)} />
-            <ShortAnswer label="First name (optional)" value={school.first_name ?? ""} onChange={(e) => schoolChange("first_name", e.target.value)} />
-            <ShortAnswer label="Last name (optional)" value={school.last_name ?? ""} onChange={(e) => schoolChange("last_name", e.target.value)} />
           </div>
           <div className="flex justify-end">
             <button className="btn btn-primary" onClick={submitSchool} disabled={savingSchool}>
-              {savingSchool ? "Setting up…" : "Set up account"}
+              {savingSchool ? "Creating…" : "Create account"}
             </button>
           </div>
         </section>

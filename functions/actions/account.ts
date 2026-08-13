@@ -25,8 +25,8 @@ import { getColleges } from "@functions/data";
 import { shapeCompetitor, toStudentType, toGender, toSkillLevel } from "@/lib/api";
 import type { CompetitorDTO } from "@/lib/api";
 import { sendEmail, fromAddress } from "@/lib/email";
-import { activationEmail } from "@/lib/email-templates";
-import { issueToken, consumeToken } from "@/lib/tokens";
+import { activationEmail, schoolAccountInviteEmail } from "@/lib/email-templates";
+import { issueToken, consumeToken, TokenPurpose } from "@/lib/tokens";
 import {
   USER_DATA_TTL, userDataTag,
   revalidateUserData, rehydrateCompetitor, competitorGate, actionError, appUrl,
@@ -127,7 +127,7 @@ export async function registerUser(body: RegisterBody): Promise<Mutation<Competi
     // The send itself can still fail, so undo the insert rather than strand the
     // account; the token rows cascade with the user.
     try {
-      const token = await issueToken(user.user_id, "A");
+      const token = await issueToken(user.user_id, TokenPurpose.Activation);
       const link = `${baseUrl}/activate/${user.user_id}/${token}`;
       await sendEmail(user.email, activationEmail(link));
     } catch (err) {
@@ -386,11 +386,51 @@ export async function activate({ uid, token }: {
   token?: string;
 }): Promise<Mutation<{ detail: string }>> {
   if (!uid || !token) return { error: { detail: "Invalid activation link." } };
-  const ok = await consumeToken(uid, token, "A");
+  const ok = await consumeToken(uid, token, TokenPurpose.Activation);
   if (!ok) return { error: { detail: "This activation link is invalid or has expired." } };
 
   await prisma.user.update({ where: { user_id: uid }, data: { is_active: true } });
   return { data: { detail: "Account active." } };
+}
+
+/**
+ * Redeems a school account's invitation link: sets its first password and
+ * activates it.
+ *
+ * @remarks
+ * The counterpart to `createSchoolAccount`, which creates the account inactive
+ * with a random password nobody holds. Both halves happen here because neither
+ * is useful alone — activating without a password would leave the owner locked
+ * out, and setting one without activating would leave them unable to sign in.
+ *
+ * The token is single-use and expires in 7 days; see {@link "lib/tokens"}. It
+ * carries purpose `"S"`, so a plain activation link cannot be used here and
+ * this link cannot be used on `/activate`.
+ *
+ * @returns A confirmation, or one generic error for every failure mode.
+ */
+export async function setInitialPassword({ uid, token, password }: {
+  /** The user id from the link. */
+  uid?: string;
+  /** The raw token from the link. */
+  token?: string;
+  /** The chosen password; at least 8 characters. */
+  password: string;
+}): Promise<Mutation<{ detail: string }>> {
+  if (!uid || !token) return { error: { detail: "Invalid activation link." } };
+  if (!password || password.length < 8) return { error: { detail: "Password must be at least 8 characters" } };
+
+  const ok = await consumeToken(uid, token, TokenPurpose.SchoolInvite);
+  if (!ok) return { error: { detail: "This activation link is invalid or has expired." } };
+
+  // token_version rides along as it does on every other password write, so the
+  // invariant "a password change ends earlier sessions" holds without a caller
+  // having to reason about whether this account could have one.
+  await prisma.user.update({
+    where: { user_id: uid },
+    data: { password: hashPassword(password), is_active: true, token_version: { increment: 1 } },
+  });
+  return { data: { detail: "Password set." } };
 }
 
 /**
@@ -402,6 +442,9 @@ export async function activate({ uid, token }: {
  * whether or not the address matched an account, so it cannot be used to
  * enumerate registered addresses.
  *
+ * A School account gets its **invitation** link rather than a plain activation
+ * one: it was created with a random password, so a link that only activated it
+ * would leave it holding a credential nobody knows.
  */
 export async function resendActivation({ email }: {
   /** The address to re-send to. */
@@ -409,12 +452,18 @@ export async function resendActivation({ email }: {
 }): Promise<Mutation<{ detail: string }>> {
   const user = await prisma.user.findUnique({
     where: { email: (email ?? "").trim().toLowerCase() },
-    select: { user_id: true, email: true, is_active: true },
+    select: { user_id: true, email: true, is_active: true, user_type: true },
   });
   if (user && !user.is_active) {
-    const token = await issueToken(user.user_id, "A");
-    const link = `${appUrl()}/activate/${user.user_id}/${token}`;
-    await sendEmail(user.email, activationEmail(link));
+    if (user.user_type === "School") {
+      const token = await issueToken(user.user_id, TokenPurpose.SchoolInvite);
+      const link = `${appUrl()}/set-password/${user.user_id}/${token}`;
+      await sendEmail(user.email, schoolAccountInviteEmail(link));
+    } else {
+      const token = await issueToken(user.user_id, TokenPurpose.Activation);
+      const link = `${appUrl()}/activate/${user.user_id}/${token}`;
+      await sendEmail(user.email, activationEmail(link));
+    }
   }
   return { data: { detail: "If an account with that email exists, an activation link was sent." } };
 }

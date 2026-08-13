@@ -15,7 +15,7 @@ import prisma from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
 import { sendEmail } from "@/lib/email";
 import { passwordResetEmail, passwordChangedNotificationEmail } from "@/lib/email-templates";
-import { issueToken, consumeToken } from "@/lib/tokens";
+import { issueToken, consumeToken, TokenPurpose } from "@/lib/tokens";
 import { appUrl } from "./shared";
 import type { Mutation } from "./shared";
 
@@ -34,7 +34,7 @@ export async function requestPasswordReset({ email }: {
 }): Promise<Mutation<{ detail: string }>> {
   const user = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() }, select: { user_id: true, email: true } });
   if (user) {
-    const token = await issueToken(user.user_id, "P");
+    const token = await issueToken(user.user_id, TokenPurpose.PasswordReset);
     const link = `${appUrl()}/reset-password/${user.user_id}/${token}`;
     await sendEmail(user.email, passwordResetEmail(link));
   }
@@ -68,7 +68,7 @@ export async function resetPassword(
 ): Promise<Mutation<{ detail: string }>> {
   if (!password || password.length < 8) return { error: { detail: "Password must be at least 8 characters" } };
 
-  const ok = await consumeToken(uid, token, "P");
+  const ok = await consumeToken(uid, token, TokenPurpose.PasswordReset);
   if (!ok) return { error: { detail: "This reset link is invalid or has expired." } };
 
   const user = await prisma.user.update({

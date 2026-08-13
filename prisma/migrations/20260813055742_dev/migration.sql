@@ -14,6 +14,9 @@ CREATE TYPE "student_type" AS ENUM ('1', '2');
 CREATE TYPE "user_type" AS ENUM ('C', 'O', 'A');
 
 -- CreateEnum
+CREATE TYPE "token_purpose" AS ENUM ('A', 'P', 'S');
+
+-- CreateEnum
 CREATE TYPE "weapon_type" AS ENUM ('B', 'S', 'L', 'O');
 
 -- CreateTable
@@ -82,7 +85,7 @@ CREATE TABLE "verification_tokens" (
     "id" UUID NOT NULL,
     "user_id" UUID NOT NULL,
     "token_hash" VARCHAR(64) NOT NULL,
-    "purpose" VARCHAR(1) NOT NULL,
+    "purpose" "token_purpose" NOT NULL,
     "expires_at" TIMESTAMPTZ(6) NOT NULL,
     "used_at" TIMESTAMPTZ(6),
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,

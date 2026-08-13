@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { TokenPurpose } from "@prisma/client";
 import prisma from "./prisma";
 
 /**
@@ -16,12 +17,24 @@ import prisma from "./prisma";
  * @packageDocumentation
  */
 
-/** `"A"` for account activation, `"P"` for password reset. */
-export type TokenPurpose = "A" | "P";
+/**
+ * Why a token was issued: `Activation`, `PasswordReset`, or `SchoolInvite` —
+ * the link that both sets a school account's first password and activates it.
+ *
+ * @remarks
+ * Re-exported from the generated client, so the purposes are the database's
+ * `token_purpose` enum rather than a parallel list that could drift from it.
+ * Prisma reads and writes the member *names*; the stored codes stay `"A"`,
+ * `"P"`, and `"S"` through the `@map`s in the schema.
+ */
+export { TokenPurpose };
 
 const TTL_MS: Record<TokenPurpose, number> = {
-  A: 24 * 60 * 60 * 1000, // 24h
-  P: 60 * 60 * 1000, // 1h
+  [TokenPurpose.Activation]: 24 * 60 * 60 * 1000, // 24h
+  [TokenPurpose.PasswordReset]: 60 * 60 * 1000, // 1h
+  // Longer than the rest: an admin creates the account, so the recipient was
+  // not sitting at a form waiting for the mail to arrive.
+  [TokenPurpose.SchoolInvite]: 7 * 24 * 60 * 60 * 1000, // 7d
 };
 
 const hash = (raw: string): string => crypto.createHash("sha256").update(raw).digest("hex");

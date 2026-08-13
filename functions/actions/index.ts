@@ -19,7 +19,7 @@
  */
 
 export { loginAction, logoutAction, verifySession } from "./auth";
-export { checkEmail, registerUser, saveCompetitorProfile, getMe, updateMe, activate, resendActivation, getSharedColleges } from "./account";
+export { checkEmail, registerUser, saveCompetitorProfile, getMe, updateMe, activate, setInitialPassword, resendActivation, getSharedColleges } from "./account";
 export { requestPasswordReset, resetPassword } from "./password-reset";
 export { changePassword, requestEmailChange, confirmEmailChange } from "./profile-security";
 export {
